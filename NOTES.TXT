@@ -1,0 +1,153 @@
+###################################################################################
+## cMonkey - version 4, Copyright (C) David J Reiss, Institute for Systems Biology
+##                      dreiss@systemsbiology.org
+## This software is provided AS IS with no warranty expressed or implied. Neither 
+## the authors of this software nor the Institute for Systems Biology shall be held
+## liable for anything that happens as a result of using this software
+###################################################################################
+
+NOTE: suggested packages: multicore, igraph
+      optional packages: RSVGTipsDevice, fUtilities, trimcluster
+
+Actually all packages are optional - it will still run without them, just without any
+nice network plotting or multi-core computing
+
+For INSTRUCTIONS, see README section below.
+
+TODO:
+
+-1. DONE(3) Need to normalize net.weights by (1) number of edges or (2) number of 
+	nodes or (3) sum of combined_score. This will make sure that HUGE
+	networks are not dominating the network stats.
+0. DONE test STRING-based cluster seeding and do network-filtered correlation-based 
+     	seeding as in old version of cmonkey (DONE).
+00. DONE (option seed.method[row="list=XXX"] where XXX is either a list (in memory)
+	of character vectors, or a file with lists of genes, one line per cluster):
+	allow seeding/constraining of clusters with user-provided lists of genes
+000. use STRING for operon predictions instead of those from RSAT. 
+	NO - using MicrobesOnline instead now.
+0000. add GO (and when KEGG is done, that too) as possible network/groupings to 
+	constrain clustering
+00000. add KEGG met network (with compounds removed) as a network as in old version
+1. (DONE in get.row.scores - need to add reading/parsing and storing of weights
+      parameter) allow weighting of conditions in calculation of row.scores -
+      arbitrarily up-weight some (e.g. if we want a certain experiment to be a
+      greater constraint on the clustering) or based on how well they fit in the
+	cluster. (NOTE - also consider doing this for TF knockout conditions!)
+1a. weight conditions based on their score for belonging in the cluster 
+	(better/tighter ones are up-weighted)
+2. allow weighting of rows in calculation of row.scores (for mean profile) - 
+      a. higher weight for better match to motif
+      b. higher weight for better network score
+2a. allow weighing of rows in calculation of col.scores analogous to (1) using
+      criteria 2(a) and 2(b).
+3. allow weighting of rows in motif finding based on their row.score. THIS IS
+      POSSIBLE USING MEME -- see below!
+      ALSO: down-weight duplicate upstream sequences (e.g. to 0.5) instead of
+        removing them (which is what happens if uniquify.sequences is TRUE)
+   3a. possibly use gibbs sampler to do this
+4. include function to override database that is used to get transcription start
+      sites (currently annotated ATG from RSAT db) in get.upstream.seqs(). 
+      Override the TSS with those identified from tiling array data (Halo).
+5. include chip-chip data in Halo run as a network "grouping file".
+6. add condition-groupings analogous to gene groupings
+7. update motif finding to include priors on sequences, position and pairings:
+	(a) up-weight upstream seqs for genes with closer match to cluster in 
+		resid and/or networks
+	(b) up-weight positions hit in chip-chip (for TFs that seem to
+		be overrepresented in hits to genes in cluster)
+	(c) weight closer to ATG higher, slowly (linearly) decreasing to zero at ~250 (?)
+	(d) weight pairs of motifs that are close together (or have same distance from
+		each other in multiple sequences)
+	(e) up-weight motifs that are at roughly similar distance from ATG in multiple
+		sequences (using gaussian prior)
+8. (NEARLYDONE?) For Meme runs, reinstate the palindrome motif search --- keep motif(s) 
+	with best e-value
+
+10. TO TRY -- inferelator-based row-scores: 
+	(a) for row membership, use glmnet on every gene, group genes
+		based on similarity of predicted influence sets
+	(b) (related to (a)) for col membership, use mean RMSD of prediction 
+		from (a) for genes in cluster
+	(c) store big matrices on disk via dbdf or ff or some such...
+
+INFERELATOR TODOS:
+
+1. DONE: use glmnet and no TF groups, use custom CV function that Phu is working on to select lambda
+2. DONE: add weights for influences via glmnet's 'penalty.factor'... weights to add:
+	a. NOT DONEL up-weight TFs closer to genes on genome (as in Tai,McCue,Stormo 2005 Genome Res. paper)
+	b. NOT DONE: up-weight env. influences if related conditions are present in bicluster
+	c. NOT DONE: up-weight combos of TFs (e.g TFBs with TBPs)
+	d. NOT DONE: up-weight TFs based on chip-chip and/or motifs
+3. DONE: consider adding weights to y's (based on variance from zero or certain experiments 
+	to up-weight)
+
+OLD TODO:
+1. (DONE via row.quantile?) need to allow for gene is not always in n.clust.per.row clusters
+2. Use MEMERIS with assigned probabilities for positions of motifs based on ChIP-chip and gene start site.
+   IDEA: can assign multiple potential positions of motifs (e.g. for gene in operon) by
+    a "multi-humped" probability distribution to constrain MEMERIS.
+       TODO: will have to edit MEMERIS code to allow both strands.
+4. (DONE) Dynamically(?) get STRING interactions and incorporate those
+5. Get KEGG co-pathway localization from e.g. ftp://ftp.genome.jp/pub/kegg/genes/organisms/hal/hal_pathway.list
+
+*************************************************
+
+NOTE as of 12/12/08 the total (non-plotting) lines of this code is 1404 vs. 8172 for old cMonkey.
+     as of 03/04/09        the lines of code is 1708   (but also includes everything in if(FALSE){...} )
+     as of 03/04/09        the lines of code is 1571   (after replacing simplePara with multicore)
+     as of 03/07/09        the lines of code is 1648   (after removing organism-specific code out of main code)
+     as of 03/30/09        the lines of code is 1876
+     as of 04/06/09        the lines of code is 1892   (after adding lots of download-file and annotation code)
+
+Command to get this count: cat cmonkey*.R | grep -vE '^ *##' | grep -vE '^ *$' | wc -l
+
+     as of 04/14/09        the lines of code is 2679   (now using the new command above vs. 9109 for old cMonkey)
+     as of 05/20/09        the lines of code is 3068   (lots of new bookkeeping code added)
+     as of 06/03/09        the lines of code is 2994   (good version 4k, not including cmonkey-experimental.R code)
+
+NOTE: to get "k-means clustering", use: n.clust.per.row=1; n.clust.per.col=ncol(ratios);
+    row.quantile=col.quantile=NA; mot.iters=net.iters=NA ...
+To get "constrained k-means clustering", dont set mot.iters=net.iters=NA .
+
+NOTE: to run in a local environment: NEED TO MAKE SURE multicore works w/ this (it seems to!):
+        cmonkey.env <- new.env(); sys.source( "cmonkey.R", cmonkey.env )
+Can get it to not init by (before sourcing): {assign("dont.init",T,env=e)}
+Then after running, {attach(e)} will put everything on the search path.
+
+NOTE: can also run inside a function with function args orverriding default params, e.g.:
+    cmonkey <- function( organism="hpy" ) source( "cmonkey.R", local=T ); cmonkey()
+ but everything is in a local environment which is lost if the function dies.
+But can have a function that has everything stored in an (externally accessable) environment via:
+    cmonkey <- function( organism="hpy" ) { cmonkey.env <<- new.env(); source( "cmonkey.R", local=T ) }; cmonkey()
+NOTE: This type of function is now implemented in cmonkey.R
+
+NOTE: can check yeast motifs detected via search at http://www.yeastract.com/formsearchbydnamotif.php
+
+***********************************
+MEME allows sequence weights!!!
+
+                       Sequence weights may be specified in the dataset
+                        file by special header lines where the unique name
+                        is "WEIGHTS" (all caps) and the descriptive 
+                        text is a list of sequence weights. 
+                        Sequence weights are numbers in the range 0 < w <=1.
+                        All weights are assigned in order to the
+                        sequences in the file. If there are more sequences
+                        than weights, the remainder are given weight one.
+                        Weights must be greater than zero and less than
+                        or equal to one.  Weights may be specified by
+                        more than one "WEIGHT" entry which may appear
+                        anywhere in the file.  When weights are used, 
+                        sequences will contribute to motifs in proportion
+                        to their weights.  Here is an example for a file
+                        of three sequences where the first two sequences are 
+                        very similar and it is desired to down-weight them:
+  
+                        >WEIGHTS 0.5 .5 1.0 
+                        >seq1
+                        GDIFYPGYCPDVKPVNDFDLSAFAGAWHEIAK
+                        >seq2
+                        GDMFCPGYCPDVKPVGDFDLSAFAGAWHELAK
+                        >seq3
+                        QKVAGTWYSLAMAASDISLLDAQSAPLRVYVEELKPTPEGDLEILLQKW
