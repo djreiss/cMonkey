@@ -1,0 +1,21 @@
+Once you've got your copy, you can run cMonkey locally without the package after doing the following (in R):
+
+source( "cmonkey.R" )
+source( "cmonkey-init.R" )
+source( "cmonkey-data-load.R" ) ## Functions for loading the data
+source( "cmonkey-motif.R" ) ## Functions for motif finding/scoring
+source( "cmonkey-plotting.R" ) ## Functions for all cmonkey plotting
+source( "cmonkey-postproc.R" ) ## Functions for all post-processing and analysis of cmonkey clusters
+source( "cmonkey-bigmem.R" ) ## Functions for using on-disk list and matrix storage for big organisms
+
+## This is only necessary if you don't have the 'progs/' dir in your current dir (and will only work if
+##     you have previously installed the cMonkey package):
+progs.dir <- sprintf( "%s/progs/", system.file( package="cMonkey" ) )
+
+cmonkey( ... ) ## run as you would if you had loaded the cMonkey package
+
+or
+
+e <- cMonkey.init(...); cmonkey( e, ..., dont.init=T )
+
+will work as well.
