@@ -83,7 +83,7 @@ cmonkey <- function( env=NULL, ... ) {
 
 
 install.binaries <- function( meme.version="4.3.0",
-                            url=sprintf( "http://meme.nbcr.net/downloads/meme_%s.tar.gz", meme.version ) ) {
+                       url=sprintf( "http://meme.nbcr.net/downloads/old_versions/meme_%s.tar.gz", meme.version ) ) {
   cwd <- setwd( system.file( package="cMonkey" ) ); on.exit( setwd( cwd ) )
   if ( ! exists( "progs" ) ) dir.create( "progs" )
   setwd( "progs/" )
