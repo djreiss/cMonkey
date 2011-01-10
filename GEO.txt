@@ -1,0 +1,27 @@
+get geo accession ids for a given search (xml file format) via:
+
+http://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=gds&term=pyrococcus&retmax=99999&
+
+see different queries at http://www.ncbi.nlm.nih.gov/geo/info/qqtutorial.html
+
+then for each of the ids (e.g. 2469) get the raw data file from:
+
+ftp://ftp.ncbi.nih.gov/pub/geo/DATA/SeriesMatrix/GSE2469/GSE2469_series_matrix.txt.gz
+
+
+CODE:
+
+try( dlf( 'tmp', 'http://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=gds&term=pyrococcus&retmax=99999' ) )
+tmp <- readLines( 'tmp' )
+tmp <- grep( '<Id>\\d+</Id>', tmp, perl=T, val=T )
+ids <- sapply( strsplit( tmp, "[<>]" ), "[", 3 )
+ids <- gsub( "^20+", "", gsub( "^10+", "", ids ) ## some ids have '2000' or '1000' at their beginning for some reason
+for ( id in ids ) try( dlf( sprintf( "GSE%s_series_matrix.txt.gz", id ),
+    sprintf( "ftp://ftp.ncbi.nih.gov/pub/geo/DATA/SeriesMatrix/GSE%s/GSE%s_series_matrix.txt.gz", id, id ) ) )
+
+
+## TO READ in the files:
+
+x=read.delim(gzfile("GSE2469_series_matrix.txt.gz"),comment='!')
+rownames( x ) <- sapply( strsplit( as.character( x[[ 1 ]] ), "|", fixed=T ), "[", 1 )
+ratios <- as.matrix( x[ ,-1 ] )
