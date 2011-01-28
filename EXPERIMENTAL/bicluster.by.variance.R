@@ -1,5 +1,8 @@
 require(foreach)
 require(ref)
+require(multicore)
+require(doMC)
+
 
 #' OBSOLETE Given the genes in a BiCluster and the ratios matrix, calculate the conditions that belong
 #' 
@@ -105,6 +108,88 @@ getVarianceMeanSD.DF <- function(ratios, n, numSamples = -1) {
 	return(data.frame(means=means,sds=sds))
 }
 
+#' UNTESTED Return a pVal or vector of pVals for cluster K.
+#' Intended to replace cluster.resid
+#' Assumes "rows","rats","cols" `as part of "..."
+#' 
+#' @param k  The cluster number to calculate the pValue for
+#' @param rats.inds  If not set to combined, will return one pVal for each member of "ratios" (DEFAULT: COMBINED)
+#' @param means.sds  a list containing one data.frame for each number of genes.  Each data frame has means and sds. (DEFAULT: list())
+#' @export
+#' @usage resids <- cluster.ratPval( k, rats.inds="COMBINED", means.sds=means.sds ) 
+cluster.ratPval <- function( k, rats.inds="COMBINED", means.sds=list(), clusterStack = get("clusterStack"), ... ) {
+	clust <- clusterStack[[k]]
+	numGenesInClusters<- clust$nrows
+	
+	#Add to means.sds as necessary
+	numGeneList<-numGenesInClusters[! numGenesInClusters %in% names(means.sds)]
+	lGeneList<-length(numGeneList)
+	if (lGeneList > 0 ) {
+		numGeneLists<-split(1:lGeneList,cut(1:lGeneList,floor(lGeneList/e$parallel.cores)))
+		cat("Calculating variance means and sd's for",lGeneList,"gene counts\n")
+		for (geneListNums in numGeneLists) { #Embed in for loop to have a status monitor
+			curNumGenes<-numGeneList[geneListNums]
+			cat(curNumGenes,'',sep=",")
+			flush.console()
+			new.means.sds<- foreach (n=curNumGenes, .inorder=TRUE) %dopar% {
+				getVarianceMeanSD.DF(rats, n) 
+			} #for (n in numGeneList)
+			names(new.means.sds)<-as.character(curNumGenes)
+			means.sds<-c(means.sds,new.means.sds)
+		}
+		cat('\n')
+	}
+	
+	#Get the average pValue
+	curVarList <- means.sds[[as.character(numGenesInClusters)]]
+	
+	#Get the pValues for each experiment given the number of genes
+	rw<-get( "row.weights" )
+	pVals <- rep(NA,length(rw))
+	names(pVals)<-names(rw)
+	for (i in 1:length(pVals) ) {
+		rats <- get ("ratios")
+		curCols <- clust$cols[clust$cols %in% colnames(rats[[i]])]
+		relRats<- rats[[i]][rownames(rats[[i]]) %in% clust$rows,curCols]
+		vars <- apply(relRats,2,var,na.rm=T)
+		curPs<-NULL
+		for (x.idx in 1:length(vars)) {
+			x<-vars[x.idx]
+			curPs<-c(curPs, pnorm(x,curVarList[names(x),'means'],curVarList[names(x),'sds']) )
+		}
+		pVals[i]<-mean(curPs)
+	}
+	
+	if ( rats.inds[ 1 ] == "COMBINED" ) pVals <- weighted.mean( pVals, row.weights[ inds ], na.rm=T )
+
+	return(pVals)
+}
+
+#' Return a list of pVals for a list of genes under all conditions
+#' 
+#' @param e  The cMonkey environment.  Used for the ratios matrix
+#' @param geneList  ne data.frame for each number of genes.
+#' @param mean.sd  A single elements of means.sds.  A DF with means and sds, one for each experimental condition.  
+#' @export
+#' @usage pValList <- getRatPvals(e, geneList, mean.sd=means.sds[["6"]])
+getRatPvals <- function(e, geneList, mean.sd) {
+	col.pVals<-NULL
+	for (ratIdx in 1:length(e$ratios)) {
+		curExps <- colnames(e$ratios[[ratIdx]])
+		relRats<- e$ratios[[ratIdx]] [rownames(e$ratios[[ratIdx]]) %in% geneList,]
+		vars <- apply(relRats,2,var,na.rm=T)
+
+		pVals<-vars
+		for (x.idx in 1:length(vars)) {
+			x<-vars[x.idx]
+			pVals[x.idx]<-pnorm(x,mean.sd[names(x),'means'],mean.sd[names(x),'sds']) 
+		}
+		
+		col.pVals <- c(pVals,col.pVals)
+	}
+	col.pVals
+}
+
 #' Given a cMonkey environment, build a new clusterStack with different cols & pValues based on variance
 #' Returns "newClusterStack" and "means.sds".  "means.sds" may be used in subsequent calls to avoid recomputation
 #' 
@@ -113,13 +198,15 @@ getVarianceMeanSD.DF <- function(ratios, n, numSamples = -1) {
 #' @param numSamples  The number of times to sample the background distribution to determine the pValues (DEFAULT: -1, i.e. autodetect)
 #' @param pValCut  The pValue at which to cut-off bicluster inclusion.  (DEFAULT: 0.05)
 #' @param bonferroni  Set to TRUE to turn bonferroni correction on.  Prelimiary tests show this to be too strict. (DEFAULT: FALSE)
+#' @param aveNumCond  The average number of conditions to include in each cluster.  If set, will ignor pValCut   (DEFAULT: NULL)
 #' @export
-#' @usage clusterStack <- resplitClusters(e, means.sds=list(), numSamples = 10000, bonferroni = F))
-resplitClusters <- function(e, means.sds=list(), numSamples = -1, pValCut = 0.05, bonferroni = F) {
+#' @usage clusterStack <- resplitClusters(e, means.sds=list(), numSamples = 10000, bonferroni = F, aveNumCond=NULL))
+resplitClusters <- function(e, means.sds=list(), numSamples = -1, pValCut = 0.05, bonferroni = F, aveNumCond=NULL) {
+
 	#Calculate the background distribution
 	numGenesInClusters<- unique(sort(sapply(e$clusterStack,function(x) {x$nrows} )))
 
-	#Load varList as necessary
+	#Load means.sds as necessary
 	numGeneList<-numGenesInClusters[! numGenesInClusters %in% names(means.sds)]
 	lGeneList<-length(numGeneList)
 	if (lGeneList > 0 ) {
@@ -138,34 +225,40 @@ resplitClusters <- function(e, means.sds=list(), numSamples = -1, pValCut = 0.05
 		cat('\n')
 	}
 	
-
+	#Dynamically calculate the pValue cutoffs for each numGenesInCluster
+	pValCuts <- rep (pValCut,length(numGenesInClusters))
+	names(pValCuts) <- as.character(numGenesInClusters)
+	
+	if (! is.null(aveNumCond)) {
+		#aveNumCond<-round(sum(sapply(e$ratios,ncol))/2)
+	
+		for ( i in 1:length(numGenesInClusters) ) {
+			numGenes <- numGenesInClusters[i]
+			curIdxs <- sapply(e$clusterStack,function(x) {x$nrows} ) == numGenes
+			if (any(curIdxs) & (numGenes > 1)){
+				mean.sd <- means.sds[[as.character(numGenes)]]
+				varLists<-lapply(which(curIdxs), function(x) {getRatPvals(e, e$clusterStack[[x]]$rows, mean.sd)})
+				pValCuts[as.character(numGenes)]<-as.numeric(sort(c(varLists,recursive=T))[aveNumCond*sum(curIdxs)])
+			} else {
+				pValCuts[as.character(numGenes)] <- 1
+			}
+		}
+	} #if (pValCut <= 0)
+	
 	#Build the new clusterStack
 	newClustStack <- foreach (clust=e$clusterStack, .inorder=T) %dopar% {
 		if (clust$nrows > 1) {
+			pValCut <- pValCuts[as.character(clust$nrows)]
 			
-			curVarList <- means.sds[[as.character(clust$nrows)]]
-
 			#Get the pValues for each experiment given the number of genes
-			col.pVals<-NULL
-			for (ratIdx in 1:length(e$ratios)) {
-				curExps <- colnames(e$ratios[[ratIdx]])
-				relRats<- e$ratios[[ratIdx]][rownames(e$ratios[[ratIdx]]) %in% clust$rows,]
-				vars <- apply(relRats,2,var,na.rm=T)
-
-				pVals<-vars
-				for (x.idx in 1:length(vars)) {
-					x<-vars[x.idx]
-					pVals[x.idx]<-pnorm(x,curVarList[names(x),'means'],curVarList[names(x),'sds']) 
-				}
-				
-				col.pVals <- c(pVals,col.pVals)
-			}
+			col.pVals <- getRatPvals(e, clust$rows, means.sds[[as.character(clust$nrows)]])
 
 			#Bonferroni correction
 			if (bonferroni == T) {pValCut <- pValCut / sum(sapply(e$ratios,ncol))}
 
 			newClust<-clust
 			newClust$cols <- names(col.pVals)[col.pVals < pValCut]
+			if (length(newClust$cols) <= 2) {  newClust$cols <- names(col.pVals)[order(col.pVals)[1:2]] }
 			newClust$ncols <- length(newClust$cols)
 
 			#Update the residuals to be the mean pValue of the included clusters
@@ -178,6 +271,7 @@ resplitClusters <- function(e, means.sds=list(), numSamples = -1, pValCut = 0.05
 		}
 		newClust
 	}
+	
 	return(list(newClusterStack=newClustStack, means.sds=means.sds))
 }
 
@@ -196,16 +290,16 @@ if (TRUE) {
 	## environment(e$get.cols) <- e
 
 	e$parallel.cores<-multicore:::detectCores()
-	##environment(e$parallel.cores) <- e
+	environment(e$parallel.cores) <- e
 	
 	e$foreach.register.backend(multicore:::detectCores())
-	newClusterStack <- resplitClusters(e, pValCut = 0.05)
+	newClusterStack <- resplitClusters(e, pValCut = 0.05, aveNumCond = ncol( e$ratios$ratios ) * 9 / 10 )
 
 	e$clusterStack <- newClusterStack$newClusterStack
-	##environment(e$clusterStack) <- e
+	environment(e$clusterStack) <- e
 
 	e$means.sds <- newClusterStack$means.sds
-	##environment(e$means.sds) <- e
+	environment(e$means.sds) <- e
 
         row.col.membership.from.clusterStack <- function( clusterStack ) {
           row.memb <- row.membership * 0
@@ -226,10 +320,10 @@ if (TRUE) {
           colnames( col.memb ) <- NULL
           list( r=row.memb, c=col.memb )
         }
-        stop()
 
         environment( row.col.membership.from.clusterStack ) <- e
         tmp <- row.col.membership.from.clusterStack( e$clusterStack )
+        stop()
         e$row.membership <- tmp$r
         e$col.membership <- tmp$c
         e$row.memb <- t( apply( e$row.membership, 1, function( i ) 1:e$k.clust %in% i ) )
@@ -240,5 +334,5 @@ if (TRUE) {
 
 	#browser()	
 	source('write.project.R')
-	#e$write.project()
+	e$write.project()
 }
