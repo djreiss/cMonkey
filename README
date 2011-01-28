@@ -20,8 +20,3 @@ e <- cMonkey.init(...); cmonkey( e, ..., dont.init=T )
 
 will work as well.
 
-<<<<<<< HEAD
-#Testing some changes
-=======
-Testing by sdanzige:  How well does this github work?
->>>>>>> 2e56dc59c468fec234366347c8e0d5ff0a83581a
