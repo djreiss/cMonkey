@@ -6,10 +6,15 @@
 ## liable for anything that happens as a result of using this software
 ###################################################################################
 
-## Just for fun: to run cMonkey as simple (slow) kmeans on ratios data, set:
-##   n.clust.per.row <- 1; n.clust.per.col <- k.clust
-##   no.genome.info <- TRUE; post.adjust <- FALSE; net.weights <- mot.weights <- numeric()
-
+#' Initialize a cMonkey environment for bilcustering
+#' NOTE: to run cMonkey as simple (slow) kmeans on ratios data, set:
+#'   n.clust.per.row <- 1; n.clust.per.col <- k.clust
+#'   no.genome.info <- TRUE; post.adjust <- FALSE; net.weights <- mot.weights <- numeric()
+#'  
+#' @param env  The input ratios matrix or the file name for a tab delinated file containging one
+#' @param ...  Used to set many cMonkey parameters.  See "set.param" lines for details
+#' @export
+#' @usage e <- cmonkey.init( NULL, organism="sce" )
 cmonkey.init <- function( env=NULL, ... ) {
   if ( ! exists( "cmonkey.params" ) ) {
     cmonkey.params <- new.env( hash=T ) ##, parent=globalenv() )
@@ -74,21 +79,27 @@ cmonkey.init <- function( env=NULL, ... ) {
   }
 
   ## Ratios can be a single matrix/df/filename or a list of those; if a single matrix/df, make it a list w/that
+  set.param( "preprocess.ratios.bool", TRUE )
   if ( ( exists( "ratios" ) && ! is.null( ratios ) ) ) {
-    if ( is.matrix( ratios ) || is.data.frame( ratios ) || is.character( ratios ) )
-      ratios <- list( ratios=load.ratios( ratios ) )
-    else ratios <- lapply( ratios, function( r ) as.matrix( load.ratios( r ) ) )
-    attr( ratios, "rnames" ) <- sort( unique( unlist( lapply( ratios, rownames ) ) ) )
-    attr( ratios, "cnames" ) <- sort( unique( unlist( lapply( ratios, colnames ) ) ) )
-    attr( ratios, "nrow" ) <- length( attr( ratios, "rnames" ) )
-    attr( ratios, "ncol" ) <- length( attr( ratios, "cnames" ) ) ## Summary attributes (for multiple ratios matrices)
+    if ( is.matrix( ratios ) || is.data.frame( ratios ) || is.character( ratios ) ) {
+      ratios.raw <- list( ratios=load.ratios( ratios, preprocess.ratios.bool=FALSE, verbose=F ) )
+      ratios <- list( ratios=load.ratios( ratios, preprocess.ratios.bool) )
+    } else {
+      ratios.raw <- lapply( ratios, function( r ) as.matrix( load.ratios( r, preprocess.ratios.bool=FALSE, verbose=F ) ) )
+      ratios <- lapply( ratios, function( r ) as.matrix( load.ratios( r, preprocess.ratios.bool ) ) )
+    }
+    attr( ratios, "rnames" ) <- attr( ratios.raw, "rnames" ) <- sort( unique( unlist( lapply( ratios, rownames ) ) ) )
+    attr( ratios, "cnames" ) <- attr( ratios.raw, "cnames" ) <- sort( unique( unlist( lapply( ratios, colnames ) ) ) )
+    attr( ratios, "nrow" ) <- attr( ratios.raw, "nrow" ) <- length( attr( ratios, "rnames" ) )
+    attr( ratios, "ncol" ) <- attr( ratios.raw, "ncol" ) <- length( attr( ratios, "cnames" ) ) ## Summary attributes (for multiple ratios matrices)
     for ( n in names( ratios ) ) {
-      attr( ratios[[ n ]], "maxRowVar" ) <- mean( apply( ratios[[ n ]][,], 1, var, use="pair" ), na.rm=T ) ##* 1.2
-      attr( ratios[[ n ]], "all.colVars" ) <- apply( ratios[[ n ]][,], 2, var, use="pair", na.rm=T )
+      attr( ratios[[ n ]], "maxRowVar" ) <- attr( ratios.raw[[ n ]], "maxRowVar" ) <- mean( apply( ratios[[ n ]][,], 1, var, use="pair" ), na.rm=T ) ##* 1.2
+      attr( ratios[[ n ]], "all.colVars" ) <- attr( ratios.raw[[ n ]], "all.colVars" ) <- apply( ratios[[ n ]][,], 2, var, use="pair", na.rm=T )
     }
     rm( n )
   }
   if ( ! is.null( env ) ) assign( "ratios", ratios, envir=env )
+  if ( ! is.null( env ) ) assign( "ratios.raw", ratios.raw, envir=env )
 
   ## if ( exists( "is.eukaryotic" ) && is.eukaryotic ) {
   ##   set.param( "operon.shift", FALSE )
@@ -396,6 +407,7 @@ cmonkey.init <- function( env=NULL, ... ) {
       ##  networks[[ "string" ]] <- read.csv( 'data/STRING/string.csv', row.names=1, header=TRUE )
       ##} else
       if ( length( grep( "string", names( net.weights ) ) ) > 0 ) {
+        message( "Loading STRING data" )
         if ( "string" %in% names( net.weights ) ) { ##|| "string.combined" %in% names( net.weights ) ) {
           ##if ( "string.combined" %in% names( net.weights ) )
           ##  names( net.weights )[ names( net.weights ) == "string.combined" ] <- "string"
@@ -433,7 +445,7 @@ cmonkey.init <- function( env=NULL, ... ) {
       if ( ! is.null( env ) ) assign( "networks", networks, envir=env )
 
       if ( "operons" %in% names( net.weights ) && ! is.null( genome.info$operons ) ) {
-        cat( "Converting operon predictions into a network...\n" )
+        message( "Converting operon predictions into a network...\n" )
         tmp <- tapply( genome.info$operons$gene, genome.info$operons$head ); names( tmp ) <- genome.info$operons$gene
         mc <- get.parallel( length( unique( tmp ) ) )
         out.sif <- do.call( rbind, mc$apply( unique( tmp ), function( j ) {
@@ -460,6 +472,7 @@ cmonkey.init <- function( env=NULL, ... ) {
       ## First check to see if network is already existing in memory as a 2 or 3-column matrix
       if ( exists( "net.weights" ) && length( net.weights ) > 0 && ! is.null( names( net.weights ) ) ) {
         for ( i in names( net.weights ) ) {
+          message( "Reading network for '", i, "'." )
           if ( i %in% names( networks ) ) next ## already done (e.g. operons)
           if ( file.exists( i ) ) { 
             cat( "Loading sif interactions from file:", i, "; weight =", net.weights[ i ], "\n" ) 
@@ -483,6 +496,7 @@ cmonkey.init <- function( env=NULL, ... ) {
       ##   or a COG group or GO function, etc.
       ## Groups are converted into a set of (weighted) "interactions" between pairs of genes in the same group
       if ( exists( "grouping.weights" ) && length( grouping.weights ) > 0 ) {
+        message( "Reading in additional groupings" )
         if ( exists( "net.weights" ) ) net.weights <- c( net.weights, grouping.weights )
         else net.weights <- grouping.weights
         for ( i in names( grouping.weights ) ) {
