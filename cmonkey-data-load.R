@@ -11,11 +11,18 @@
 ## Questions: use feature.tab instead of cds.tab? (includes trnas, etc) YES!!! ##Also get trnas via trna.tab?
 ##   NOTE: some org's (e.g. Human) don't have a feature.tab - need to use cds.tab then.
 
-load.ratios <- function( ratios ) {
+#' Load a ratios matrix either from a file or a variable
+#'  
+#' @param ratios  The input ratios matrix or the file name for a tab delinated file containging one
+#' @param preprocess  Set to true to preprocess the ratios matrix (DEFAULT: T)
+#' @param verbose  Set to FALSE to supress the output (DEFAULT: T)
+#' @export
+#' @usage ratios <- load.ratios( ratios, preprocess.ratios.bool=T, verbose=T )
+load.ratios <- function( ratios, preprocess.ratios.bool=T, verbose=T ) {
   if ( is.null( ratios ) ) return( NULL )
 
   if ( is.character( ratios ) && file.exists( ratios ) ) {
-    cat( "Loading ratios file", ratios, "\n" )
+    if(verbose) { cat( "Loading ratios file", ratios, "\n" ) }
     ratios <- read.delim( file=gzfile( ratios ), sep="\t", as.is=T, header=T )
   }
 
@@ -27,11 +34,12 @@ load.ratios <- function( ratios ) {
     if ( class( ratios[ ,1 ] ) == "character" ) ratios <- ratios[ ,-1 ]
   }
 
-  cat( "Original ratios matrix is", paste( dim( ratios ), collapse="x" ), "\n" )
-  ## First filter out rows/cols with too many (>= 3/4 of total) NAs or zeroes (e.g. for sce data)
+  if(verbose) { cat( "Original ratios matrix is", paste( dim( ratios ), collapse="x" ), "\n" ) }
   if ( ! is.matrix( ratios ) ) ratios <- as.matrix( ratios )
-  if ( is.null( attr( ratios, "isPreProcessed" ) ) || attr( ratios, "isPreProcessed" ) == FALSE ) {
-    ratios <- preprocess.ratios( ratios )
+
+  ## Filter out rows/cols with too many (>= 3/4 of total) NAs or zeroes (e.g. for sce data) & scale
+  if ( (is.null( attr( ratios, "isPreProcessed" ) ) || attr( ratios, "isPreProcessed" ) == FALSE) & (preprocess.ratios.bool==T) ) {
+    ratios <- preprocess.ratios( ratios, verbose = verbose )
     attr( ratios, "isPreProcessed" ) <- TRUE
   }
 
@@ -39,7 +47,18 @@ load.ratios <- function( ratios ) {
   ratios
 }
 
-preprocess.ratios <- function( ratios, filter=T, normalize=T, col.groups=NULL, frac.cutoff=0.98 ) {
+#' Scale the ratios matrix so that the profiles will be easily comparable
+#'  Will apply "scale" to the matrix and may perform other actions.
+#'  
+#' @param ratios  The input ratios matrix
+#' @param filter  Set to TRUE to filter any rows or columns that doesn't change (DEFAULT: T)
+#' @param normalize  Set to TRUE to row center by median AND scale by sd (DEFAULT: T)
+#' @param col.groups  A vector with a group number for each column (DEFAULT: NULL, i.e. set all column to group 1)
+#' @param frac.cutoff  Used with "filter" to determine what constitutes "doesn't change" (DEFAULT: 0.98)
+#' @param verbose  Set to FALSE to supress the output (DEFAULT: T)
+#' @export
+#' @usage ratios <- preprocess.ratios( ratios, filter=T, normalize=T, col.groups=NULL, frac.cutoff=0.98, verbose=T )
+preprocess.ratios <- function( ratios, filter=T, normalize=T, col.groups=NULL, frac.cutoff=0.98, verbose=T ) {
   if ( is.null( col.groups ) ) col.groups <- rep( 1, ncol( ratios ) )
   if ( is.null( names( col.groups ) ) ) names( col.groups ) <- colnames( ratios )
   for ( cg in unique( col.groups ) ) {
@@ -48,18 +67,18 @@ preprocess.ratios <- function( ratios, filter=T, normalize=T, col.groups=NULL, f
                                 scale=F ) )
   }
   if ( filter ) {
-    cat( "Filtering out nochange rows/cols from ratios matrix...\n" )
+    if(verbose) { cat( "Filtering out nochange rows/cols from ratios matrix...\n" ) }
     tmp1 <- apply( ratios, 1, function( i ) mean( is.na( i ) | abs( i ) <= 0.17 ) ) < frac.cutoff
     tmp2 <- apply( ratios, 2, function( i ) mean( is.na( i ) | abs( i ) <= 0.1 ) ) < frac.cutoff
     ratios <- ratios[ tmp1, ,drop=F ]
     ratios <- ratios[ ,tmp2 ,drop=F ]
-    cat( "Filtered ratios matrix is", paste( dim( ratios ), collapse="x" ), "\n" )
+    if(verbose) { cat( "Filtered ratios matrix is", paste( dim( ratios ), collapse="x" ), "\n" ) }
     col.groups <- col.groups[ tmp2 ]
   }
   if ( normalize ) {
     for ( cg in unique( col.groups ) ) {
       cols <- names( which( col.groups == cg ) )
-      cat( "Normalizing ratios matrix", cg, "...\n" )
+      if (verbose) { cat( "Normalizing ratios matrix", cg, "...\n" ) }
       ratios[ ,cols ] <- t( scale( t( ratios[ ,cols ,drop=F ] ),
                                   center=apply( ratios[ ,cols ,drop=F ], 1, median, na.rm=T ),
                  scale=apply( ratios[ ,cols ,drop=F ], 1, sd, na.rm=T ) ) ) ## Row center by median AND scale by sd!
@@ -68,6 +87,11 @@ preprocess.ratios <- function( ratios, filter=T, normalize=T, col.groups=NULL, f
   ratios
 }
 
+#' Load a ratios matrix based on GEO search terms
+#'  
+#' @param search.terms  GEO search terms (DEFAULT: gsub( "_", " ", rsat.species ))
+#' @export
+#' @usage ratios <- load.ratios.GEO()
 load.ratios.GEO <- function( search.terms ) {
   if ( missing( search.terms ) ) search.terms <- gsub( "_", " ", rsat.species )
   message( "Searching GEO for terms='", search.terms, "'" )
@@ -109,12 +133,27 @@ load.ratios.GEO <- function( search.terms ) {
   out
 }
 
+#' Return the condition groups for conds
+#'  
+#' @param conds  The conditions to return groups for (DEFAULT: attr( ratios, "cnames" ), i.e. "all" )
+#' @export
+#' @usage cond.groups <- get.condition.groups( conds=attr( ratios, "cnames" ) )
 get.condition.groups <- function( conds=attr( ratios, "cnames" ) ) {
   tmp <- sapply( conds, function( i ) strsplit( i, "__" )[[ 1 ]][ 1 ] ) ## Specific for halo
   tmp2 <- as.integer( as.factor( tmp ) ); names( tmp2 ) <- names( tmp )
   tmp2
 }
 
+#' Download a file from the internet.  A wrapper for download.file()
+#'  
+#' @param f  The file name
+#' @param url  The URL to download the file from
+#' @param msg  A message to display on the console (DEFAULT: NULL )
+#' @param mode  The mode with which to write the file. Useful values are "w", "wb" (binary), "a" (append) and "ab". (DEFAULT: 'wb' )
+#' @param quiet  Set to FALSE to supress the output (DEFAULT: FALSE )
+#' @param ...  Additional parameters for download.file()
+#' @export
+#' @usage err <- dlf( f, url, msg=NULL, mode="wb", quiet=F)
 dlf <- function( f, url, msg=NULL, mode="wb", quiet=F, ... ) {
   err <- 0
   if ( mode == "ab" || ! file.exists( f ) || file.info( f )$size == 0 ) {
@@ -126,6 +165,14 @@ dlf <- function( f, url, msg=NULL, mode="wb", quiet=F, ... ) {
   err
 }
 
+#' Get the genome information.
+#' Returns a list: ( species=rsat.species, genome.seqs=genome.seqs, feature.tab=feature.tab, 
+#'       feature.names=feature.names,org.id=org.id, taxon.id=taxon.id, synonyms=synonyms )
+#'  
+#' @param fetch.upstream  (DEFAULT: F)
+#' @param fetch.predicted.operons  (DEFAULT: "rsat")
+#' @export
+#' @usage err <- get.genome.info( fetch.upstream=F, fetch.predicted.operons="rsat" )
 get.genome.info <- function( fetch.upstream=F, fetch.predicted.operons="rsat" ) { 
   rsat.url <- rsat.urls[ 1 ]
   feature.tab <- feature.names <- genome.seqs <- operons <- org.id <- synonyms <- NULL 

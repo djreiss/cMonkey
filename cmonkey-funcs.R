@@ -446,7 +446,14 @@ get.rows <- function( k, rm=get("row.membership") ) { out <- unique( rownames( w
 get.cols <- function( k, cm=get("col.membership") ) { out <- unique( rownames( which( cm[] == k, arr=T ) ) );
                                                       if ( is.null( out ) ) out <- character(); out } 
 
-## Create old clusterStack-style object from row.membership and col.membership
+#' Create old clusterStack-style object from row.membership and col.membership
+#'  SD Notes: force is a little mysterious to me.
+#'
+#' @params ks The clusters to include (DEFAULT: 1:k.clust)
+#' @params force If FALSE, will return the existing clusterStack if possible (DEFAULT: F)
+#' @params ...  Must include atleast "iter"
+#' @export
+#' @usage clusterStack <- get.clusterStack( ks=1:k.clust, force=F, ... ) 
 get.clusterStack <- function( ks=1:k.clust, force=F, ... ) {
   if ( ! force && ! is.null( attr( clusterStack, "iter" ) ) && attr( clusterStack, "iter" ) == iter )
     return( clusterStack )
@@ -455,6 +462,15 @@ get.clusterStack <- function( ks=1:k.clust, force=F, ... ) {
   attr( clusterStack, "iter" ) <- iter
   clusterStack
 }
+
+#' Get the unpreprocessed ratios matrix (i.e. ratios.raw)
+#'  
+#' @export
+#' @usage ratios <- get.unpreprocessed.ratios()
+get.unpreprocessed.ratios <- function(...) {
+  return(ratios.raw)
+}
+
 
 cluster.resid <- function( k, rats.inds="COMBINED", varNorm=F, in.cols=T, ... ) {
   ## FLOC residual number is a good statistic
