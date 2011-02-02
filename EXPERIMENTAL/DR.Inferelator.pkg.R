@@ -1355,7 +1355,7 @@ function(e)
 
 #SD 10/11/10 Should work for Halo or Yeast
 runnit.wrapper <-
-function (f, ks = "all", ...) 
+function (f, ks = "all", filter.pred.by.col = T, predictors = predictors, ...) 
 {
     if (is.character(f) && file.exists(f) && (!exists("e") || 
         e$tmp.file != f)) {
@@ -1402,8 +1402,8 @@ function (f, ks = "all", ...)
 
     if (!is.null(predictors)) 
         predictors <- predictors[predictors %in% rownames(data)]
-    out <- runnit(ks=ks, data=ratios, colMap=colMap, predictors=predictors, clusterStack=e$clusterStack, 
-        pred.data=ratios.raw, gene.prefix = e$genome.info$gene.prefix, exp.weights=exp.weights, ...)
+    out <- runnit(ks=ks, data=ratios, col.map=colMap, predictors=predictors, clusterStack=e$clusterStack, 
+        pred.data=ratios.raw, gene.prefix = e$genome.info$gene.prefix, exp.weights=exp.weights, filter.pred.by.col=filter.pred.by.col, ...)
     invisible(out)
 }
 write.cytoscape.files <-
