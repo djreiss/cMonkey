@@ -1507,3 +1507,21 @@ get.cluster.matrix <- function(ratios, rows=NULL, cols=NULL, matrices=names( rat
   }
   return(out)
 }
+
+#' Break up a ratios matrix into a list of matrices
+#'
+#' @param ratios  A ratios matrix
+#' @param envMap  An envmap that shows how to break up the ratios matrix
+#' @usage ratios<-breakByEnvMap(ratios, envMap)
+#' @return A list fo ratios matrices
+breakByEnvMap <- function(ratios,envMap) {
+	envRatios<-list()
+	for ( i in 1:length(envMap)) {
+		curEnv<-names(envMap)[i]
+		bools<-colnames(ratios) %in% rownames(envMap[i])[envMap[i]==1]
+		curRatios<-as.matrix(ratios[,bools])
+		envRatios[[length(envRatios)+1]]<-curRatios[!((rowSums(is.na(curRatios))/length(colnames(curRatios))) > .9),]
+	}
+	names(envRatios)<-names(envMap)
+	return(envRatios)
+}
