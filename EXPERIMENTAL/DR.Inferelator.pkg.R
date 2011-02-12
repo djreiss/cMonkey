@@ -362,19 +362,20 @@ function (cluster, predictors, data, col.map = NULL, conds.use = c("clust",
             length(cluster.conds), "conditions and", nrow(predictor.mat), 
             "predictors:\n", paste(rownames(predictor.mat), sep = ", "), 
             "\n")
+    coeffs<-NULL #SD 02-11-2011, If shrinkage fails for any reason, don't have any coeffs
     if (shrink.opt == "glmnet") {
     	#SD 9/28/10 to include possible priors
     	penalties<-NULL
     	if ( ! is.null(cluster$priors) ) {penalties<-1-cluster$priors+.5}
     	
-        coeffs <- inferelator.enet(cluster.profile, predictor.mat, 
+        try(coeffs <- inferelator.enet(cluster.profile, predictor.mat, 
             cluster.conds, col.map = col.map, quiet = quiet, 
-            weights = cluster.weights, penalties = penalties, ...)
+            weights = cluster.weights, penalties = penalties, ...))
     }
     else if (shrink.opt == "lars") {
-        coeffs <- inferelator(cluster.profile, predictor.mat, 
+        try(coeffs <- inferelator(cluster.profile, predictor.mat, 
             cluster.conds, col.map = col.map, quiet = quiet, 
-            ...)
+            ...))
     }
     singleresult <- coeffs$coeffs
     coeffs.boot <- coeffs$coeffs.boot
@@ -1370,7 +1371,7 @@ function (f, ks = "all", filter.pred.by.col = T, predictors = predictors, ...)
     exp.weights<-NULL #Used to weight based on conditions
     row.weights<-e$row.weights
     ratios <- get.cluster.matrix(e$ratios)
-    ratios.raw <- get.cluster.matrix(e$ratios.raw)
+    pred.data <- ratios.raw <- get.cluster.matrix(e$ratios.raw)
     if (ks[1] == "all") 
         ks <- 1:e$k.clust
     if (!exists("envMap")) 
@@ -1378,7 +1379,7 @@ function (f, ks = "all", filter.pred.by.col = T, predictors = predictors, ...)
     if (!exists("colMap")) 
         colMap <- NULL
     if (!exists("predictors")) 
-        predictors <- rownames(ratios)
+        predictors <- rownames(ratios.raw)
     if (!is.null(envMap)) {
         envMap <- envMap[, !is.na(apply(envMap, 2, var, use = "pair")) & 
             apply(envMap, 2, var, use = "pair") > 0.01, drop = F]
@@ -1386,24 +1387,61 @@ function (f, ks = "all", filter.pred.by.col = T, predictors = predictors, ...)
             , drop = F]
         ratios <- ratios[, colnames(ratios) %in% rownames(envMap), 
             drop = F]
-        data <- rbind(ratios, t(as.matrix(envMap)))
+        ratios.raw <- ratios.raw[, colnames(ratios) %in% rownames(envMap), 
+            drop = F]
+        pred.data <- rbind(ratios.raw, t(as.matrix(envMap)))
+        ratios <- rbind(ratios, t(as.matrix(envMap)))
         predictors <- c(predictors, colnames(envMap))
         
         #SD 10/11/10  Construct the "weights" matrix for priors
         if (!is.null(row.weights)) {
-        	exp.weights<-rep(0,length(colnames(ratios)))
-        	orderIdx<-match(colnames(ratios),rownames(envMap))
+        	exp.weights<-rep(0,ncol(pred.data))
+        	orderIdx<-match(colnames(pred.data),rownames(envMap))
         	for (cond in names(row.weights)) {
         		exp.weights<-exp.weights+row.weights[cond]*envMap[orderIdx,cond]/max(envMap[orderIdx,cond])
         	}
-        	names(exp.weights)<-colnames(ratios)
+        	names(exp.weights)<-colnames(pred.data)
+        	
+        	#SD 02/10/11  Remove anything from predictors that has zero weight
+        	if (any(exp.weights == 0))  {
+			keepBool <- colnames(ratios) %in% names(exp.weights[exp.weights != 0])
+			ratios <- ratios [,keepBool]
+			keepBool <- colnames(pred.data) %in% names(exp.weights[exp.weights != 0])
+			pred.data <- pred.data [,keepBool]
+			exp.weights <- exp.weights[exp.weights != 0]
+			ratios <- ratios[,match(colnames(pred.data),colnames(ratios))]
+			colMap <- colMap[rownames(colMap) %in% names(exp.weights),]
+			ts.inds <- unique(colMap$ts.ind)
+			new.ts.inds <- rep(0,length(colMap$ts.ind))
+			for (i in 1:length(ts.inds)) {
+				tsBool <- colMap$ts.ind == ts.inds[i]
+				new.ts.inds[tsBool] <- i
+				minExps <- rownames(colMap[tsBool & colMap$time==min(colMap[tsBool,'time']),])
+				minExp <- rownames(colMap[minExps,])[!colMap[minExps,'prevCol'] %in% rownames(colMap)]
+				colMap[minExp,'is1stLast'] <- 'f'
+				colMap[minExp,'prevCol'] <- NA
+				maxExps <- rownames(colMap[tsBool & colMap$time==max(colMap[tsBool,'time']),])
+				maxExp <- rownames(colMap[maxExps,])[!rownames(colMap[maxExps,]) %in% colMap[maxExps,'prevCol']]
+				colMap[maxExp,'is1stLast'] <- 'l'
+			}
+			colMap$ts.ind <- new.ts.inds
+			colMap$numTS <- i
+        	} #if (any(exp.weights == 0))
         }
     }
 
+    #Remove any row differences between predictor and data matrices
+    pred.data <- pred.data[rownames(pred.data) %in% rownames(ratios),]
+    ratios <- ratios[rownames(ratios) %in% rownames(pred.data),]
+    e$clusterStack <- e$clusterStack[(unlist(sapply(e$clusterStack,function(x) {x$rows})) %in% rownames(ratios))]
+    for ( i in 1:length(e$clusterStack) ) { 
+    	e$clusterStack[[i]]$k <- i  
+    	e$clusterStack[[i]]$cols <- e$clusterStack[[i]]$cols[e$clusterStack[[i]]$cols %in% colnames(ratios)]
+    }
     if (!is.null(predictors)) 
-        predictors <- predictors[predictors %in% rownames(data)]
+        predictors <- predictors[predictors %in% rownames(pred.data)]
     out <- runnit(ks=ks, data=ratios, col.map=colMap, predictors=predictors, clusterStack=e$clusterStack, 
-        pred.data=ratios.raw, gene.prefix = e$genome.info$gene.prefix, exp.weights=exp.weights, filter.pred.by.col=filter.pred.by.col, ...)
+        pred.data=pred.data, gene.prefix = e$genome.info$gene.prefix, exp.weights=exp.weights, filter.pred.by.col=filter.pred.by.col, ...)
     invisible(out)
 }
 write.cytoscape.files <-
@@ -1506,22 +1544,4 @@ get.cluster.matrix <- function(ratios, rows=NULL, cols=NULL, matrices=names( rat
   	out <- NULL
   }
   return(out)
-}
-
-#' Break up a ratios matrix into a list of matrices
-#'
-#' @param ratios  A ratios matrix
-#' @param envMap  An envmap that shows how to break up the ratios matrix
-#' @usage ratios<-breakByEnvMap(ratios, envMap)
-#' @return A list fo ratios matrices
-breakByEnvMap <- function(ratios,envMap) {
-	envRatios<-list()
-	for ( i in 1:length(envMap)) {
-		curEnv<-names(envMap)[i]
-		bools<-colnames(ratios) %in% rownames(envMap[i])[envMap[i]==1]
-		curRatios<-as.matrix(ratios[,bools])
-		envRatios[[length(envRatios)+1]]<-curRatios[!((rowSums(is.na(curRatios))/length(colnames(curRatios))) > .9),]
-	}
-	names(envRatios)<-names(envMap)
-	return(envRatios)
 }
