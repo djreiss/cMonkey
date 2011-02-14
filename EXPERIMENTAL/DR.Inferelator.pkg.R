@@ -332,7 +332,7 @@ function (cluster, predictors, data, col.map = NULL, conds.use = c("clust",
 
     #SD 10/11/10  take into account any input weights from exp.weights
     if (! is.null(exp.weights) ) {
-        if(!is.na(cluster.weights)) { 
+        if(!is.na(cluster.weights)[1]) { 
         	cluster.weights<-exp.weights*cluster.weights 
         } else {
         	cluster.weights<-exp.weights
@@ -1427,20 +1427,25 @@ function (f, ks = "all", filter.pred.by.col = T, predictors = predictors, ...)
 			colMap$ts.ind <- new.ts.inds
 			colMap$numTS <- i
         	} #if (any(exp.weights == 0))
-        }
+        } #if (!is.null(row.weights))
     }
-
     #Remove any row differences between predictor and data matrices
     pred.data <- pred.data[rownames(pred.data) %in% rownames(ratios),]
     ratios <- ratios[rownames(ratios) %in% rownames(pred.data),]
-    e$clusterStack <- e$clusterStack[(unlist(sapply(e$clusterStack,function(x) {x$rows})) %in% rownames(ratios))]
+    #newClusterStack <- e$clusterStack 
+    newClusterStack <- list()
+ 
     for ( i in 1:length(e$clusterStack) ) { 
-    	e$clusterStack[[i]]$k <- i  
-    	e$clusterStack[[i]]$cols <- e$clusterStack[[i]]$cols[e$clusterStack[[i]]$cols %in% colnames(ratios)]
+    	newClust <- e$clusterStack[[i]]
+    	if (any(newClust$rows %in% rownames(ratios)) & any(newClust$cols %in% colnames(ratios))) {		
+    		newClust$rows <- newClust$rows[newClust$rows %in% rownames(ratios)]
+    		newClust$cols <- newClust$cols[newClust$cols %in% colnames(ratios)]
+    		newClusterStack[[length(newClusterStack)+1]] <- newClust
+    	} 
     }
     if (!is.null(predictors)) 
         predictors <- predictors[predictors %in% rownames(pred.data)]
-    out <- runnit(ks=ks, data=ratios, col.map=colMap, predictors=predictors, clusterStack=e$clusterStack, 
+    out <- runnit(ks=ks, data=ratios, col.map=colMap, predictors=predictors, clusterStack=newClusterStack, 
         pred.data=pred.data, gene.prefix = e$genome.info$gene.prefix, exp.weights=exp.weights, filter.pred.by.col=filter.pred.by.col, ...)
     invisible(out)
 }
