@@ -42,11 +42,11 @@ load.ratios <- function( ratios ) {
 preprocess.ratios <- function( ratios, filter=T, normalize=T, col.groups=NULL, frac.cutoff=0.98 ) {
   if ( is.null( col.groups ) ) col.groups <- rep( 1, ncol( ratios ) )
   if ( is.null( names( col.groups ) ) ) names( col.groups ) <- colnames( ratios )
-  for ( cg in unique( col.groups ) ) {
-    cols <- names( which( col.groups == cg ) )
-    ratios[ ,cols ] <- t( scale( t( ratios[ ,cols ] ), center=apply( ratios[ ,cols ,drop=F ], 1, median, na.rm=T ),
-                                scale=F ) )
-  }
+  ## for ( cg in unique( col.groups ) ) {
+  ##   cols <- names( which( col.groups == cg ) )
+  ##   ratios[ ,cols ] <- t( scale( t( ratios[ ,cols ] ), center=apply( ratios[ ,cols ,drop=F ], 1, median, na.rm=T ),
+  ##                               scale=F ) )
+  ## }
   if ( filter ) {
     cat( "Filtering out nochange rows/cols from ratios matrix...\n" )
     tmp1 <- apply( ratios, 1, function( i ) mean( is.na( i ) | abs( i ) <= 0.17 ) ) < frac.cutoff
