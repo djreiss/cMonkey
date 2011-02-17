@@ -20,4 +20,3 @@ e <- cMonkey.init(...); cmonkey( e, ..., dont.init=T )
 
 will work as well.
 
-Testing by sdanzige:  How well does this github work?
