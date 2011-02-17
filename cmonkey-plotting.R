@@ -1011,7 +1011,7 @@ plotScores <- function( k, o.genes=NULL, b.genes=NULL, recompute=F ) {
 
 ## Note can do pdf("xxx.pdf");plotStats(new.dev=F,plot.clust=1);dev.off() to redirect all 3 plots to a single pdf.
 plotStats <- function( iter=stats$iter[ nrow( stats ) ], plot.clust=NA, new.dev=F, ... ) { ##new=F,
-  try( {
+  ##try( {
   if ( ! exists( "row.memb" ) ) row.memb <- t( apply( row.membership[], 1, function( i ) 1:k.clust %in% i ) )
   opar <- par( no.readonly=T )
   tmp.scale <- round( 1 / mean( row.memb[,], na.rm=T ) / 4 )
@@ -1126,7 +1126,7 @@ plotStats <- function( iter=stats$iter[ nrow( stats ) ], plot.clust=NA, new.dev=
   n.cols <- tabulate( unlist( apply( col.membership, 1, unique ) ) )
   try( hist( n.cols, main=NULL, xlab="Cluster Ncols", breaks=k.clust/4,
             xlim=c( -5, attr( ratios, "ncol" ) ) ), silent=T )
-  }, silent=T )
+  ##}, silent=T )
   
   if ( ! is.na( plot.clust ) ) { 
     if ( new.dev ) { if ( length( dev.list() ) < 2 ) dev.new(); dev.set( 3 ) }

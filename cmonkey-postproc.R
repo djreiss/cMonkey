@@ -140,6 +140,33 @@ cluster.summary <- function( e.cutoff=0.01, nrow.cutoff=5, seq.type=names( mot.w
 ##   invisible( list( r=row.membership, ms=meme.scores ) )
 ## }  
 
+row.col.membership.from.clusterStack <- function( cs ) {
+  row.memb <- row.membership * 0
+  col.memb <- col.membership * 0
+  for ( k in 1:length( cs ) ) {
+    if ( k > ncol( row.memb ) ) row.memb <- cbind( row.memb, rep( 0, nrow( row.memb ) ) )
+    rows <- cs[[ k ]]$rows; rows <- rows[ ! is.na( rows ) ]
+    row.memb[ rows, k ] <- k
+    if ( k > ncol( col.memb ) ) col.memb <- cbind( col.memb, rep( 0, nrow( col.memb ) ) )
+    cols <- cs[[ k ]]$cols; cols <- cols[ ! is.na( cols ) ]
+    col.memb[ cols, k ] <- k
+  }
+  row.memb <- t( apply( row.memb, 1, function( i ) c( i[ i != 0 ], i[ i == 0 ] ) ) )
+  row.memb <- row.memb[ ,apply( row.memb, 2, sum ) != 0, drop=F ]
+  colnames( row.memb ) <- NULL
+  col.memb <- t( apply( col.memb, 1, function( i ) c( i[ i != 0 ], i[ i == 0 ] ) ) )
+  col.memb <- col.memb[ ,apply( col.memb, 2, sum ) != 0, drop=F ]
+  colnames( col.memb ) <- NULL
+
+  ## note: need to do this afterwards, too:
+  # e$row.memb <- t( apply( e$row.membership, 1, function( i ) 1:e$k.clust %in% i ) )
+  # e$col.memb <- t( apply( e$col.membership, 1, function( i ) 1:e$k.clust %in% i ) )
+  # e$clusterStack <- e$get.clusterStack( force=T )
+  ##
+  
+  list( r=row.memb, c=col.memb )
+}
+
 ## TODO: add another function to randomly seed clusters with no rows or no cols
 re.seed.empty.clusters <- function( toosmall.r=cluster.rows.allowed[ 1 ], toosmall.c=0,
                                    n.r=cluster.rows.allowed[ 1 ] * 2, n.c=5 ) {

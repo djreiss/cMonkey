@@ -821,6 +821,7 @@ filter.sequences <- function( seqs, start.stops=NULL,
                                "downstream","gene")[ 1 ], "meme" ), distance=motif.upstream.search[[ seq.type ]],
                              uniquify=T, remove.repeats=T, remove.atgs=T, mask.overlapping.rgns=F,
                              blast.overlapping.rgns=F, verbose=F ) {
+
   if ( uniquify ) seqs <- seqs[ ! get.dup.seqs( seqs ) ]
 
   ##remove.repeats <- remove.low.complexity.subseqs[ seq.type ]
