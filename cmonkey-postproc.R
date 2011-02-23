@@ -444,6 +444,7 @@ adjust.all.clusters <- function( env, ks=1:env$k.clust, force.motif=T, ... ) {
     rm[ i, ] <- c( tmp, rep( 0, ncol( rm ) - length( tmp ) ) )
   }
   rm <- rm[ ,apply( rm, 2, sum ) != 0, drop=F ]
+  colnames( rm ) <- NULL
   
   if ( any( dim( env$row.membership ) != dim( rm ) ) || any( env$row.membership != rm ) ) {
     env$row.membership <- rm

@@ -17,12 +17,12 @@
 #' @param preprocess  Set to true to preprocess the ratios matrix (DEFAULT: T)
 #' @param verbose  Set to FALSE to supress the output (DEFAULT: T)
 #' @export
-#' @usage ratios <- load.ratios( ratios, preprocess.ratios.bool=T, verbose=T )
-load.ratios <- function( ratios, preprocess.ratios.bool=T, verbose=T ) {
+#' @usage ratios <- load.ratios( ratios, preprocess=T, verbose=T )
+load.ratios <- function( ratios, preprocess=T, verbose=T ) {
   if ( is.null( ratios ) ) return( NULL )
 
   if ( is.character( ratios ) && file.exists( ratios ) ) {
-    if(verbose) { cat( "Loading ratios file", ratios, "\n" ) }
+    if ( verbose ) cat ( "Loading ratios file", ratios, "\n" )
     ratios <- read.delim( file=gzfile( ratios ), sep="\t", as.is=T, header=T )
   }
 
@@ -34,12 +34,12 @@ load.ratios <- function( ratios, preprocess.ratios.bool=T, verbose=T ) {
     if ( class( ratios[ ,1 ] ) == "character" ) ratios <- ratios[ ,-1 ]
   }
 
-  if(verbose) { cat( "Original ratios matrix is", paste( dim( ratios ), collapse="x" ), "\n" ) }
+  if ( verbose ) cat( "Original ratios matrix is", paste( dim( ratios ), collapse="x" ), "\n" )
   if ( ! is.matrix( ratios ) ) ratios <- as.matrix( ratios )
 
   ## Filter out rows/cols with too many (>= 3/4 of total) NAs or zeroes (e.g. for sce data) & scale
-  if ( (is.null( attr( ratios, "isPreProcessed" ) ) || attr( ratios, "isPreProcessed" ) == FALSE) & (preprocess.ratios.bool==T) ) {
-    ratios <- preprocess.ratios( ratios, verbose = verbose )
+  if ( preprocess && ( is.null( attr( ratios, "isPreProcessed" ) ) || attr( ratios, "isPreProcessed" ) == FALSE ) ) {
+    ratios <- preprocess.ratios( ratios, verbose=verbose )
     attr( ratios, "isPreProcessed" ) <- TRUE
   }
 
@@ -67,18 +67,18 @@ preprocess.ratios <- function( ratios, filter=T, normalize=T, col.groups=NULL, f
   ##                               scale=F ) )
   ## }
   if ( filter ) {
-    if(verbose) { cat( "Filtering out nochange rows/cols from ratios matrix...\n" ) }
+    if( verbose ) cat( "Filtering out nochange rows/cols from ratios matrix...\n" )
     tmp1 <- apply( ratios, 1, function( i ) mean( is.na( i ) | abs( i ) <= 0.17 ) ) < frac.cutoff
     tmp2 <- apply( ratios, 2, function( i ) mean( is.na( i ) | abs( i ) <= 0.1 ) ) < frac.cutoff
     ratios <- ratios[ tmp1, ,drop=F ]
     ratios <- ratios[ ,tmp2 ,drop=F ]
-    if(verbose) { cat( "Filtered ratios matrix is", paste( dim( ratios ), collapse="x" ), "\n" ) }
+    if ( verbose ) cat( "Filtered ratios matrix is", paste( dim( ratios ), collapse="x" ), "\n" )
     col.groups <- col.groups[ tmp2 ]
   }
   if ( normalize ) {
     for ( cg in unique( col.groups ) ) {
       cols <- names( which( col.groups == cg ) )
-      if (verbose) { cat( "Normalizing ratios matrix", cg, "...\n" ) }
+      if ( verbose ) cat( "Normalizing ratios matrix", cg, "...\n" )
       ratios[ ,cols ] <- t( scale( t( ratios[ ,cols ,drop=F ] ),
                                   center=apply( ratios[ ,cols ,drop=F ], 1, median, na.rm=T ),
                  scale=apply( ratios[ ,cols ,drop=F ], 1, sd, na.rm=T ) ) ) ## Row center by median AND scale by sd!

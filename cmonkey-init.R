@@ -79,27 +79,22 @@ cmonkey.init <- function( env=NULL, ... ) {
   }
 
   ## Ratios can be a single matrix/df/filename or a list of those; if a single matrix/df, make it a list w/that
-  set.param( "preprocess.ratios.bool", TRUE )
   if ( ( exists( "ratios" ) && ! is.null( ratios ) ) ) {
-    if ( is.matrix( ratios ) || is.data.frame( ratios ) || is.character( ratios ) ) {
-      ratios.raw <- list( ratios=load.ratios( ratios, preprocess.ratios.bool=FALSE, verbose=F ) )
-      ratios <- list( ratios=load.ratios( ratios, preprocess.ratios.bool) )
-    } else {
-      ratios.raw <- lapply( ratios, function( r ) as.matrix( load.ratios( r, preprocess.ratios.bool=FALSE, verbose=F ) ) )
-      ratios <- lapply( ratios, function( r ) as.matrix( load.ratios( r, preprocess.ratios.bool ) ) )
-    }
-    attr( ratios, "rnames" ) <- attr( ratios.raw, "rnames" ) <- sort( unique( unlist( lapply( ratios, rownames ) ) ) )
-    attr( ratios, "cnames" ) <- attr( ratios.raw, "cnames" ) <- sort( unique( unlist( lapply( ratios, colnames ) ) ) )
-    attr( ratios, "nrow" ) <- attr( ratios.raw, "nrow" ) <- length( attr( ratios, "rnames" ) )
-    attr( ratios, "ncol" ) <- attr( ratios.raw, "ncol" ) <- length( attr( ratios, "cnames" ) ) ## Summary attributes (for multiple ratios matrices)
+    if ( is.matrix( ratios ) || is.data.frame( ratios ) ) ratios <- list( ratios=load.ratios( ratios ) )
+    else if ( is.character( ratios ) ) ratios <- lapply( ratios, load.ratios )
+    else ratios <- lapply( ratios, function( r ) as.matrix( load.ratios( r ) ) )
+    ratios <- ratios[ sapply( ratios, function( r ) all( dim( r ) > 0 ) ) ]
+    attr( ratios, "rnames" ) <- sort( unique( unlist( lapply( ratios, rownames ) ) ) )
+    attr( ratios, "cnames" ) <- sort( unique( unlist( lapply( ratios, colnames ) ) ) )
+    attr( ratios, "nrow" ) <- length( attr( ratios, "rnames" ) )
+    attr( ratios, "ncol" ) <- length( attr( ratios, "cnames" ) ) ## Summary attributes (for multiple ratios matrices)
     for ( n in names( ratios ) ) {
-      attr( ratios[[ n ]], "maxRowVar" ) <- attr( ratios.raw[[ n ]], "maxRowVar" ) <- mean( apply( ratios[[ n ]][,], 1, var, use="pair" ), na.rm=T ) ##* 1.2
-      attr( ratios[[ n ]], "all.colVars" ) <- attr( ratios.raw[[ n ]], "all.colVars" ) <- apply( ratios[[ n ]][,], 2, var, use="pair", na.rm=T )
+      attr( ratios[[ n ]], "maxRowVar" ) <- mean( apply( ratios[[ n ]][,], 1, var, use="pair" ), na.rm=T ) ##* 1.2
+      attr( ratios[[ n ]], "all.colVars" ) <- apply( ratios[[ n ]][,], 2, var, use="pair", na.rm=T )
     }
     rm( n )
   }
   if ( ! is.null( env ) ) assign( "ratios", ratios, envir=env )
-  if ( ! is.null( env ) ) assign( "ratios.raw", ratios.raw, envir=env )
 
   ## if ( exists( "is.eukaryotic" ) && is.eukaryotic ) {
   ##   set.param( "operon.shift", FALSE )
@@ -715,7 +710,8 @@ cmonkey.init <- function( env=NULL, ... ) {
       ##       }
       ##     }
     }
-    cat( sum( ! is.na( genome.info$cog.code ) ), "genes have a COG code (", sum( is.na( genome.info$cog.code ) ),
+    cat( sum( ! is.na( genome.info$cog.code ) ), "genes have a COG code (",
+        if ( is.null( genome.info$cog.code ) ) attr( ratios, "nrow" ) else sum( is.na( genome.info$cog.code ) ),
         "do not)\n" )
 
   }
