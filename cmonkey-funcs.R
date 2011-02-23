@@ -467,10 +467,9 @@ get.clusterStack <- function( ks=1:k.clust, force=F, ... ) {
 #'  
 #' @export
 #' @usage ratios <- get.unpreprocessed.ratios()
-get.unpreprocessed.ratios <- function(...) {
-  return(ratios.raw)
+get.unpreprocessed.ratios <- function( ... ) {
+  return( ratios.raw )
 }
-
 
 cluster.resid <- function( k, rats.inds="COMBINED", varNorm=F, in.cols=T, ... ) {
   ## FLOC residual number is a good statistic
@@ -1061,8 +1060,8 @@ seed.clusters <- function( k.clust, seed.method="rnd", col.method="rnd" ) {
     ##cat(dim(tmp.rat),k.clust,"\n")
     row.membership <- kmeans( tmp.rat, centers=k.clust, iter.max=20, nstart=2 )$cluster
     if ( n.clust.per.row[ 1 ] > 1 ) row.membership <-
-      cbind( row.membership, matrix( rep( 0, attr( ratios, "nrow" ) * ( n.clust.per.row[ 1 ] - 1 ),
-                                         ncol=n.clust.per.row[ 1 ] - 1 ) ) )
+      cbind( row.membership, matrix( rep( 0, attr( ratios, "nrow" ) * ( n.clust.per.row[ 1 ] - 1 ) ),
+                                         ncol=n.clust.per.row[ 1 ] - 1 ) )
   }
   
   if ( is.vector( row.membership ) ) row.membership <- t( row.membership ) ## probably n.clust.per.row == 1

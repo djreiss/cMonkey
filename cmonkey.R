@@ -89,7 +89,7 @@ install.binaries <- function( meme.version="4.3.0",
   cMonkey:::dlf( sprintf( "meme_%s.tar.gz", meme.version ), url )
   system( sprintf( "tar -xzf meme_%s.tar.gz", meme.version ) ); unlink( sprintf( "meme_%s.tar.gz", meme.version ) )
   setwd( sprintf( "meme_%s", meme.version ) ); dir.create( "local" )
-  system( sprintf( "./configure --prefix=%s/local/ --enable-dependency-tracking --enable-opt --disable-shared --disable-fast-install --enable-serial", getwd() ) )
+  system( sprintf( "./configure --prefix=%s/local/ --enable-dependency-tracking --enable-opt --disable-shared --disable-fast-install --enable-serial --enable-build-libxml2 --enable-build-libxslt --disable-shared --enable-static --with-gnu-ld", getwd() ) )
   system( "make" ); system( "make install" )
   setwd( ".." )
   system( sprintf( "ln -s meme_%s/local/bin/meme", meme.version ) )
