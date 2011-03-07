@@ -1058,7 +1058,8 @@ seed.clusters <- function( k.clust, seed.method="rnd", col.method="rnd" ) {
     tmp.rat <- get.cluster.matrix() ##ratios;
     tmp.rat[ is.na( tmp.rat ) ] <- 0
     ##cat(dim(tmp.rat),k.clust,"\n")
-    row.membership <- kmeans( tmp.rat, centers=k.clust, iter.max=20, nstart=2 )$cluster
+    km <- kmeans
+    row.membership <- km( tmp.rat, centers=k.clust, iter.max=20, nstart=2 )$cluster
     if ( n.clust.per.row[ 1 ] > 1 ) row.membership <-
       cbind( row.membership, matrix( rep( 0, attr( ratios, "nrow" ) * ( n.clust.per.row[ 1 ] - 1 ) ),
                                          ncol=n.clust.per.row[ 1 ] - 1 ) )

@@ -18,11 +18,11 @@
 #' @param verbose  Set to FALSE to supress the output (DEFAULT: T)
 #' @export
 #' @usage ratios <- load.ratios( ratios, preprocess=T, verbose=T )
-load.ratios <- function( ratios, preprocess=T, verbose=T ) {
+load.ratios <- function( ratios ) {
   if ( is.null( ratios ) ) return( NULL )
 
   if ( is.character( ratios ) && file.exists( ratios ) ) {
-    if ( verbose ) cat ( "Loading ratios file", ratios, "\n" )
+    cat( "Loading ratios file", ratios, "\n" )
     ratios <- read.delim( file=gzfile( ratios ), sep="\t", as.is=T, header=T )
   }
 
@@ -34,12 +34,11 @@ load.ratios <- function( ratios, preprocess=T, verbose=T ) {
     if ( class( ratios[ ,1 ] ) == "character" ) ratios <- ratios[ ,-1 ]
   }
 
-  if ( verbose ) cat( "Original ratios matrix is", paste( dim( ratios ), collapse="x" ), "\n" )
+  cat( "Original ratios matrix is", paste( dim( ratios ), collapse="x" ), "\n" )
+  ## First filter out rows/cols with too many (>= 3/4 of total) NAs or zeroes (e.g. for sce data)
   if ( ! is.matrix( ratios ) ) ratios <- as.matrix( ratios )
-
-  ## Filter out rows/cols with too many (>= 3/4 of total) NAs or zeroes (e.g. for sce data) & scale
-  if ( preprocess && ( is.null( attr( ratios, "isPreProcessed" ) ) || attr( ratios, "isPreProcessed" ) == FALSE ) ) {
-    ratios <- preprocess.ratios( ratios, verbose=verbose )
+  if ( is.null( attr( ratios, "isPreProcessed" ) ) || attr( ratios, "isPreProcessed" ) == FALSE ) {
+    ratios <- preprocess.ratios( ratios )
     attr( ratios, "isPreProcessed" ) <- TRUE
   }
 
@@ -58,7 +57,7 @@ load.ratios <- function( ratios, preprocess=T, verbose=T ) {
 #' @param verbose  Set to FALSE to supress the output (DEFAULT: T)
 #' @export
 #' @usage ratios <- preprocess.ratios( ratios, filter=T, normalize=T, col.groups=NULL, frac.cutoff=0.98, verbose=T )
-preprocess.ratios <- function( ratios, filter=T, normalize=T, col.groups=NULL, frac.cutoff=0.98, verbose=T ) {
+preprocess.ratios <- function( ratios, filter=T, normalize=T, col.groups=NULL, frac.cutoff=0.98 ) {
   if ( is.null( col.groups ) ) col.groups <- rep( 1, ncol( ratios ) )
   if ( is.null( names( col.groups ) ) ) names( col.groups ) <- colnames( ratios )
   ## for ( cg in unique( col.groups ) ) {
@@ -67,18 +66,18 @@ preprocess.ratios <- function( ratios, filter=T, normalize=T, col.groups=NULL, f
   ##                               scale=F ) )
   ## }
   if ( filter ) {
-    if( verbose ) cat( "Filtering out nochange rows/cols from ratios matrix...\n" )
+    cat( "Filtering out nochange rows/cols from ratios matrix...\n" )
     tmp1 <- apply( ratios, 1, function( i ) mean( is.na( i ) | abs( i ) <= 0.17 ) ) < frac.cutoff
     tmp2 <- apply( ratios, 2, function( i ) mean( is.na( i ) | abs( i ) <= 0.1 ) ) < frac.cutoff
     ratios <- ratios[ tmp1, ,drop=F ]
     ratios <- ratios[ ,tmp2 ,drop=F ]
-    if ( verbose ) cat( "Filtered ratios matrix is", paste( dim( ratios ), collapse="x" ), "\n" )
+    cat( "Filtered ratios matrix is", paste( dim( ratios ), collapse="x" ), "\n" )
     col.groups <- col.groups[ tmp2 ]
   }
   if ( normalize ) {
     for ( cg in unique( col.groups ) ) {
       cols <- names( which( col.groups == cg ) )
-      if ( verbose ) cat( "Normalizing ratios matrix", cg, "...\n" )
+      cat( "Normalizing ratios matrix", cg, "...\n" )
       ratios[ ,cols ] <- t( scale( t( ratios[ ,cols ,drop=F ] ),
                                   center=apply( ratios[ ,cols ,drop=F ], 1, median, na.rm=T ),
                  scale=apply( ratios[ ,cols ,drop=F ], 1, sd, na.rm=T ) ) ) ## Row center by median AND scale by sd!
@@ -87,62 +86,6 @@ preprocess.ratios <- function( ratios, filter=T, normalize=T, col.groups=NULL, f
   ratios
 }
 
-#' Load a ratios matrix based on GEO search terms
-#'  
-#' @param search.terms  GEO search terms (DEFAULT: gsub( "_", " ", rsat.species ))
-#' @export
-#' @usage ratios <- load.ratios.GEO()
-load.ratios.GEO <- function( search.terms ) {
-  if ( missing( search.terms ) ) search.terms <- gsub( "_", " ", rsat.species )
-  message( "Searching GEO for terms='", search.terms, "'" )
-  search.terms <- URLencode( search.terms )
-  try( dlf( sprintf( "data/%s/GEO_search.xml", rsat.species ),
-           sprintf( 'http://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=gds&term=%s&retmax=99999',
-                   search.terms ) ) )
-  tmp <- readLines( sprintf( "data/%s/GEO_search.xml", rsat.species ) )
-  tmp <- grep( '<Id>\\d+</Id>', tmp, perl=T, val=T )
-  ids <- sapply( strsplit( tmp, "[<>]" ), "[", 3 )
-  ids <- gsub( "^20+", "", gsub( "^10+", "", ids ) ) ## some ids have '2000' or '1000' at their beginning for some reason
-  cat( "Downloading GEO series:", ids, "\n" )
-  for ( id in ids ) {
-    err <- try( dlf( sprintf( "data/%s/GSE%s_series_matrix.txt.gz", rsat.species, id ),
-        sprintf( "ftp://ftp.ncbi.nih.gov/pub/geo/DATA/SeriesMatrix/GSE%s/GSE%s_series_matrix.txt.gz", id, id ) ) )
-    if ( class( err ) == "try-error" ) { ## Probably has multiple filenames, get a listing...
-      require( RCurl )
-      tmp <- try( getURL( sprintf( "ftp://ftp.ncbi.nih.gov/pub/geo/DATA/SeriesMatrix/GSE%s/", id ) ) )
-      i <- 0
-      while( class( tmp ) == "try-error" && ( i <- i + 1 ) < 10 )
-        tmp <- try( getURL( sprintf( "ftp://ftp.ncbi.nih.gov/pub/geo/DATA/SeriesMatrix/GSE%s/", id ) ) )
-      tmp <- strsplit( tmp, "\n" )[[ 1 ]]
-      tmp <- sapply( tmp, function( i ) strsplit( i, "\\s+" )[[ 1 ]][ 9 ] ); names( tmp ) <- NULL
-      for ( id2 in tmp ) {
-        err <- try( dlf( sprintf( "data/%s/%s", rsat.species, id2 ),
-             sprintf( "ftp://ftp.ncbi.nih.gov/pub/geo/DATA/SeriesMatrix/GSE%s/%s", id, id2 ) ) )
-      }
-    }
-  }
-  out <- list()
-  for ( f in list.files( patt=glob2rx( "GSE*_series_matrix.txt.gz" ),
-                        path=sprintf( "data/%s/", rsat.species ), full=T ) ) {
-    if ( file.info( f )$size == 0 ) next
-    cat( "Loading:", f, "\n" )
-    rats <- read.delim( gzfile( f ), comment='!' )
-    rownames( rats ) <- sapply( strsplit( as.character( rats[[ 1 ]] ), "|", fixed=T ), "[", 1 )
-    out[[ basename( f ) ]] <- as.matrix( rats[ ,-1 ] )
-  }
-  out
-}
-
-#' Return the condition groups for conds
-#'  
-#' @param conds  The conditions to return groups for (DEFAULT: attr( ratios, "cnames" ), i.e. "all" )
-#' @export
-#' @usage cond.groups <- get.condition.groups( conds=attr( ratios, "cnames" ) )
-get.condition.groups <- function( conds=attr( ratios, "cnames" ) ) {
-  tmp <- sapply( conds, function( i ) strsplit( i, "__" )[[ 1 ]][ 1 ] ) ## Specific for halo
-  tmp2 <- as.integer( as.factor( tmp ) ); names( tmp2 ) <- names( tmp )
-  tmp2
-}
 
 #' Download a file from the internet.  A wrapper for download.file()
 #'  
@@ -220,9 +163,7 @@ get.genome.info <- function( fetch.upstream=F, fetch.predicted.operons="rsat" ) 
     chroms <- unique( as.character( feature.tab$contig ) )
     chroms <- chroms[ ! is.na( chroms ) & chroms != "" ]
 
-##!ifndef 
-    ##if ( FALSE && big.memory ) genome.seqs <- list.reference( l=NULL, sprintf( "%s/genome.seqs", cmonkey.filename, type="RDS" ) )
-##!endif
+    
     if ( ! is.na( mot.iters[ 1 ] ) ) {
       genome.seqs <- list()
       ##genome.seqs <- toupper( lapply(
@@ -237,7 +178,8 @@ get.genome.info <- function( fetch.upstream=F, fetch.predicted.operons="rsat" ) 
           if ( class( err ) == "try-error" ) {
             err <- dlf( fname, paste( genome.loc, gsub( ".[0-9]$", "", i ), ".raw", sep="" ) )
             if ( class( err ) == "try-error" ) cat( "ERROR reading genome sequence", i, "\n" )
-          }
+            else fname <- paste( "data/", rsat.species, "/", gsub( ".[0-9]$", "", i ), ".raw", sep="" )
+          } else fname <- paste( "data/", rsat.species, "/", ii, ".raw", sep="" )
         }
         out <- try( readLines( gzfile( fname ) ), silent=T )
         if ( class( out ) == "try-error" || length( out ) == 0 ) cat( "ERROR reading genome sequence", i, "\n" )
@@ -272,9 +214,6 @@ get.genome.info <- function( fetch.upstream=F, fetch.predicted.operons="rsat" ) 
       
       cat( "Mean number of synonyms per probe:", mean( sapply( tmp, length ), na.rm=T ), "\n" )
       synonyms <- tmp
-##!ifndef 
-##      if ( big.memory ) synonyms <- list.reference( synonyms, sprintf( "%s/synonyms.dump", cmonkey.filename ) )
-##!endif
       rm( tmp, is.bad )
     }
   

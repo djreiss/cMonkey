@@ -6,7 +6,7 @@
 ## liable for anything that happens as a result of using this software
 ###################################################################################
 
-cm.version <- "4.8.1"
+cm.version <- "4.8.2"
 
 
 cmonkey <- function( env=NULL, ... ) {
@@ -79,6 +79,9 @@ cmonkey <- function( env=NULL, ... ) {
 ##     if ( class( tmp ) != "function" ) assign( i, tmp, envir=env )
 ##   }
   invisible( env )
+}
+
+DEBUG <- function( ... ) {
 }
 
 install.binaries <- function( meme.version="4.3.0",

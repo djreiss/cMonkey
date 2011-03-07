@@ -15,13 +15,15 @@ clusters.w.func <- function( func, ks=1:k.clust, short=F, max.rows=999, p.val=F 
   ##sapply( ks, function( i ) {  
   mc <- get.parallel( length( ks ) )
   unlist( mc$apply( ks, function( i ) { ##, ... ) {
-    rows <- get.long.names( get.rows( i ), short=short )
+    rows <- get.rows( i )
+    if ( length( rows ) <= 1 ) return( NA )
+    rows.k <- get.long.names( rows, short=short )
     if ( ! p.val ) {
-      if ( length( get.rows( i ) ) >= max.rows ) NA else
-      length( grep( func, rows, perl=T, ignore.case=T ) )
+      if ( length( rows ) >= max.rows ) NA else
+      length( grep( func, rows.l, perl=T, ignore.case=T ) )
     } else {
-      phyper( length( grep( func, rows, perl=T, ignore.case=T ) ),
-             n2, attr( ratios, "nrow" ) - n2, length( get.rows( i ) ), lower=F ) * length( ks ) ## bonferroni baby!
+      phyper( length( grep( func, rows.l, perl=T, ignore.case=T ) ),
+             n2, attr( ratios, "nrow" ) - n2, length( rows ), lower=F ) * length( ks ) ## bonferroni baby!
     }
   } ) ) ##, mc.cores=mc$par ) )
 }
@@ -32,6 +34,7 @@ clusters.w.genes <- function( genes, ks=1:k.clust, p.val=F ) {
   mc <- get.parallel( length( ks ) )
   unlist( mc$apply( ks, function( i ) { ##, ... ) {
     rows <- get.rows( i )
+    if ( length( rows ) <= 1 ) return( NA )
     if ( ! p.val ) sum( rows %in% genes )
     else phyper( sum( rows %in% genes ), length( genes ), attr( ratios, "nrow" ) - length( genes ),
                 length( rows ), lower=F ) * length( ks )
@@ -107,17 +110,17 @@ cluster.summary <- function( e.cutoff=0.01, nrow.cutoff=5, seq.type=names( mot.w
   out <- data.frame( k=1:k.clust, nrow=nrow, score=score, ##score.norm=score.norm,
                     resid=sapply( 1:k.clust, cluster.resid, varNorm=F ), 
                     consensus1=sapply( 1:k.clust,
-                      function( k ) if ( length( ms[[ k ]] ) <= 2 ) "" else
+                      function( k ) if ( length( ms[[ k ]] ) <= 3 ) "" else
                       pssm.to.string( ms[[ k ]]$meme.out[[ 1 ]]$pssm ) ),
                     e.value1=sapply( 1:k.clust,
-                      function( k ) if ( length( ms[[ k ]] ) <= 2 ) Inf else
+                      function( k ) if ( length( ms[[ k ]] ) <= 3 ) Inf else
                       ms[[ k ]]$meme.out[[ 1 ]]$e.value ),
                     consensus2=sapply( 1:k.clust,
-                      function( k ) if ( length( ms[[ k ]] ) <= 2 ) "" else
+                      function( k ) if ( length( ms[[ k ]] ) <= 3 ) "" else
                       if ( length( ms[[ k ]]$meme.out ) == 1 ) "" else
                       pssm.to.string( ms[[ k ]]$meme.out[[ 2 ]]$pssm ) ),
                     e.value2=sapply( 1:k.clust,
-                      function( k ) if ( length( ms[[ k ]] ) <= 2 ) Inf else
+                      function( k ) if ( length( ms[[ k ]] ) <= 3 ) Inf else
                       if ( length( ms[[ k ]]$meme.out ) <= 1 ) Inf else
                       ms[[ k ]]$meme.out[[ 2 ]]$e.value )
                     )
