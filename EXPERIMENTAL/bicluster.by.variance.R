@@ -414,7 +414,7 @@ runnit <- function( e ) {
 
 	##e$foreach.register.backend(multicore:::detectCores())
 	
-	newClusterStack <- resplitClusters(pValCut = 0.1, aveNumCond=round(sum(sapply(ratios,ncol))/2) )
+	newClusterStack <- resplitClusters(e, pValCut = 0.1, aveNumCond=round(sum(sapply(ratios,ncol))/2) )
 	
 	##e$clusterStack <- newClusterStack$newClusterStack
 	##environment(e$clusterStack) <- e
