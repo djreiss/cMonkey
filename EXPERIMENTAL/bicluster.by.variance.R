@@ -52,13 +52,14 @@ getVarianceCutoff <- function(ratios, n, numSamples = 10000, pVal = 0.05) {
 }
 
 #' Given a ratios matrix and a number of genes, figure out the expected distribution of variances
+#'   Old version that will calculate number of samples using 31 samples
 #' 
 #' @param ratios  A refdata pointing to the ratios matrix
 #' @param n  The number of genes
 #' @param numSamples  The number of samples (DEFAULT: -1, i.e. auto calculate 99% confidence within 1/30s of maximum sampled standard deviation)
 #' @export
 #' @usage varDist <- getVarianceDist(ratios, n,numSamples = 10000)
-getVarianceDist <- function(ratios, n, numSamples = -1) {
+getVarianceDist.bk <- function(ratios, n, numSamples = -1) {
 	ratios <- derefdata(ratios)
 
 	#Optionally, determine the number of samples you should take with boot strapping
@@ -90,14 +91,79 @@ getVarianceDist <- function(ratios, n, numSamples = -1) {
 	return(vars)
 }
 
+#' Given a ratios matrix and a number of genes, figure out the expected distribution of variances
+#'   Will sample background until the mean and sd converge or the operation times out
+#'   Non-parallel due to speed
+#' 
+#' @param ratios  A refdata pointing to the ratios matrix
+#' @param n  The number of genes
+#' @param tolerance  The fraction tolance to use as a stopping condition (DEFAULT: 0.01)
+#' @param maxTime  The approximate maximum time to run in seconds (DEFAULT: 600)
+#' @param chunkSize  The number of samples to add between test (DEFAULT: 200)
+#' @param verbose  Set to false to supress output (DEFAULT: F)
+#' @param numSamples  Does nothing.  Temp included for backwards compatability (DEFAULT: NULL)
+#' @export
+#' @usage varDist <- getVarianceMeanSD(ratios, n, tolerance = 0.05 ,maxTime=600, chunkSize=200, verbose=F, numSamples=NULL)
+getVarianceMeanSD <- function(ratios, n, tolerance = 0.01 ,maxTime=600, chunkSize=200, verbose=F, numSamples=NULL) {
+	ratios <- derefdata(ratios)
+
+	keepRunning <- rep(T,ncol(ratios))
+	prevMeans <- rep(0,ncol(ratios))
+	prevSds <- rep(0.001,ncol(ratios))
+	curMeans <- rep(Inf,ncol(ratios))
+	curSds <- rep(Inf,ncol(ratios))
+	keepRunning <- rep(T,ncol(ratios))
+	names(keepRunning) <- names(curMeans) <- names(curSds) <- names(prevMeans) <- names(prevSds) <- colnames(ratios)
+	
+	rawScores <- list()
+	
+	startTime <- proc.time()[3]
+	curRep<-1
+	
+	if (verbose) { cat('\nSample', n, "genes from", ncol(ratios), "conditions") }
+	while(any(keepRunning) & ((proc.time()[3]-startTime) < maxTime)) {
+		if (verbose) { cat('\nRep = ', curRep," ( ",round(proc.time()[3]-startTime),"s ) ",sep="") }
+		prevMeans <- curMeans
+		prevSds <- curSds
+		newScores <- foreach (i = which(keepRunning)) %do% {
+			#if (verbose) { cat(i,",",sep="") }
+			curReg <- names(keepRunning)[i]
+			curScores <- rep(0,chunkSize)
+			for (j in 1:chunkSize) {
+				curScores[j] <-var(ratios[sample.int(nrow(ratios),n),curReg],na.rm=T)
+			}
+			curScores
+		}
+
+		#browser()
+
+		for (ctr in 1:sum(keepRunning)) {
+			i<-which(keepRunning)[ctr]
+			curReg <- names(keepRunning)[i]
+			rawScores[[curReg]] <- c(rawScores[[curReg]],newScores[[ctr]])
+			curMeans[i] <- mean(rawScores[[curReg]])
+			curSds[i] <- sd(rawScores[[curReg]])
+		}
+
+		#browser()
+		keepRunning <- (abs(curMeans-prevMeans) >= tolerance*abs(prevMeans)) | (abs(curSds-prevSds) >= tolerance*prevSds)
+		curRep <- curRep+1
+	}
+	if(verbose) {cat('\n')}
+	
+	return(list(means=curMeans,sds=curSds))
+}
+
+
 #' Return the means and SDs for the variances for each experimental condition
+#'   Uses: getVarianceDist.bk
 #' 
 #' @param ratios  A refdata pointing to the ratios matrix
 #' @param n  The number of genes
 #' @param numSamples  The number of samples (DEFAULT: -1 i.e. autodetect)
 #' @export
 #' @usage varCutoff <- getVarianceMeanSD(ratios, n,numSamples = 10000)
-getVarianceMeanSD <- function(ratios, n, numSamples = -1) {
+getVarianceMeanSD.bk <- function(ratios, n, numSamples = -1) {
 	varDist <- getVarianceDist(ratios, n,numSamples)
 	means <- apply(varDist,2, mean )
 	sds <- apply(varDist,2, sd )
@@ -114,7 +180,7 @@ getVarianceMeanSD <- function(ratios, n, numSamples = -1) {
 getVarianceMeanSD.all <- function(ratios, n, numSamples = -1) {
 	varDist <- NULL
 	for (i in 1:length(ratios)) {
-		varDist<-c(varDist,as.numeric(getVarianceDist(refdata(ratios[[i]]), n,numSamples)))
+		varDist<-c(varDist,as.numeric(getVarianceDist(refdata(e$ratios[[i]]), n,numSamples)))
 	}
 	return(data.frame(means=mean(varDist),sds=sd(varDist)))
 }
@@ -164,13 +230,13 @@ cluster.ratPval <- function( k, rats.inds="COMBINED", means.sds=list(), clusterS
 	numGeneList<-numGenesInClusters[! numGenesInClusters %in% names(means.sds)]
 	lGeneList<-length(numGeneList)
 	if (lGeneList > 0 ) {
-		numGeneLists<-split(1:lGeneList,cut(1:lGeneList,floor(lGeneList/parallel.cores)))
+		numGeneLists<-split(1:lGeneList,cut(1:lGeneList,floor(lGeneList/e$parallel.cores)))
 		cat("Calculating variance means and sd's for",lGeneList,"gene counts\n")
 		for (geneListNums in numGeneLists) { #Embed in for loop to have a status monitor
 			curNumGenes<-numGeneList[geneListNums]
 			cat(curNumGenes,'',sep=",")
 			flush.console()
-			new.means.sds<- foreach (n=curNumGenes, .inorder=TRUE) %dopar% {
+			new.means.sds<- foreach (n=curNumGenes, .inorder=TRUE) %do% {
 				getVarianceMeanSD.DF(rats, n) 
 			} #for (n in numGeneList)
 			names(new.means.sds)<-as.character(curNumGenes)
@@ -213,9 +279,9 @@ cluster.ratPval <- function( k, rats.inds="COMBINED", means.sds=list(), clusterS
 #' @usage pValList <- getRatPvals(e, geneList, mean.sd=means.sds[["6"]])
 getRatPvals <- function(e, geneList, mean.sd) {
 	col.pVals<-NULL
-	for (ratIdx in 1:length(ratios)) {
-		curExps <- colnames(ratios[[ratIdx]])
-		relRats<- ratios[[ratIdx]] [rownames(ratios[[ratIdx]]) %in% geneList,]
+	for (ratIdx in 1:length(e$ratios)) {
+		curExps <- colnames(e$ratios[[ratIdx]])
+		relRats<- e$ratios[[ratIdx]] [rownames(e$ratios[[ratIdx]]) %in% geneList,]
 		vars <- apply(relRats,2,var,na.rm=T)
 
 		pVals<-vars
@@ -243,20 +309,20 @@ getRatPvals <- function(e, geneList, mean.sd) {
 resplitClusters <- function(e, means.sds=list(), numSamples = -1, pValCut = 0.1, bonferroni = F, aveNumCond=NULL, all = T) {
 
 	#Calculate the background distribution
-	numGenesInClusters<- unique(sort(sapply(clusterStack,function(x) {x$nrows} )))
+	numGenesInClusters<- unique(sort(sapply(e$clusterStack,function(x) {x$nrows} )))
 
 	#Load means.sds as necessary
 	numGeneList<-numGenesInClusters[! numGenesInClusters %in% names(means.sds)]
 	lGeneList<-length(numGeneList)
 	if (lGeneList > 0 ) {
-		numGeneLists<-split(1:lGeneList,cut(1:lGeneList,floor(lGeneList/parallel.cores)))
+		numGeneLists<-split(1:lGeneList,cut(1:lGeneList,floor(lGeneList/e$parallel.cores)))
 		cat("Calculating variance means and sd's for",lGeneList,"gene counts\n")
 		for (geneListNums in numGeneLists) { #Embed in for loop to have a status monitor
 			curNumGenes<-numGeneList[geneListNums]
 			cat(curNumGenes,'',sep=",")
 			flush.console()
 			new.means.sds<- foreach (n=curNumGenes, .inorder=TRUE) %dopar% {
-				getVarianceMeanSD.DF(ratios, n, numSamples = numSamples, all = all)
+				getVarianceMeanSD.DF(e$ratios, n, numSamples = numSamples, all = all)
 			} #for (n in numGeneList)
 			names(new.means.sds)<-as.character(curNumGenes)
 			means.sds<-c(means.sds,new.means.sds)
@@ -272,10 +338,10 @@ resplitClusters <- function(e, means.sds=list(), numSamples = -1, pValCut = 0.1,
 	
 		for ( i in 1:length(numGenesInClusters) ) {
 			numGenes <- numGenesInClusters[i]
-			curIdxs <- sapply(clusterStack,function(x) {x$nrows} ) == numGenes
+			curIdxs <- sapply(e$clusterStack,function(x) {x$nrows} ) == numGenes
 			if (any(curIdxs) & (numGenes > 1)){
 				mean.sd <- means.sds[[as.character(numGenes)]]
-				varLists<-lapply(which(curIdxs), function(x) {getRatPvals(e, clusterStack[[x]]$rows, mean.sd)})
+				varLists<-lapply(which(curIdxs), function(x) {getRatPvals(e, e$clusterStack[[x]]$rows, mean.sd)})
 				pValCuts[as.character(numGenes)]<-as.numeric(sort(c(varLists,recursive=T))[aveNumCond*sum(curIdxs)])
 			} else {
 				pValCuts[as.character(numGenes)] <- 1
@@ -284,7 +350,7 @@ resplitClusters <- function(e, means.sds=list(), numSamples = -1, pValCut = 0.1,
 	} #if (pValCut <= 0)
 	
 	#Build the new clusterStack
-	newClustStack <- foreach (clust=clusterStack, .inorder=T) %dopar% {
+	newClustStack <- foreach (clust=e$clusterStack, .inorder=T) %do% {
 		if (clust$nrows > 1) {
 			pValCut <- pValCuts[as.character(clust$nrows)]
 			
@@ -292,7 +358,7 @@ resplitClusters <- function(e, means.sds=list(), numSamples = -1, pValCut = 0.1,
 			col.pVals <- getRatPvals(e, clust$rows, means.sds[[as.character(clust$nrows)]])
 
 			#Bonferroni correction
-			if (bonferroni == T) {pValCut <- pValCut / sum(sapply(ratios,ncol))}
+			if (bonferroni == T) {pValCut <- pValCut / sum(sapply(e$ratios,ncol))}
 
 			newClust<-clust
 			newClust$cols <- names(col.pVals)[col.pVals < pValCut]
@@ -301,7 +367,7 @@ resplitClusters <- function(e, means.sds=list(), numSamples = -1, pValCut = 0.1,
 
 			#Update the residuals to be the mean pValue of the included clusters
 			for (idx in 1:length(newClust$resid)) {
-				relCols <- newClust$cols[newClust$cols %in% colnames(ratios[[names(clust$resid[idx])]])]
+				relCols <- newClust$cols[newClust$cols %in% colnames(e$ratios[[names(clust$resid[idx])]])]
 				newClust$resid[idx] <- mean(col.pVals[relCols])
 			}
 		} else {
@@ -316,79 +382,82 @@ resplitClusters <- function(e, means.sds=list(), numSamples = -1, pValCut = 0.1,
 
 
 #These two functions update cMonkey to pull the rows & cols directly from the clusterStack
-##if (TRUE) {
 runnit <- function( e ) {
-  ## infFile <- 'DR.Inferelator-run-sce-2011-01-05.RData'
-  ## load(infFile)
-  ## colMap<-DrData$colMap
-  ## cMonkeyFile <- 'cmonkey-run-sce-2010-12-29.RData'
-  ## load(cMonkeyFile)
-                                        #e$ratios<-sortRatiosByTime(e$ratios, colMap)
-                                        #environment(e$ratios) <- e
+	##infFile <- 'DR.Inferelator-run-sce-2011-01-05.RData'
+	##load(infFile)
+	##colMap<-DrData$colMap
+	##cMonkeyFile <- 'cmonkey-run-sce-2011-03-04.RData'
+	##cMonkeyFile <- 'e.resplit.RData'
+	##if (exists('env')) { e <- env }
+	
+	##load(cMonkeyFile)
+	##for (i in 1:length(e$ratios)){
+	##	e$ratios[[i]]<-sortRatiosByTime(e$ratios[[i]], colMap)
+	##}
+	##attr(e$ratios,"cnames")<-unlist(sapply(e$ratios,colnames))
+	##environment(e$ratios) <- e
 
-  ## e$get.rows <- function (k, cs = get("clusterStack")) 
-  ## {
-  ##     return(cs[[k]]$rows)
-  ## }
-  ## environment(e$get.rows) <- e
+	##e$get.rows <- function (k, cs = get("clusterStack")) 
+	##{
+	##    return(cs[[k]]$rows)
+	##}
+	##environment(e$get.rows) <- e
 
-  ## e$get.cols <- function (k, cs = get("clusterStack")) 
-  ## {
-  ##     return(cs[[k]]$cols)
-  ## }
-  ## environment(e$get.cols) <- e
+	##e$get.cols <- function (k, cs = get("clusterStack")) 
+	##{
+	##    return(cs[[k]]$cols)
+	##}
+	##environment(e$get.cols) <- e
 
-  ##e$parallel.cores<-multicore:::detectCores()
-  ##environment(e$parallel.cores) <- e
-  
-  ##e$foreach.register.backend(multicore:::detectCores())
-                                        #newClusterStack <- resplitClusters(e, pValCut = 0.05, all=F)
-  newClusterStack <- resplitClusters(pValCut = 0.1, aveNumCond=round(sum(sapply(ratios,ncol))/2) )
+	##e$parallel.cores<-multicore:::detectCores()
+	##environment(e$parallel.cores) <- e
 
-  ##e$clusterStack <- newClusterStack$newClusterStack
-  ##environment(e$clusterStack) <- e
-
-  e$means.sds <- newClusterStack$means.sds
-  ##environment(e$means.sds) <- e
-
-  row.col.membership.from.clusterStack <- function( cs ) {
-    row.memb <- row.membership * 0
-    col.memb <- col.membership * 0
-    for ( k in 1:length( cs ) ) {
-      if ( k > ncol( row.memb ) ) row.memb <- cbind( row.memb, rep( 0, nrow( row.memb ) ) )
-      rows <- cs[[ k ]]$rows; rows <- rows[ ! is.na( rows ) ]
-      row.memb[ rows, k ] <- k
-      if ( k > ncol( col.memb ) ) col.memb <- cbind( col.memb, rep( 0, nrow( col.memb ) ) )
-      cols <- cs[[ k ]]$cols; cols <- cols[ ! is.na( cols ) ]
-      col.memb[ cols, k ] <- k
-    }
-    row.memb <- t( apply( row.memb, 1, function( i ) c( i[ i != 0 ], i[ i == 0 ] ) ) )
-    row.memb <- row.memb[ ,apply( row.memb, 2, sum ) != 0, drop=F ]
-    colnames( row.memb ) <- NULL
-    col.memb <- t( apply( col.memb, 1, function( i ) c( i[ i != 0 ], i[ i == 0 ] ) ) )
-    col.memb <- col.memb[ ,apply( col.memb, 2, sum ) != 0, drop=F ]
-    colnames( col.memb ) <- NULL
-    list( r=row.memb, c=col.memb )
-  }
-
-  ##environment( row.col.membership.from.clusterStack ) <- e
-  tmp <- row.col.membership.from.clusterStack( newClusterStack$newClusterStack ) ##e$clusterStack )
-  e$row.membership <- tmp$r
-  e$col.membership <- tmp$c
-  e$row.memb <- t( apply( e$row.membership, 1, function( i ) 1:k.clust %in% i ) )
-  e$col.memb <- t( apply( e$col.membership, 1, function( i ) 1:k.clust %in% i ) )
-  e$clusterStack <- get.clusterStack( force=T )
-  e$stats <- rbind( stats, get.stats() )
-  stop()
-  
-  save(e,file="e.resplit.RData")
-
-
-                                        #browser()	
-  source('write.project.R')
-  e$write.project()
+	##e$foreach.register.backend(multicore:::detectCores())
+	
+	newClusterStack <- resplitClusters(pValCut = 0.1, aveNumCond=round(sum(sapply(ratios,ncol))/2) )
+	
+	##e$clusterStack <- newClusterStack$newClusterStack
+	##environment(e$clusterStack) <- e
+	
+	e$means.sds <- newClusterStack$means.sds
+	##environment(e$means.sds) <- e
+	
+	row.col.membership.from.clusterStack <- function( cs ) {
+		row.memb <- row.membership * 0
+		col.memb <- col.membership * 0
+		for ( k in 1:length( cs ) ) {
+	  		if ( k > ncol( row.memb ) ) row.memb <- cbind( row.memb, rep( 0, nrow( row.memb ) ) )
+	  		rows <- cs[[ k ]]$rows; rows <- rows[ ! is.na( rows ) ]
+	  		row.memb[ rows, k ] <- k
+	  		if ( k > ncol( col.memb ) ) col.memb <- cbind( col.memb, rep( 0, nrow( col.memb ) ) )
+	  		cols <- cs[[ k ]]$cols; cols <- cols[ ! is.na( cols ) ]
+	  		col.memb[ cols, k ] <- k
+	  	}
+	  	row.memb <- t( apply( row.memb, 1, function( i ) c( i[ i != 0 ], i[ i == 0 ] ) ) )
+	  	row.memb <- row.memb[ ,apply( row.memb, 2, sum ) != 0, drop=F ]
+	  	colnames( row.memb ) <- NULL
+	  	col.memb <- t( apply( col.memb, 1, function( i ) c( i[ i != 0 ], i[ i == 0 ] ) ) )
+	  	col.memb <- col.memb[ ,apply( col.memb, 2, sum ) != 0, drop=F ]
+	  	colnames( col.memb ) <- NULL
+	  	list( r=row.memb, c=col.memb )
+	}
+	
+	##environment( row.col.membership.from.clusterStack ) <- e
+	tmp <- row.col.membership.from.clusterStack( newClusterStack$newClusterStack ) ##e$clusterStack )
+	e$row.membership <- tmp$r
+	e$col.membership <- tmp$c
+	e$row.memb <- t( apply( e$row.membership, 1, function( i ) 1:k.clust %in% i ) )
+	e$col.memb <- t( apply( e$col.membership, 1, function( i ) 1:k.clust %in% i ) )
+	e$clusterStack <- get.clusterStack( force=T )
+	e$stats <- rbind( stats, get.stats() )
+	stop()
+	  
+	save(e,file="e.resplit.RData")
+	
+	#browser()	
+	source('write.project.R')
+	e$write.project()
 }
-##}
 
 if ( TRUE ) {
   runnit( e )
