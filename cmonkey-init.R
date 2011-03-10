@@ -108,7 +108,7 @@ cmonkey.init <- function( env=NULL, ... ) {
   ## Default param settings (if already set, they will not be changed):
   set.param( "cog.org", "?" ) ## If "?" or NA, will try "Org" (for organism=="org")
   set.param( "rsat.species", "?" ) ## If "?" or NA, will try getting it from data/KEGG/KEGG_all_species.tab
-  set.param( "n.iter", 3000 ) ##1000
+  set.param( "n.iter", 2000 ) ##1000
   set.param( "n.clust.per.row", 2 ) ##n.clust.per.row <- 2
   if ( exists( "ratios" ) && ! is.null( ratios ) ) {
     set.param( "k.clust", round( attr( ratios, "nrow" ) * n.clust.per.row / 20 ) ) ## dflt avg clust size of 20
@@ -120,15 +120,15 @@ cmonkey.init <- function( env=NULL, ... ) {
   set.param( "col.iters", seq( 1, n.iter, by=5 ) )
   ##set.param( "meme.iters", seq( 399, n.iter, by=100 ) ) ## Which iters to re-run meme?
   set.param( "meme.iters", c( seq( 600, 1200, by=100 ), seq( 1250, 1500, by=50 ), seq( 1525, 1800, by=25 ),
-                             seq( 1810, n.iter, by=10 ) ) )
+                             seq( 1810, max( n.iter, 1820 ), by=10 ) ) )
   ##set.param( "mot.iters", seq( 100, n.iter, by=10 ) ) ## Which iters to use results of most recent meme run in scores
   set.param( "mot.iters", seq( 601, n.iter, by=3 ) ) ## Which iters to use results of most recent meme run in scores
   set.param( "net.iters", seq( 1, n.iter, by=7 ) ) ## Which iters to re-calculate network scores?
   set.param( "row.scaling", 6 )  ## Seems to work best for Mpn, works good for Halo
   set.param( "row.weights", c( ratios=1 ) ) ## Optionally load multiple ratios files and set relative weights
-  set.param( "mot.scaling", seq( 0, 1, length=n.iter/2 ) ) ##* 0.5
+  set.param( "mot.scaling", seq( 0, 1, length=n.iter*3/4 ) ) ##* 0.5
   set.param( "mot.weights", c( `upstream meme`=1 ) ) ##, `upstream weeder`=0.5, `upstream spacer`=1 ) ) ## Sequence and algorithm for for motif search: Optionally use different automatically computed sequences (e.g. `downstream meme`=1) or an input file (e.g. `file=zzz.fst meme`=1) and motif algos (e.g. weeder, spacer, prism)
-  set.param( "net.scaling", seq( 0, 0.5, length=n.iter/2 ) ) ##0.1 0.25
+  set.param( "net.scaling", seq( 0, 0.5, length=n.iter*3/4 ) ) ##0.1 0.25
   ## Net weights and grouping weights - names must correspond to full file paths (sifs) that are to be read in.
   set.param( "net.weights", c( string=0.5, operons=0.5 ) ) ## prolinks=0.5 Relative scaling(s) of each network
   ## Can use pre-set nets: "operons"; "prolinks.(GN/GC/PP/RS)"; "predictome.(chromo/comp/fusion/phylogenetic)";
@@ -145,13 +145,13 @@ cmonkey.init <- function( env=NULL, ... ) {
   set.param( "merge.cutoffs", c( n=0.3, cor=0.975 ) ) ## n=0.3 => merge 1 pair of clusters every 3 iters; if n>1 then merge that number of pairs of clusters every iter; cor is correlation cutoff
   ## Note: to use seeded clusters use the "list=" row seeding method and set "fuzzy.index" to close to 0... seems to work (note setting it to 0 is probably a bad idea).
   ##set.param( "fuzzy.index", 0.75 * exp( -( 1:n.iter ) / (n.iter/4) ) ) ## (n.iter/6) ## hack to add stochasticity
-  set.param( "fuzzy.index", 0.7 * exp( -( 1:n.iter ) / (n.iter/4) ) + 0.05 ) ## (n.iter/6) ## hack to add stochasticity
+  set.param( "fuzzy.index", 0.7 * exp( -( 1:n.iter ) / (n.iter/3) ) + 0.05 ) ## (n.iter/6) ## hack to add stochasticity
   set.param( "translation.tab", NULL ) ## custom 2-column translation table to be used for additional synonyms
   set.param( "seed.method", c( rows="kmeans", cols="best" ) ) ## "net=string:5" "rnd" "kmeans" "trimkmeans=TRIM" "rnd" "list=FILENAME" "rnd=NG" "cor=NG" "net=netname:NG" "netcor=netname:NG" "custom" -- NG is # of genes per seeded cluster; "best" or "rnd" is option for cols
   set.param( "maintain.seed", NULL ) ## List of lists of vectors of rows to maintain for each k: force seeded rows or cols in each cluster to STAY there! e.g. maintain.seed=list(rows=list(`3`=c(gene1,gene2,gene3))) ; This should be used in conjunection with seed.method["rows"]=="custom" or "list=..."
   ##set.param( "string.links.url", "http://string82.embl.de/newstring_download/protein.links.v8.2.txt.gz" ) ## Need to update this when they update their version number
 
-  set.param( "n.motifs", c( rep( 1, n.iter*2/3 ), rep( 2, n.iter/3 ) ) ) ##, rep( 2, n.iter/4 + 50 ) ) )
+  set.param( "n.motifs", c( rep( 1, n.iter*2/3 ), 2 ) ) ##rep( 2, n.iter/3 ) ) ) ##, rep( 2, n.iter/4 + 50 ) ) )
   ##set.param( "motif.width.range", c( 6, 24 ) ) ## Can be an iter-based param
   if ( file.exists( "./progs" ) ) {
     set.param( "progs.dir", "./progs/" )
@@ -166,6 +166,11 @@ cmonkey.init <- function( env=NULL, ... ) {
       message( "WARNING: Could not install meme. Please see the website for installation instructions." )
   }
   ##set.param( "meme.cmd", paste( progs.dir, "meme $fname -bfile $bgFname -psp $pspFname -time 600 -dna -revcomp -maxsize 9999999 -nmotifs %1$d -evt 1e9 -minw 6 -maxw 24 -mod zoops -nostatus -text -cons $compute -pal=non", sep="/" ) ) ## -nomatrim -prior addone -spfuzz 1 -pal" ) ## Can use -pal=non (or exlude the option), -pal=pal (or just -pal), or -pal=both
+  ## Parameters for meme.cmd:
+  ##   "-bfile $bgFname" -- if this is omitted, then no background file is submitted; the default meme bg. is used (i.e. derived from the input sequences)
+  ##   "-psp $pspFname" -- if this is omitted, no position-specific prior is used (default)
+  ##   "-cons $none" -- if this is changed to "-cons $compute" then the consensus from previous meme run on this cluster is used as seed for this meme run (if the previous motif had a good E-value)
+  ##   "-pal=non" -- if this is changed to "-pal=pal" then force palindrome search; "-pal=both": try both pal and non-pal and use the result with the lowest E-value.
   set.param( "meme.cmd", paste( progs.dir, "meme $fname -bfile $bgFname -psp $pspFname -time 600 -dna -revcomp -maxsize 9999999 -nmotifs %1$d -evt 1e9 -minw 6 -maxw 24 -mod zoops -nostatus -text -cons $none -pal=non", sep="/" ) )
   set.param( "mast.cmd", sprintf( "%s/mast $memeOutFname -d $fname -bfile $bgFname -nostatus -stdout -text -brief -ev 99999 -mev 99999 -mt 0.99 -seqp -remcorr", progs.dir ) )
   set.param( "dust.cmd", sprintf( "%s/dust $fname", progs.dir ) )
@@ -179,7 +184,7 @@ cmonkey.init <- function( env=NULL, ... ) {
   set.param( "operon.shift", TRUE )
   ##set.param( "meme.seqs.allowed", cluster.rows.allowed ) ## Min/max number of seqs to allow to be fed to meme
   set.param( "bg.order", 3 ) ##bg.order <- NA ##0 ##3   ## NA -> no global background; use the input sequences
-  set.param( "recalc.bg", FALSE ) ## if recalc.bg==TRUE, recalc bg for each MEME run using only seqs for genes that are NOT in cluster. Ideally, would be TRUE always, but could be slow for big genomes.
+  set.param( "recalc.bg", TRUE ) ## if recalc.bg==TRUE, recalc bg for each MEME run using only seqs for genes that are NOT in cluster. Ideally, would be TRUE always, but could be slow for big genomes.
   set.param( "motif.upstream.search", c( -20, 150 ) ) ##-50, 250 ) ##-50, 200 )
   set.param( "motif.upstream.scan", c( -30, 250 ) ) ##-30, 150 ) ##-50, 200 )
 ##  if ( any( mot.scaling > 0 ) && ( ! file.exists( meme.cmd ) || ! file.exists( mast.cmd ) ) )
@@ -751,7 +756,7 @@ cmonkey.init <- function( env=NULL, ... ) {
   if ( ! exists( "favorite.cluster" ) )
     favorite.cluster <- function() min( which( tabulate( row.membership ) > cluster.rows.allowed[ 1 ] * 2 ) )
 
-  if ( n.iter == 3000 ) n.iter <- 2000 ## 2000 is just as good; but this way maintain the schedules
+  ##if ( n.iter == 3000 ) n.iter <- 2000 ## 2000 is just as good; but this way maintain the schedules
   row.scaling <- extend.vec( row.scaling )
   mot.scaling <- extend.vec( mot.scaling )
   net.scaling <- extend.vec( net.scaling ) ##, envir=cmonkey.env )

@@ -903,6 +903,7 @@ plotClust <- function( k, cluster=NULL, w.motifs=T, all.conds=T, title=NULL, o.g
                    e.value=if ( ! is.null( meme.scores[[ st ]]$all.ev ) ) meme.scores[[ st ]]$all.ev[ ,k ] else NA )
         } else {
           pv.ev <- meme.scores[[ st ]][[ k ]]$pv.ev[[ 1 ]]
+          if ( ncol( pv.ev ) <= 2 ) pv.ev <- meme.scores[[ st ]][[ k ]]$pv.ev[[ 2 ]]
           tmp <- as.matrix( pv.ev[ ,2:ncol( pv.ev ) ] )
           rownames( tmp ) <- pv.ev[ ,1 ]; colnames( tmp ) <- c( "p.value", "posns", "mots" )
         }         

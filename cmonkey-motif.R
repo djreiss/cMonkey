@@ -142,24 +142,6 @@ meme.one.cluster <- function( k, seq.type=names( mot.weights )[ 1 ], verbose=F, 
   all.seqs <- genome.info$all.upstream.seqs[[ seq.type ]]
   if ( is.null( all.seqs ) ) all.seqs <- get.sequences( "all", seq.type=seq.type,
                                                        distance=motif.upstream.scan[[ seq.type ]], filter=F, ... )
-  bg.list <- genome.info$bg.list[[ seq.type ]]
-  bg.fname <- genome.info$bg.fname[ seq.type ]
-  bgo <- bg.order[ seq.type ]
-  if ( ! is.na( bgo ) ) {
-    if ( ! recalc.bg && ! file.exists( bg.fname ) ) { ## On restart, tmpdir may have changed or been removed
-      genome.info$bg.fname[ seq.type ] <- bg.fname <- my.tempfile( "meme.tmp", suf=".bg" )
-      capture.output( genome.info$bg.list[[ seq.type ]] <- mkBgFile( all.seqs, order=bgo,
-                                                                    bgfname=bg.fname, input.list=bg.list,
-                                                           use.rev.comp=grepl( "-revcomp", meme.cmd[ seq.type ] ) ) )
-    }
-    if ( recalc.bg || is.null( bg.list ) ) {
-      tmp.seqs <- all.seqs[ ! names( all.seqs ) %in% rows ]
-      ##if ( uniq ) tmp.seqs <- tmp.seqs[ ! get.dup.seqs( seqs ) ] 
-      capture.output( bg.list <- mkBgFile( tmp.seqs, order=bg.order[ seq.type ], verbose=F,
-                          use.rev.comp=grepl( "-revcomp", meme.cmd[ seq.type ] ) ) ) ##addl.args[ i ] ) ) )
-      rm( tmp.seqs )
-    }
-  }
 
 ##  pal.opt <- motif.palindrome.option[ seq.type ]
   ##addl.args <- paste( addl.args, meme.addl.args[ seq.type ] ) 
@@ -202,11 +184,6 @@ meme.one.cluster <- function( k, seq.type=names( mot.weights )[ 1 ], verbose=F, 
   if ( grepl( "-pal=non", cmd ) ) { ## Can have "-pal=non" or nothing for this case
     cmd <- gsub( "-pal=non", "", cmd )
   }
-
-  if ( is.na( bgo ) ) {
-    cmd <- gsub( "-bfile $bgFname", "", cmd, fixed=T )
-    bg.list <- NULL
-  }
   
   run.meme <- function( sgenes, seqs, cmd, seq.type, ... ) { ## "non", "pal", or "both" (try both and use one w/ best E-value)
     if ( pal.opt == "non" ) {
@@ -219,17 +196,43 @@ meme.one.cluster <- function( k, seq.type=names( mot.weights )[ 1 ], verbose=F, 
   ## if ( pal.opt == "both" ) run.meme <- runMemePalNonPal
   ## else if ( pal.opt == "pal" ) run.meme <- runMemePal
 
+  bg.list <- genome.info$bg.list[[ seq.type ]]
+  bg.fname <- genome.info$bg.fname[ seq.type ]
+  bgo <- bg.order[ seq.type ]
+  
   if ( TRUE && ##! big.memory &&
       ! is.null( ms ) && ! is.null( ms$prev.run ) && length( ms$prev.run$rows ) == length( rows ) &&
       all( ms$prev.run$rows %in% rows ) && all( rows %in% ms$prev.run$rows ) && cmd == ms$prev.run$cmd &&
       ( ms$prev.run$bg.order == bgo || sum( is.na( c( ms$prev.run$bg.order, bgo ) == 1 ) ) ) &&
       all( motif.upstream.scan[[ seq.type ]] == ms$prev.run$m.u.scan ) ) {
-    DEBUG( "SKIPPING CLUSTER (UNCHANGED): ", k )
+    message( "SKIPPING CLUSTER (UNCHANGED): ", k )
     ms$iter = iter
     ms$last.run = TRUE
     return( ms )
   }
 
+  if ( ! is.na( bgo ) && grepl( "-bfile $bgFname", cmd, fixed=T ) ) {
+    if ( ! recalc.bg && ! file.exists( bg.fname ) ) { ## On restart, tmpdir may have changed or been removed
+      genome.info$bg.fname[ seq.type ] <- bg.fname <- my.tempfile( "meme.tmp", suf=".bg" )
+      capture.output( genome.info$bg.list[[ seq.type ]] <- mkBgFile( all.seqs, order=bgo, 
+                                                                    bgfname=bg.fname, input.list=bg.list,
+                                                           use.rev.comp=grepl( "-revcomp", meme.cmd[ seq.type ] ) ) )
+    }
+    if ( recalc.bg || is.null( bg.list ) ) {
+      tmp.seqs <- all.seqs[ ! names( all.seqs ) %in% rows ]
+      ##if ( uniq ) tmp.seqs <- tmp.seqs[ ! get.dup.seqs( seqs ) ]
+      bg.fname <- my.tempfile( "meme.tmp", suf=".bg" ) 
+      capture.output( bg.list <- mkBgFile( tmp.seqs, order=bg.order[ seq.type ], verbose=F, bgfname=bg.fname,
+                          use.rev.comp=grepl( "-revcomp", meme.cmd[ seq.type ] ) ) ) ##addl.args[ i ] ) ) )
+      rm( tmp.seqs )
+    }
+  }
+
+  if ( is.na( bgo ) || is.null( bg.list ) || ! file.exists( bg.fname ) ) {
+    cmd <- gsub( "-bfile $bgFname", "", cmd, fixed=T )
+    bg.list <- NULL
+  }
+  
   if ( verbose ) {
     meme.out <- try( run.meme( names( seqs ), seqs, cmd, ##nmotif=n.motifs[[ seq.type ]][ iter ],
                               verbose=verbose, bg.list=bg.list, bgfname=bg.fname, psps=psps,
@@ -247,6 +250,8 @@ meme.one.cluster <- function( k, seq.type=names( mot.weights )[ 1 ], verbose=F, 
     ##attr( meme.out2, "pal.nonpal.evals" ) <- NA
   
   if ( length( meme.out2 ) <= 0 ) return( list( k=k, last.run=FALSE ) ) ## No significant motif was found
+
+  if ( is.na( bgo ) || is.null( bg.list ) || ! file.exists( bg.fname ) ) bg.fname <- NULL
 
   if ( verbose ) mast.out <- try( runMast( meme.out, names( all.seqs ), all.seqs, verbose=verbose,
                                           ##addl.args=mast.addl.args[ seq.type ],
@@ -272,6 +277,7 @@ meme.one.cluster <- function( k, seq.type=names( mot.weights )[ 1 ], verbose=F, 
   ##     }
   ##   }
   ## }
+  if ( recalc.bg && file.exists( bg.fname ) ) unlink( bg.fname )
   prev.run = list( rows=rows, cmd=cmd, bg.order=bgo, m.u.scan=motif.upstream.scan[[ seq.type ]] )
   invisible( list( k=k, last.run=FALSE, meme.out=meme.out2, pv.ev=pv.ev, prev.run=prev.run ) )
 }
