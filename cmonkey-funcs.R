@@ -1060,6 +1060,7 @@ seed.clusters <- function( k.clust, seed.method="rnd", col.method="rnd" ) {
     ##cat(dim(tmp.rat),k.clust,"\n")
     km <- kmeans
     row.membership <- km( tmp.rat, centers=k.clust, iter.max=20, nstart=2 )$cluster
+    names( row.membership ) <- attr( ratios, "rnames" )
     if ( n.clust.per.row[ 1 ] > 1 ) row.membership <-
       cbind( row.membership, matrix( rep( 0, attr( ratios, "nrow" ) * ( n.clust.per.row[ 1 ] - 1 ) ),
                                          ncol=n.clust.per.row[ 1 ] - 1 ) )
@@ -1071,7 +1072,7 @@ seed.clusters <- function( k.clust, seed.method="rnd", col.method="rnd" ) {
   if ( col.method == "rnd" ) {
     col.membership <- t( sapply( 1:attr( ratios, "ncol" ), function( i )
                                 sample( 1:k.clust, n.clust.per.col[ 1 ],
-                                       replace=n.clust.per.col[ 1 ] > attr( ratios, "ncol" ) ) ) )
+                                       replace=n.clust.per.col[ 1 ] > k.clust ) ) ) ##attr( ratios, "ncol" ) ) ) )
   } else if ( col.method == "best" ) {
     if ( ! exists( "ratios" ) ) stop( "best col seed method but no ratios" )
     all.rats <- get.cluster.matrix()
