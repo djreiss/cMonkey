@@ -122,7 +122,7 @@ cmonkey.init <- function( env=NULL, ... ) {
   set.param( "meme.iters", c( seq( 600, 1200, by=100 ), seq( 1250, 1500, by=50 ), seq( 1525, 1800, by=25 ),
                              seq( 1810, max( n.iter, 1820 ), by=10 ) ) )
   ##set.param( "mot.iters", seq( 100, n.iter, by=10 ) ) ## Which iters to use results of most recent meme run in scores
-  set.param( "mot.iters", seq( 601, n.iter, by=3 ) ) ## Which iters to use results of most recent meme run in scores
+  set.param( "mot.iters", seq( 601, max( n.iter, 605 ), by=3 ) ) ## Which iters to use results of most recent meme run in scores
   set.param( "net.iters", seq( 1, n.iter, by=7 ) ) ## Which iters to re-calculate network scores?
   set.param( "row.scaling", 6 )  ## Seems to work best for Mpn, works good for Halo
   set.param( "row.weights", c( ratios=1 ) ) ## Optionally load multiple ratios files and set relative weights

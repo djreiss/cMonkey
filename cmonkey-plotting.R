@@ -351,9 +351,9 @@ plotCluster.motif <- function( cluster, seqs=cluster$seqs, layout=NULL, colors=N
 
   ##seqs <- cluster$seqs
   if ( is.null( seqs ) ) { seqs <- rep( "", length( cluster$rows ) ); names( seqs ) <- cluster$rows }
-  if ( ! is.null( seqs ) && length( seqs ) > 0 )
+  if ( ! is.null( seq.type ) && ! is.null( seqs ) && length( seqs ) > 0 )
     plotClusterMotifPositions( cluster, seqs, colors=colors, ... ) ##o.genes=o.genes, 
-                              ##p.val.shade.cutoff=p.val.shade.cutoff, ... )
+  ##p.val.shade.cutoff=p.val.shade.cutoff, ... )
   else plot( 1, 1, typ="n", axes=F, xaxt="n", yaxt="n", xlab="", ylab="" )
 
   try ( {
@@ -589,13 +589,14 @@ plotClusterMotifPositions <- function( cluster, seqs=cluster$seqs, long.names=T,
   rows <- cluster$rows
   if ( ! is.null( o.genes ) ) rows <- c( rows, o.genes )
 
-  motif.out <- cluster[[ seq.type ]]$motif.out
+  motif.out <- NULL
+  if ( ! is.null( seq.type ) && seq.type %in% names( cluster ) ) motif.out <- cluster[[ seq.type ]]$motif.out
   is.dup.seq <- get.dup.seqs( cluster$seqs )
   p.clust <- cluster$p.clust ##[ seq.type ]
   e.clust <- cluster$e.val ##[ seq.type ]
   motif.info <- NULL
-  if ( ( ! all( is.na( p.clust ) ) || ! all( is.na( e.clust ) ) ) && ! is.null( motif.out$pv.ev ) )
-    motif.info <- subset( motif.out$pv.ev[[ 2 ]], gene %in% rows )
+  if ( ( ! all( is.na( p.clust ) ) || ! all( is.na( e.clust ) ) ) && ! is.null( motif.out ) &&
+      ! is.null( motif.out$pv.ev ) ) motif.info <- subset( motif.out$pv.ev[[ 2 ]], gene %in% rows )
 
   ##if ( no.plot ) {
   ## out.posns <- list()
@@ -648,7 +649,8 @@ plotClusterMotifPositions <- function( cluster, seqs=cluster$seqs, long.names=T,
 
   maxlen <- max( seq.lengths, na.rm=T )
   ##print(k);print(rows);print(seqs);print(is.dup.seq);print(seq.lengths);print(maxlen)
-  if ( maxlen == 0 || is.infinite( maxlen ) ) maxlen <- diff( motif.upstream.search[[ seq.type ]] )
+  if ( ! is.null( seq.type ) && ( maxlen == 0 || is.infinite( maxlen ) ) )
+    maxlen <- diff( motif.upstream.search[[ seq.type ]] )
   inds <- integer()
   if ( no.motif && ( sort.by == "p.value" || sort.by == TRUE ) ) sort.by <- "gene.name"
   if ( sort.by == "gene.name" ) inds <- sort( rows, decreasing=T, index=T )$ix
@@ -662,10 +664,11 @@ plotClusterMotifPositions <- function( cluster, seqs=cluster$seqs, long.names=T,
   plot( x.range, y.range, type="n", axes=F, xlab="sequence position", ylab="" )
   cexes <- 1.0
   if ( ! no.key ) axis( side=1, pos=0.6, tck=0.01, mgp=c(0.1,0.1,0.1), 
-                       labels=c( -1, seq( -100, -maxlen, -100 ) ), at=seq( maxlen, 0, -100 ) + motif.upstream.scan[[ seq.type ]][ 1 ], ... )
+                       labels=c( -1, seq( -100, -maxlen, -100 ) ),
+                       at=seq( maxlen, 0, -100 ) + motif.upstream.scan[[ seq.type ]][ 1 ], ... )
   if ( max( seq.lengths, na.rm=T ) > 0 )
-    sapply( maxlen - c( 0, motif.upstream.search[[ seq.type ]] ) + motif.upstream.scan[[ seq.type ]][ 1 ], function( i )
-           lines( rep( i, 2 ), c( -999, 999 ), col="lightgray", lty=2 ) )
+    sapply( maxlen - c( 0, motif.upstream.search[[ seq.type ]] ) + motif.upstream.scan[[ seq.type ]][ 1 ],
+           function( i ) lines( rep( i, 2 ), c( -999, 999 ), col="lightgray", lty=2 ) )
   colmap <- rainbow( length( rows ) )
   ##}
   mots.used <- numeric()
@@ -1366,7 +1369,7 @@ write.project <- function( ks=sapply( as.list( clusterStack ), "[[", "k" ), ##sa
                  "   </div>",
                  "</div>",
 
-                 if ( ! is.null( meme.scores[[ seq.type ]][[ k ]]$meme.out ) &&
+                 if ( ! is.null( seq.type ) && ! is.null( meme.scores[[ seq.type ]][[ k ]]$meme.out ) &&
                      ! is.null( meme.scores[[ seq.type ]][[ k ]]$meme.out[[ 1 ]] ) )
                  paste( "<p><a href=\"#bicluster%K03d%K_pssm1\" onclick=\"toggleVisible('bicluster%K03d%K_pssm1'); return false;\">[+]</a>", 
                        "Show/hide bicluster #%K motif PSSM #1.</p>", 
@@ -1381,7 +1384,7 @@ write.project <- function( ks=sapply( as.list( clusterStack ), "[[", "k" ), ##sa
                        "   </div>",
                        "</div>" ) else "",
 
-                 if ( length( meme.scores[[ seq.type ]][[ k ]]$meme.out ) >= 2 &&
+                 if ( ! is.null( seq.type ) && length( meme.scores[[ seq.type ]][[ k ]]$meme.out ) >= 2 &&
                      ! is.null( meme.scores[[ seq.type ]][[ k ]]$meme.out[[ 2 ]] ) )
                  paste( "<p><a href=\"#bicluster%K03d%K_pssm2\" onclick=\"toggleVisible('bicluster%K03d%K_pssm2'); return false;\">[+]</a>", 
                        "Show/hide bicluster #%K motif PSSM #2.</p>", 
@@ -1414,7 +1417,7 @@ write.project <- function( ks=sapply( as.list( clusterStack ), "[[", "k" ), ##sa
       htmltext <- sub( "RATIOS", paste( readLines( tf ), collapse="\n" ), htmltext )
       unlink( tf )
 
-      if ( ! is.null( meme.scores[[ seq.type ]][[ k ]]$meme.out ) ) {
+      if ( ! is.null( seq.type ) && ! is.null( meme.scores[[ seq.type ]][[ k ]]$meme.out ) ) {
         if ( ! is.null( meme.scores[[ seq.type ]][[ k ]]$meme.out[[ 1 ]] ) ) {
           tmp <- as.data.frame( meme.scores[[ seq.type ]][[ k ]]$meme.out[[ 1 ]]$pssm )
           if ( ! is.null( tmp ) && nrow( tmp ) > 0 ) {
@@ -1480,48 +1483,50 @@ write.project <- function( ks=sapply( as.list( clusterStack ), "[[", "k" ), ##sa
         dev.off() }, silent=T )
     } )
     cat( "\n" )
-    
-    cat( "MOTIFS: " )
-    ##for ( k in ks ) {
-    mc$apply( ks, function( k, ... ) {
-      if ( k %% 25 == 0 ) cat( k ) else cat( "." )
-      e.vals <- lapply( meme.scores[[ seq.type ]][[ k ]]$meme.out, "[[", "e.value" )
-      pssms <- lapply( meme.scores[[ seq.type ]][[ k ]]$meme.out, "[[", "pssm" )
-      if ( length( pssms ) < 2 ) {
-        for ( i in ( length( pssms ) + 1 ):2 ) {
-          pssms[[ i ]] <- matrix( 0.25, nrow=6, ncol=4 )
-          e.vals[[ i ]] <- Inf
-        }
-      }
-      for ( pp in 1:length( pssms ) ) {
-        if ( file.exists( sprintf( "%s/htmls/cluster%04d_pssm%d.png", out.dir, k, pp ) ) ) return() ##next
-        try( { 
-          png( sprintf( "%s/htmls/cluster%04d_pssm%d.png", out.dir, k, pp ), width=128, height=64,
-              antialias="subpixel" )
-          if ( is.matrix( pssms[[ pp ]] ) )
-            try( viewPssm( pssms[[ pp ]], e.val=NA, mot.ind=pp, main.title=sprintf( "e=%.3g", e.vals[[ pp ]] ),
-                          cex.main=0.7 ), silent=T ) ##e.val=NA, mot.ind=pp
-          dev.off() }, silent=T )
-      }
-    } )
-    cat( "\n" )
-    
-    cat( "MOTIF POSITIONS: " )
-    ##for ( k in ks ) {
-    mc$apply( ks, function( k, ... ) {
-      if ( k %% 25 == 0 ) cat( k ) else cat( "." )
-      if ( file.exists( sprintf( "%s/htmls/cluster%04d_mot_posns.png", out.dir, k ) ) ) return() ##next
-      try( {
-        png( sprintf( "%s/htmls/cluster%04d_mot_posns.png", out.dir, k ), width=128, height=12+6*length(get.rows(k)),
-            antialias="subpixel" )
-        par( mar=rep(0.5,4)+0.1, mgp=c(3,1,0)*0.75 )
-        c <- plotClust( k, dont.plot=T, ... ) ##seq.type=seq.type, 
-        plotClusterMotifPositions( c, cex=0.4, no.key=T, ... )
-        dev.off() }, silent=F )
-    } )
-    cat( "\n" )
-  }
 
+    if ( ! is.null( seq.type ) ) {
+      cat( "MOTIFS: " )
+      ##for ( k in ks ) {
+      mc$apply( ks, function( k, ... ) {
+        if ( k %% 25 == 0 ) cat( k ) else cat( "." )
+        e.vals <- lapply( meme.scores[[ seq.type ]][[ k ]]$meme.out, "[[", "e.value" )
+        pssms <- lapply( meme.scores[[ seq.type ]][[ k ]]$meme.out, "[[", "pssm" )
+        if ( length( pssms ) < 2 ) {
+          for ( i in ( length( pssms ) + 1 ):2 ) {
+            pssms[[ i ]] <- matrix( 0.25, nrow=6, ncol=4 )
+            e.vals[[ i ]] <- Inf
+          }
+        }
+        for ( pp in 1:length( pssms ) ) {
+          if ( file.exists( sprintf( "%s/htmls/cluster%04d_pssm%d.png", out.dir, k, pp ) ) ) return() ##next
+          try( { 
+            png( sprintf( "%s/htmls/cluster%04d_pssm%d.png", out.dir, k, pp ), width=128, height=64,
+                antialias="subpixel" )
+            if ( is.matrix( pssms[[ pp ]] ) )
+              try( viewPssm( pssms[[ pp ]], e.val=NA, mot.ind=pp, main.title=sprintf( "e=%.3g", e.vals[[ pp ]] ),
+                            cex.main=0.7 ), silent=T ) ##e.val=NA, mot.ind=pp
+            dev.off() }, silent=T )
+        }
+      } )
+      cat( "\n" )
+      
+      cat( "MOTIF POSITIONS: " )
+      ##for ( k in ks ) {
+      mc$apply( ks, function( k, ... ) {
+        if ( k %% 25 == 0 ) cat( k ) else cat( "." )
+        if ( file.exists( sprintf( "%s/htmls/cluster%04d_mot_posns.png", out.dir, k ) ) ) return() ##next
+        try( {
+          png( sprintf( "%s/htmls/cluster%04d_mot_posns.png", out.dir, k ), width=128, height=12+6*length(get.rows(k)),
+              antialias="subpixel" )
+          par( mar=rep(0.5,4)+0.1, mgp=c(3,1,0)*0.75 )
+          c <- plotClust( k, dont.plot=T, ... ) ##seq.type=seq.type, 
+          plotClusterMotifPositions( c, cex=0.4, no.key=T, ... )
+          dev.off() }, silent=F )
+      } )
+      cat( "\n" )
+    }
+  }
+  
   if ( "main" %in% output ) {
     mc <- get.parallel( length( ks ) )
     cat( "WRITING MAIN HTML TABLE..." )
@@ -1562,21 +1567,29 @@ write.project <- function( ks=sapply( as.list( clusterStack ), "[[", "k" ), ##sa
                     table=F )
     himg0a <- hwriteImage( sprintf( "htmls/cluster%04d_network.png", as.integer( rownames( cluster.summ ) ) ),
                           table=F )
-    e.val.1 <- lapply( meme.scores[[ seq.type ]][ as.integer( rownames( cluster.summ ) ) ],
+    if ( ! is.null( seq.type ) ) {
+      e.val.1 <- lapply( meme.scores[[ seq.type ]][ as.integer( rownames( cluster.summ ) ) ],
                       function( i ) i$meme.out[[ 1 ]]$e.value )
-    for ( i in 1:length( e.val.1 ) ) if ( is.null( e.val.1[[ i ]] ) ) e.val.1[[ i ]] <- NA
-    himg1 <- hwriteImage( sprintf( "htmls/cluster%04d_pssm1.png", as.integer( rownames( cluster.summ ) ) ),
-                         table=F, title=sprintf( "E-val = %.3g", unlist( e.val.1 ) ) )
-    ##himg1a <- hwrite( as.character( cluster.summ$consensus1 ), table=T )
-    himg1 <- hwrite( paste( himg1, as.character( cluster.summ$consensus1 ), sep="<br>" ), center=TRUE, table=F )
-    e.val.2 <- lapply( meme.scores[[ seq.type ]][ as.integer( rownames( cluster.summ ) ) ],
-                      function( i ) i$meme.out[[ 2 ]]$e.value )
-    for ( i in 1:length( e.val.2 ) ) if ( is.null( e.val.2[[ i ]] ) ) e.val.2[[ i ]] <- NA
-    himg2 <- hwriteImage( sprintf( "htmls/cluster%04d_pssm2.png", as.integer( rownames( cluster.summ ) ) ),
-                         table=F, title=sprintf( "E-val = %.3g", unlist( e.val.2 ) ) )
-    himg2 <- hwrite( paste( himg2, as.character( cluster.summ$consensus2 ), sep="<br>" ), center=TRUE, table=F )
-    himg2a <- hwriteImage( sprintf( "htmls/cluster%04d_mot_posns.png", as.integer( rownames( cluster.summ ) ) ),
-                          table=F )
+      for ( i in 1:length( e.val.1 ) ) if ( is.null( e.val.1[[ i ]] ) ) e.val.1[[ i ]] <- NA
+      himg1 <- hwriteImage( sprintf( "htmls/cluster%04d_pssm1.png", as.integer( rownames( cluster.summ ) ) ),
+                           table=F, title=sprintf( "E-val = %.3g", unlist( e.val.1 ) ) )
+      ##himg1a <- hwrite( as.character( cluster.summ$consensus1 ), table=T )
+      himg1 <- hwrite( paste( himg1, as.character( cluster.summ$consensus1 ), sep="<br>" ), center=TRUE, table=F )
+      if ( ! is.null( seq.type ) )
+        e.val.2 <- lapply( meme.scores[[ seq.type ]][ as.integer( rownames( cluster.summ ) ) ],
+                          function( i ) i$meme.out[[ 2 ]]$e.value )
+      else e.val.2 <- as.list( rep( NA, k.clust ) )
+      for ( i in 1:length( e.val.2 ) ) if ( is.null( e.val.2[[ i ]] ) ) e.val.2[[ i ]] <- NA
+      himg2 <- hwriteImage( sprintf( "htmls/cluster%04d_pssm2.png", as.integer( rownames( cluster.summ ) ) ),
+                           table=F, title=sprintf( "E-val = %.3g", unlist( e.val.2 ) ) )
+      himg2 <- hwrite( paste( himg2, as.character( cluster.summ$consensus2 ), sep="<br>" ), center=TRUE, table=F )
+      himg2a <- hwriteImage( sprintf( "htmls/cluster%04d_mot_posns.png", as.integer( rownames( cluster.summ ) ) ),
+                            table=F )
+      e.val.1[ is.na( e.val.1 ) ] <- 9e9; e.val.2[ is.na( e.val.2 ) ] <- 9e9
+    } else {
+      e.val.1 <- e.val.2 <- as.list( rep( NA, k.clust ) )
+      himg1 <- himg2 <- himg2a <- NULL
+    }
     cluster.summ$score <- sprintf( "%.3f", cluster.summ$score )
     ##cluster.summ$resid <- sprintf( "%.3f", cluster.summ$resid ) 
     rn <- rownames( cluster.summ )
@@ -1592,16 +1605,19 @@ write.project <- function( ks=sapply( as.list( clusterStack ), "[[", "k" ), ##sa
     rows <- list(); for ( k in as.integer( rn ) ) rows[[ k ]] <- sort( get.rows( k ) )
     himg3 <- hwrite( sapply( as.integer( rn ), function( k ) paste( rows[[ k ]], collapse=" " ) ), table=F )
     cat( "...\n" )
-    himg4 <- hwrite( unlist( mc$apply( as.integer( rn ), function( k ) { if ( k %% 25 == 0 ) cat( k ) else cat( "." );
-                                                                         if ( length( rows[[ k ]] ) <= 0 ) return();
-      tmp <- get.long.names( rows[[ k ]], short=T ); tmp <- unique( tmp[ ! tmp %in% rows[[ k ]] & tmp != "" ] )
-      paste( tmp, collapse=" " ) } ) ), table=F ); cat( "\n" )
-    himg5 <- hwrite( unlist( mc$apply( as.integer( rn ), function( k ) { if ( k %% 25 == 0 ) cat( k ) else cat( "." );
-                                                                         if ( length( rows[[ k ]] ) <= 0 ) return();
-      tmp <- get.long.names( rows[[ k ]], short=F ); tmp <- unique( tmp[ ! tmp %in% rows[[ k ]] & tmp != "" ] )
-      paste( tmp, collapse=" | " ) } ) ), table=F ); cat( "\n" )
+    if ( ! no.genome.info ) {
+      himg4 <- hwrite( unlist( mc$apply( as.integer( rn ), function( k ) {
+        if ( k %% 25 == 0 ) cat( k ) else cat( "." ); if ( length( rows[[ k ]] ) <= 0 ) return();
+        tmp <- get.long.names( rows[[ k ]], short=T ); tmp <- unique( tmp[ ! tmp %in% rows[[ k ]] & tmp != "" ] )
+        paste( tmp, collapse=" " ) } ) ), table=F ); cat( "\n" )
+      himg5 <- hwrite( unlist( mc$apply( as.integer( rn ), function( k ) {
+        if ( k %% 25 == 0 ) cat( k ) else cat( "." ); if ( length( rows[[ k ]] ) <= 0 ) return();
+        tmp <- get.long.names( rows[[ k ]], short=F ); tmp <- unique( tmp[ ! tmp %in% rows[[ k ]] & tmp != "" ] )
+        paste( tmp, collapse=" | " ) } ) ), table=F ); cat( "\n" )
+    } else {
+      himg4 <- himg5 <- NULL
+    }
     ## Let's make the table sortable using code from http://www.kryogenix.org/code/browser/sorttable/
-    e.val.1[ is.na( e.val.1 ) ] <- 9e9; e.val.2[ is.na( e.val.2 ) ] <- 9e9
     nas <- rep( NA, nrow( cluster.summ ) )
     hwrite( cbind( cluster.summ[ ,1:min( ncol( cluster.summ ), 6 ) ], profile=himg0, network=himg0a,
                   motif1=himg1, motif2=himg2, motif.posns=himg2a, probe.names=himg3, short.names=himg4, 
@@ -1670,7 +1686,7 @@ write.bicluster.network <- function( out.dir=NULL, ks=1:k.clust, seq.type=names(
                                     m.filter=function( m ) subset( m, e.value <= Inf ), ... ) {
   if ( is.null( out.dir ) ) {
     out.dir <- paste( cmonkey.filename, "network", sep="/" )
-    if ( iter != n.iter ) out.dir <- sprintf( "%s_%04d/network", out.dir, iter )
+    if ( iter != n.iter ) out.dir <- sprintf( "%s_%04d/network", cmonkey.filename, iter )
   }
   if ( ! file.exists( out.dir ) ) dir.create( out.dir, recursive=T, showWarnings=F )
   cat( "Outputing to", out.dir, "\n" )
