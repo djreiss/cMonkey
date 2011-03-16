@@ -903,6 +903,7 @@ plotClust <- function( k, cluster=NULL, w.motifs=T, all.conds=T, title=NULL, o.g
                    e.value=if ( ! is.null( meme.scores[[ st ]]$all.ev ) ) meme.scores[[ st ]]$all.ev[ ,k ] else NA )
         } else {
           pv.ev <- meme.scores[[ st ]][[ k ]]$pv.ev[[ 1 ]]
+          if ( ncol( pv.ev ) <= 2 ) pv.ev <- meme.scores[[ st ]][[ k ]]$pv.ev[[ 2 ]]
           tmp <- as.matrix( pv.ev[ ,2:ncol( pv.ev ) ] )
           rownames( tmp ) <- pv.ev[ ,1 ]; colnames( tmp ) <- c( "p.value", "posns", "mots" )
         }         
@@ -1089,13 +1090,15 @@ plotStats <- function( iter=stats$iter[ nrow( stats ) ], plot.clust=NA, new.dev=
       df <- NULL
       for ( st in seq.type ) {
         ms <- meme.scores[[ st ]][ ks ]
-        posns <- as.vector( unlist( sapply( ms, function( i ) i$pv.ev[[ 1 ]]$posns ) ) )
-        pvals <- as.vector( unlist( sapply( ms, function( i ) i$pv.ev[[ 1 ]]$pvals ) ) )
-        imots <- as.vector( unlist( sapply( ms, function( i ) i$pv.ev[[ 1 ]]$mots ) ) )
-        genes <- as.vector( unlist( sapply( ms, function( i ) as.character( i$pv.ev[[ 1 ]]$gene ) ) ) )
+        ind <- 1
+        if ( ! "posns" %in% colnames( ms[[ 1 ]]$pv.ev[[ 1 ]] ) ) ind <- 2
+        posns <- as.vector( unlist( sapply( ms, function( i ) i$pv.ev[[ ind ]]$posns ) ) )
+        pvals <- as.vector( unlist( sapply( ms, function( i ) i$pv.ev[[ ind ]]$pvals ) ) )
+        imots <- as.vector( unlist( sapply( ms, function( i ) i$pv.ev[[ ind ]]$mots ) ) )
+        genes <- as.vector( unlist( sapply( ms, function( i ) as.character( i$pv.ev[[ ind ]]$gene ) ) ) )
         slens <- nchar( genome.info$all.upstream.seqs[ st ][[ st ]][ genes ] )
         clusts <- as.vector( unlist( sapply( ms, function( i )
-                                 rep( i$k, if ( is.null( i$pv.ev[[ 1 ]] ) ) 0 else nrow( i$pv.ev[[ 1 ]] ) ) ) ) )
+                                 rep( i$k, if ( is.null( i$pv.ev[[ ind ]] ) ) 0 else nrow( i$pv.ev[[ ind ]] ) ) ) ) )
         ms <- meme.scores[[ st ]]
         evals <- sapply( 1:length( imots ), function( i )
                         ms[[ clusts[ i ] ]]$meme.out[[ abs( imots[ i ] ) ]]$e.value )
@@ -1140,7 +1143,10 @@ plotStats <- function( iter=stats$iter[ nrow( stats ) ], plot.clust=NA, new.dev=
 write.project <- function( ks=sapply( as.list( clusterStack ), "[[", "k" ), ##save.session=T, ##pdfs=T, ##dev="SVG", 
                           out.dir=NULL, gaggle=T, seq.type=names( e$mot.weights )[ 1 ], gzip=T,
                           output=c("svg","pdf","png","html","main","rdata"), ... ) { ##network=F, 
-  if ( is.null( out.dir ) ) out.dir <- cmonkey.filename
+  if ( is.null( out.dir ) ) {
+    out.dir <- cmonkey.filename
+    if ( iter != n.iter ) out.dir <- sprintf( "%s_%04d", out.dir, iter )
+  }
   cat( "Outputing to", out.dir, "\n" )
   ##if ( ! is.null( dev ) && dev == "SVG" )
   ##require( RSVGTipsDevice )
@@ -1525,7 +1531,7 @@ write.project <- function( ks=sapply( as.list( clusterStack ), "[[", "k" ), ##sa
     cat( "..." )
     ##cluster.summ <- cluster.summary( ... )
     ##if ( nrow( cluster.summ ) <= 0 )
-    cluster.summ <- cluster.summary( e.cutoff=NA, nrow.cutoff=NA )
+    cluster.summ <- cluster.summary( e.cutoff=NA, nrow.cutoff=2 )
     write.table( cluster.summ, file=paste( out.dir, "/cluster.summary.tsv", sep="" ), quote=F, sep="\t" )
     cat( "..." )
     html <- openPage( paste( out.dir, "/index.html", sep="" ), link.javascript="sorttable.js",
@@ -1587,9 +1593,11 @@ write.project <- function( ks=sapply( as.list( clusterStack ), "[[", "k" ), ##sa
     himg3 <- hwrite( sapply( as.integer( rn ), function( k ) paste( rows[[ k ]], collapse=" " ) ), table=F )
     cat( "...\n" )
     himg4 <- hwrite( unlist( mc$apply( as.integer( rn ), function( k ) { if ( k %% 25 == 0 ) cat( k ) else cat( "." );
+                                                                         if ( length( rows[[ k ]] ) <= 0 ) return();
       tmp <- get.long.names( rows[[ k ]], short=T ); tmp <- unique( tmp[ ! tmp %in% rows[[ k ]] & tmp != "" ] )
       paste( tmp, collapse=" " ) } ) ), table=F ); cat( "\n" )
     himg5 <- hwrite( unlist( mc$apply( as.integer( rn ), function( k ) { if ( k %% 25 == 0 ) cat( k ) else cat( "." );
+                                                                         if ( length( rows[[ k ]] ) <= 0 ) return();
       tmp <- get.long.names( rows[[ k ]], short=F ); tmp <- unique( tmp[ ! tmp %in% rows[[ k ]] & tmp != "" ] )
       paste( tmp, collapse=" | " ) } ) ), table=F ); cat( "\n" )
     ## Let's make the table sortable using code from http://www.kryogenix.org/code/browser/sorttable/
@@ -1659,8 +1667,11 @@ write.project <- function( ks=sapply( as.list( clusterStack ), "[[", "k" ), ##sa
 
 write.bicluster.network <- function( out.dir=NULL, ks=1:k.clust, seq.type=names( e$mot.weights )[ 1 ], tomtom=T,
                                     tt.filter=function( tt ) subset( tt, overlap >= 4 & q.value <= 0.05 ),
-                                    m.filter=function( m ) subset( m, e.value <= 100 ), ... ) {
-  if ( is.null( out.dir ) ) out.dir <- paste( cmonkey.filename, "network", sep="/" )
+                                    m.filter=function( m ) subset( m, e.value <= Inf ), ... ) {
+  if ( is.null( out.dir ) ) {
+    out.dir <- paste( cmonkey.filename, "network", sep="/" )
+    if ( iter != n.iter ) out.dir <- sprintf( "%s_%04d/network", out.dir, iter )
+  }
   if ( ! file.exists( out.dir ) ) dir.create( out.dir, recursive=T, showWarnings=F )
   cat( "Outputing to", out.dir, "\n" )
 

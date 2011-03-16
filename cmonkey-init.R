@@ -6,6 +6,10 @@
 ## liable for anything that happens as a result of using this software
 ###################################################################################
 
+## Just for fun: to run cMonkey as simple (slow) kmeans on ratios data, set:
+##   n.clust.per.row <- 1; n.clust.per.col <- k.clust
+##   no.genome.info <- TRUE; post.adjust <- FALSE; net.weights <- mot.weights <- numeric()
+
 #' Initialize a cMonkey environment for bilcustering
 #' NOTE: to run cMonkey as simple (slow) kmeans on ratios data, set:
 #'   n.clust.per.row <- 1; n.clust.per.col <- k.clust
@@ -104,7 +108,7 @@ cmonkey.init <- function( env=NULL, ... ) {
   ## Default param settings (if already set, they will not be changed):
   set.param( "cog.org", "?" ) ## If "?" or NA, will try "Org" (for organism=="org")
   set.param( "rsat.species", "?" ) ## If "?" or NA, will try getting it from data/KEGG/KEGG_all_species.tab
-  set.param( "n.iter", 3000 ) ##1000
+  set.param( "n.iter", 2000 ) ##1000
   set.param( "n.clust.per.row", 2 ) ##n.clust.per.row <- 2
   if ( exists( "ratios" ) && ! is.null( ratios ) ) {
     set.param( "k.clust", round( attr( ratios, "nrow" ) * n.clust.per.row / 20 ) ) ## dflt avg clust size of 20
@@ -114,14 +118,17 @@ cmonkey.init <- function( env=NULL, ... ) {
   set.param( "n.clust.per.col", if ( exists( "ratios" ) && attr( ratios, "ncol" ) >= 60 ) round( k.clust / 2 ) else round( k.clust * 2 / 3 ) ) ## dflt to 1/2 of conds in each clust (avg)
   set.param( "row.iters", seq( 1, n.iter, by=2 ) )
   set.param( "col.iters", seq( 1, n.iter, by=5 ) )
-  set.param( "meme.iters", seq( 99, n.iter, by=100 ) ) ## Which iters to re-run meme?
-  set.param( "mot.iters", seq( 100, n.iter, by=10 ) ) ## Which iters to use results of most recent meme run in scores
+  ##set.param( "meme.iters", seq( 399, n.iter, by=100 ) ) ## Which iters to re-run meme?
+  set.param( "meme.iters", c( seq( 600, 1200, by=100 ), seq( 1250, 1500, by=50 ), seq( 1525, 1800, by=25 ),
+                             seq( 1810, max( n.iter, 1820 ), by=10 ) ) )
+  ##set.param( "mot.iters", seq( 100, n.iter, by=10 ) ) ## Which iters to use results of most recent meme run in scores
+  set.param( "mot.iters", seq( 601, n.iter, by=3 ) ) ## Which iters to use results of most recent meme run in scores
   set.param( "net.iters", seq( 1, n.iter, by=7 ) ) ## Which iters to re-calculate network scores?
   set.param( "row.scaling", 6 )  ## Seems to work best for Mpn, works good for Halo
   set.param( "row.weights", c( ratios=1 ) ) ## Optionally load multiple ratios files and set relative weights
-  set.param( "mot.scaling", seq( 0, 1, length=n.iter/2 ) ) ##* 0.5
+  set.param( "mot.scaling", seq( 0, 1, length=n.iter*3/4 ) ) ##* 0.5
   set.param( "mot.weights", c( `upstream meme`=1 ) ) ##, `upstream weeder`=0.5, `upstream spacer`=1 ) ) ## Sequence and algorithm for for motif search: Optionally use different automatically computed sequences (e.g. `downstream meme`=1) or an input file (e.g. `file=zzz.fst meme`=1) and motif algos (e.g. weeder, spacer, prism)
-  set.param( "net.scaling", seq( 0, 0.5, length=n.iter/2 ) ) ##0.1 0.25
+  set.param( "net.scaling", seq( 0, 0.5, length=n.iter*3/4 ) ) ##0.1 0.25
   ## Net weights and grouping weights - names must correspond to full file paths (sifs) that are to be read in.
   set.param( "net.weights", c( string=0.5, operons=0.5 ) ) ## prolinks=0.5 Relative scaling(s) of each network
   ## Can use pre-set nets: "operons"; "prolinks.(GN/GC/PP/RS)"; "predictome.(chromo/comp/fusion/phylogenetic)";
@@ -137,13 +144,14 @@ cmonkey.init <- function( env=NULL, ... ) {
   set.param( "cluster.rows.allowed", c( 3, 70 ) ) ##200 ) ) ## Min/max number of rows to allow in a bicluster
   set.param( "merge.cutoffs", c( n=0.3, cor=0.975 ) ) ## n=0.3 => merge 1 pair of clusters every 3 iters; if n>1 then merge that number of pairs of clusters every iter; cor is correlation cutoff
   ## Note: to use seeded clusters use the "list=" row seeding method and set "fuzzy.index" to close to 0... seems to work (note setting it to 0 is probably a bad idea).
-  set.param( "fuzzy.index", 0.75 * exp( -( 1:n.iter ) / (n.iter/4) ) ) ## (n.iter/6) ## hack to add stochasticity
+  ##set.param( "fuzzy.index", 0.75 * exp( -( 1:n.iter ) / (n.iter/4) ) ) ## (n.iter/6) ## hack to add stochasticity
+  set.param( "fuzzy.index", 0.7 * exp( -( 1:n.iter ) / (n.iter/3) ) + 0.05 ) ## (n.iter/6) ## hack to add stochasticity
   set.param( "translation.tab", NULL ) ## custom 2-column translation table to be used for additional synonyms
   set.param( "seed.method", c( rows="kmeans", cols="best" ) ) ## "net=string:5" "rnd" "kmeans" "trimkmeans=TRIM" "rnd" "list=FILENAME" "rnd=NG" "cor=NG" "net=netname:NG" "netcor=netname:NG" "custom" -- NG is # of genes per seeded cluster; "best" or "rnd" is option for cols
   set.param( "maintain.seed", NULL ) ## List of lists of vectors of rows to maintain for each k: force seeded rows or cols in each cluster to STAY there! e.g. maintain.seed=list(rows=list(`3`=c(gene1,gene2,gene3))) ; This should be used in conjunection with seed.method["rows"]=="custom" or "list=..."
   ##set.param( "string.links.url", "http://string82.embl.de/newstring_download/protein.links.v8.2.txt.gz" ) ## Need to update this when they update their version number
 
-  set.param( "n.motifs", c( rep( 1, n.iter/3 ), rep( 2, n.iter/3 ) ) ) ##, rep( 2, n.iter/4 + 50 ) ) )
+  set.param( "n.motifs", c( rep( 1, n.iter*2/3 ), 2 ) ) ##rep( 2, n.iter/3 ) ) ) ##, rep( 2, n.iter/4 + 50 ) ) )
   ##set.param( "motif.width.range", c( 6, 24 ) ) ## Can be an iter-based param
   if ( file.exists( "./progs" ) ) {
     set.param( "progs.dir", "./progs/" )
@@ -157,7 +165,13 @@ cmonkey.init <- function( env=NULL, ... ) {
     if ( "package:cMonkey" %in% search() && ! file.exists( sprintf( "%s/progs/", system.file( package="cMonkey" ) ) ) )
       message( "WARNING: Could not install meme. Please see the website for installation instructions." )
   }
-  set.param( "meme.cmd", paste( progs.dir, "meme $fname -bfile $bgFname -psp $pspFname -time 600 -dna -revcomp -maxsize 9999999 -nmotifs %1$d -evt 1e9 -minw 6 -maxw 24 -mod zoops -nostatus -text -cons $compute -pal=non", sep="/" ) ) ## -nomatrim -prior addone -spfuzz 1 -pal" ) ## Can use -pal=non (or exlude the option), -pal=pal (or just -pal), or -pal=both
+  ##set.param( "meme.cmd", paste( progs.dir, "meme $fname -bfile $bgFname -psp $pspFname -time 600 -dna -revcomp -maxsize 9999999 -nmotifs %1$d -evt 1e9 -minw 6 -maxw 24 -mod zoops -nostatus -text -cons $compute -pal=non", sep="/" ) ) ## -nomatrim -prior addone -spfuzz 1 -pal" ) ## Can use -pal=non (or exlude the option), -pal=pal (or just -pal), or -pal=both
+  ## Parameters for meme.cmd:
+  ##   "-bfile $bgFname" -- if this is omitted, then no background file is submitted; the default meme bg. is used (i.e. derived from the input sequences)
+  ##   "-psp $pspFname" -- if this is omitted, no position-specific prior is used (default)
+  ##   "-cons $none" -- if this is changed to "-cons $compute" then the consensus from previous meme run on this cluster is used as seed for this meme run (if the previous motif had a good E-value)
+  ##   "-pal=non" -- if this is changed to "-pal=pal" then force palindrome search; "-pal=both": try both pal and non-pal and use the result with the lowest E-value.
+  set.param( "meme.cmd", paste( progs.dir, "meme $fname -bfile $bgFname -psp $pspFname -time 600 -dna -revcomp -maxsize 9999999 -nmotifs %1$d -evt 1e9 -minw 6 -maxw 24 -mod zoops -nostatus -text -cons $none -pal=non", sep="/" ) )
   set.param( "mast.cmd", sprintf( "%s/mast $memeOutFname -d $fname -bfile $bgFname -nostatus -stdout -text -brief -ev 99999 -mev 99999 -mt 0.99 -seqp -remcorr", progs.dir ) )
   set.param( "dust.cmd", sprintf( "%s/dust $fname", progs.dir ) )
   ##set.param( "meme.addl.args", "-time 600 -dna -revcomp -maxsize 9999999 -nmotifs %1$d -evt 1e9 -minw %2$d -maxw %3$d -mod zoops" ) ## -nomatrim -prior addone -spfuzz 1" )
@@ -170,6 +184,7 @@ cmonkey.init <- function( env=NULL, ... ) {
   set.param( "operon.shift", TRUE )
   ##set.param( "meme.seqs.allowed", cluster.rows.allowed ) ## Min/max number of seqs to allow to be fed to meme
   set.param( "bg.order", 3 ) ##bg.order <- NA ##0 ##3   ## NA -> no global background; use the input sequences
+  set.param( "recalc.bg", TRUE ) ## if recalc.bg==TRUE, recalc bg for each MEME run using only seqs for genes that are NOT in cluster. Ideally, would be TRUE always, but could be slow for big genomes.
   set.param( "motif.upstream.search", c( -20, 150 ) ) ##-50, 250 ) ##-50, 200 )
   set.param( "motif.upstream.scan", c( -30, 250 ) ) ##-30, 150 ) ##-50, 200 )
 ##  if ( any( mot.scaling > 0 ) && ( ! file.exists( meme.cmd ) || ! file.exists( mast.cmd ) ) )
@@ -198,6 +213,10 @@ cmonkey.init <- function( env=NULL, ... ) {
   set.param( "rnd.seed", as.integer( substr( gsub( '[-:. ]', "", as.character( Sys.time() ) ), 12, 20 ) ) )
   options( op ); rm( op )
   set.seed( rnd.seed )
+  set.param( "big.memory", FALSE ) ##50 * 2^20 ) ## Matrices that are > 50 MB are stored as file-backed big.memory
+  set.param( "big.memory.verbose", FALSE )
+
+  if ( organism == "hsa" ) rsat.urls[ 1 ] <- rsat.urls[ 2 ] ## Special case for hsa - not hosted on mirrors.
   
   if ( ! exists( "rsat.species" ) || rsat.species == "?" || is.na( rsat.species ) ) {
     err <- dlf( "data/KEGG/KEGG_taxonomy.txt", "ftp://ftp.genome.jp/pub/kegg/genes/taxonomy" )
@@ -223,7 +242,6 @@ cmonkey.init <- function( env=NULL, ... ) {
     }
     
     if ( length( vals ) <= 0 ) {
-      ##cat( "\33[31mCould not find correct organism for RSAT... will try to guess...\33[0m\n" )
       message( "Could not find correct organism for RSAT... will try to guess..." )
       max.dist <- 0.5; vals <- rep( "", 2 )
       while( length( vals ) > 1 ) {
@@ -233,7 +251,6 @@ cmonkey.init <- function( env=NULL, ... ) {
       if ( length( vals ) == 1 ) {
         rsat.spec <- strsplit( vals, "[<>/]" )[[ 1 ]][ 8 ]
         message( "Found one match: ", rsat.spec, " ..." )
-        ##cat( "\33[31mIf this is not correct, you're not quite out of luck -- set the 'rsat.species' parameter manually.\33[0m\n" )
         message( "If this is not correct, you're not quite out of luck -- set the 'rsat.species' parameter manually." )
       }
     }
@@ -267,7 +284,6 @@ cmonkey.init <- function( env=NULL, ... ) {
     set.param( "cog.org", cog.org )
   }
 
-  ##cat( "\33[32mOrganism is", organism, cog.org, rsat.species, taxon.id, "\33[0m\n" )
   message( "Organism is ", organism, " ", cog.org, " ", rsat.species, " ", taxon.id )
 
   genome.loc <- paste( rsat.urls[ 1 ], "/data/genomes/", rsat.species, "/genome/", sep="" )
@@ -383,7 +399,6 @@ cmonkey.init <- function( env=NULL, ... ) {
     if ( ! is.null( env ) ) assign( "genome.info", genome.info, envir=env )
     
     if ( ! is.na( prefix ) && ( ! exists( 'ratios' ) || is.null( ratios ) ) ) {
-      ##cat( "WARNING: No ratios matrix -- will generate an 'empty' one with all known ORFs as probes.\n" )
       message( "WARNING: No ratios matrix -- will generate an 'empty' one with all known ORFs as probes." )
       rows <- unique( as.character( subset( genome.info$feature.names, grepl( paste( "^", prefix, sep="" ), names,
                                                                              ignore=T, perl=T ), select="names", drop=T ) ) )
@@ -402,7 +417,6 @@ cmonkey.init <- function( env=NULL, ... ) {
       ##  networks[[ "string" ]] <- read.csv( 'data/STRING/string.csv', row.names=1, header=TRUE )
       ##} else
       if ( length( grep( "string", names( net.weights ) ) ) > 0 ) {
-        message( "Loading STRING data" )
         if ( "string" %in% names( net.weights ) ) { ##|| "string.combined" %in% names( net.weights ) ) {
           ##if ( "string.combined" %in% names( net.weights ) )
           ##  names( net.weights )[ names( net.weights ) == "string.combined" ] <- "string"
@@ -411,6 +425,7 @@ cmonkey.init <- function( env=NULL, ... ) {
           } else {
             ##if ( exists( "get.STRING.links.NEW" ) ) string <- get.STRING.links.NEW( genome.info$org.id$V1[ 1 ] )
             ##!else
+            cat( "Loading STRING network.\n" )
             string <- get.STRING.links( genome.info$org.id$V1[ 1 ] ) ##, detailed=F )
             ##string <- subset( string, combined_score >= 500 )
             ##cat( "Read in", nrow( string ), "STRING edges that pass cutoff (500); weight =", net.weights[ "string" ], "\n" )
@@ -440,7 +455,7 @@ cmonkey.init <- function( env=NULL, ... ) {
       if ( ! is.null( env ) ) assign( "networks", networks, envir=env )
 
       if ( "operons" %in% names( net.weights ) && ! is.null( genome.info$operons ) ) {
-        message( "Converting operon predictions into a network...\n" )
+        cat( "Converting operon predictions into a network...\n" )
         tmp <- tapply( genome.info$operons$gene, genome.info$operons$head ); names( tmp ) <- genome.info$operons$gene
         mc <- get.parallel( length( unique( tmp ) ) )
         out.sif <- do.call( rbind, mc$apply( unique( tmp ), function( j ) {
@@ -467,7 +482,6 @@ cmonkey.init <- function( env=NULL, ... ) {
       ## First check to see if network is already existing in memory as a 2 or 3-column matrix
       if ( exists( "net.weights" ) && length( net.weights ) > 0 && ! is.null( names( net.weights ) ) ) {
         for ( i in names( net.weights ) ) {
-          message( "Reading network for '", i, "'." )
           if ( i %in% names( networks ) ) next ## already done (e.g. operons)
           if ( file.exists( i ) ) { 
             cat( "Loading sif interactions from file:", i, "; weight =", net.weights[ i ], "\n" ) 
@@ -491,7 +505,6 @@ cmonkey.init <- function( env=NULL, ... ) {
       ##   or a COG group or GO function, etc.
       ## Groups are converted into a set of (weighted) "interactions" between pairs of genes in the same group
       if ( exists( "grouping.weights" ) && length( grouping.weights ) > 0 ) {
-        message( "Reading in additional groupings" )
         if ( exists( "net.weights" ) ) net.weights <- c( net.weights, grouping.weights )
         else net.weights <- grouping.weights
         for ( i in names( grouping.weights ) ) {
@@ -547,7 +560,6 @@ cmonkey.init <- function( env=NULL, ... ) {
       for ( n in names( networks ) ) {
         nn <- networks[[ n ]]
         if ( nrow( nn ) <= 0 ) {
-          ##cat( "WARNING: no edges in network", n, "... skipping.\n" );
           message( "WARNING: no edges in network", n, "... skipping." );
           if ( length( grep( n, seed.method[ 1 ] ) ) > 0 ) {
             message( "ALSO, we have to change the row seeding method from", seed.method, "to 'kmeans'." )
@@ -666,29 +678,32 @@ cmonkey.init <- function( env=NULL, ... ) {
     
     if ( ! is.null( genome.info$genome.seqs ) ) {
       genome.info$all.upstream.seqs <- genome.info$bg.list <- list()
+      genome.info$bg.fname <- character()
 
-      if ( ! all( is.na( bg.order ) ) ) {
-        for ( i in names( mot.weights ) ) {
-          cat( "Pre-computing all '", i, "' seqs for background distribution (", paste( motif.upstream.scan[[ i ]], collapse=", " ), ")...\n", sep="" )
-          ## Note we don't filter all seqs (used for background) - even removing ATGs; is this okay?
-          genome.info$all.upstream.seqs[[ i ]] <- get.sequences( attr( ratios, "rnames" ), seq.type=i,
-                                                                distance=motif.upstream.scan[[ i ]], filter=F )
-          if ( ! is.null( env ) ) assign( "genome.info", genome.info, envir=env )
-          message( sum( ! attr( ratios, "rnames" ) %in% names( genome.info$all.upstream.seqs[[ i ]] ) ),
-                  " probes have no '", i, "' sequence." )
-          if ( ! is.na( bg.order[ i ] ) ) {
-            cat( "Pre-computing '", i, "' residue bg distrib (order=", bg.order[ i ], ")...\n", sep="" )
-            tmp.seqs <- if ( ! is.null( genome.info$all.upstream.seqs[[ i ]] ) ) genome.info$all.upstream.seqs[[ i ]]
-            else get.sequences( attr( ratios, "rnames" ), distance=motif.upstream.search[[ i ]], seq.type=i, filter=F )
-            capture.output( genome.info$bg.list[[ i ]] <- mkBgFile( tmp.seqs, order=bg.order[ i ],
-                                                                   use.rev.comp=grepl( "-revcomp", meme.cmd[ i ] ) ) )
-            rm( tmp.seqs )
-          } else {
-            message( "NOT USING a global sequence background distribution!" )
-          }
-          if ( ! is.null( env ) ) assign( "genome.info", genome.info, envir=env )
+      ##if ( ! all( is.na( bg.order ) ) ) {
+      for ( i in names( mot.weights ) ) {
+        cat( "Pre-computing all '", i, "' seqs (", paste( motif.upstream.scan[[ i ]], collapse=", " ), ")...\n", sep="" )
+        ## Note we don't filter all seqs (used for background) - even removing ATGs; is this okay?
+        genome.info$all.upstream.seqs[[ i ]] <- get.sequences( attr( ratios, "rnames" ), seq.type=i,
+                                                              distance=motif.upstream.scan[[ i ]], filter=F )
+        if ( ! is.null( env ) ) assign( "genome.info", genome.info, envir=env )
+        message( sum( ! attr( ratios, "rnames" ) %in% names( genome.info$all.upstream.seqs[[ i ]] ) ),
+                " probes have no '", i, "' sequence." )
+        if ( ! is.na( bg.order[ i ] ) ) {
+          cat( "Pre-computing '", i, "' residue bg distrib (order=", bg.order[ i ], ")...\n", sep="" )
+          tmp.seqs <- if ( ! is.null( genome.info$all.upstream.seqs[[ i ]] ) ) genome.info$all.upstream.seqs[[ i ]]
+          else get.sequences( attr( ratios, "rnames" ), distance=motif.upstream.search[[ i ]], seq.type=i, filter=F )
+          genome.info$bg.fname[ i ] <- my.tempfile( "meme.tmp", suf=".bg" ) 
+          capture.output( genome.info$bg.list[[ i ]] <- mkBgFile( tmp.seqs, order=bg.order[ i ],
+                                                                 bgfname=genome.info$bg.fname[ i ],
+                                                                 use.rev.comp=grepl( "-revcomp", meme.cmd[ i ] ) ) )
+          rm( tmp.seqs )
+        } else {
+          message( "NOT USING a global sequence background distribution!" )
         }
+        if ( ! is.null( env ) ) assign( "genome.info", genome.info, envir=env )
       }
+      ##}
 ##!ifndef 
 ##      if ( big.memory ) genome.info$all.upstream.seqs <-
 ##        list.reference( genome.info$all.upstream.seqs, sprintf( "%s/all.genome.seqs", cmonkey.filename ) )
@@ -741,7 +756,7 @@ cmonkey.init <- function( env=NULL, ... ) {
   if ( ! exists( "favorite.cluster" ) )
     favorite.cluster <- function() min( which( tabulate( row.membership ) > cluster.rows.allowed[ 1 ] * 2 ) )
 
-  if ( n.iter == 3000 ) n.iter <- 2000 ## 2000 is just as good; but this way maintain the schedules
+  ##if ( n.iter == 3000 ) n.iter <- 2000 ## 2000 is just as good; but this way maintain the schedules
   row.scaling <- extend.vec( row.scaling )
   mot.scaling <- extend.vec( mot.scaling )
   net.scaling <- extend.vec( net.scaling ) ##, envir=cmonkey.env )
@@ -782,6 +797,12 @@ cmonkey.init <- function( env=NULL, ... ) {
     try( env$cm.func.each.iter(), silent=T ) ## User-defined func. to run each iteration (here, at end of initialization)
   }
 
+  ## SD 03/15/11  Calculate the background distributions for known cluster sizes
+  #browser()
+  set.param( "scoring.method", "var.p" )  ##Score clusters using "var.p" a background distribution, or "res.like" a residual
+  if ( ! is.null( env ) ) assign( "scoring.method", scoring.method, envir=env )
+  if ( ! is.null( env ) ) assign( "means.sds", list(), envir=env ) ##Even if using other scoring method, and empty list will allow you to change later
+  #env <- update.means.sds(env)
   
   cat( "INITIALIZATION IS COMPLETE.\n" )
   env$iter <- env$iter + 1

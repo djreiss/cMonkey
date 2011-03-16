@@ -15,13 +15,15 @@ clusters.w.func <- function( func, ks=1:k.clust, short=F, max.rows=999, p.val=F 
   ##sapply( ks, function( i ) {  
   mc <- get.parallel( length( ks ) )
   unlist( mc$apply( ks, function( i ) { ##, ... ) {
-    rows <- get.long.names( get.rows( i ), short=short )
+    rows <- get.rows( i )
+    if ( length( rows ) <= 1 ) return( NA )
+    rows.l <- get.long.names( rows, short=short )
     if ( ! p.val ) {
-      if ( length( get.rows( i ) ) >= max.rows ) NA else
-      length( grep( func, rows, perl=T, ignore.case=T ) )
+      if ( length( rows ) >= max.rows ) NA else
+      length( grep( func, rows.l, perl=T, ignore.case=T ) )
     } else {
-      phyper( length( grep( func, rows, perl=T, ignore.case=T ) ),
-             n2, attr( ratios, "nrow" ) - n2, length( get.rows( i ) ), lower=F ) * length( ks ) ## bonferroni baby!
+      phyper( length( grep( func, rows.l, perl=T, ignore.case=T ) ),
+             n2, attr( ratios, "nrow" ) - n2, length( rows ), lower=F ) * length( ks ) ## bonferroni baby!
     }
   } ) ) ##, mc.cores=mc$par ) )
 }
@@ -32,6 +34,7 @@ clusters.w.genes <- function( genes, ks=1:k.clust, p.val=F ) {
   mc <- get.parallel( length( ks ) )
   unlist( mc$apply( ks, function( i ) { ##, ... ) {
     rows <- get.rows( i )
+    if ( length( rows ) <= 1 ) return( NA )
     if ( ! p.val ) sum( rows %in% genes )
     else phyper( sum( rows %in% genes ), length( genes ), attr( ratios, "nrow" ) - length( genes ),
                 length( rows ), lower=F ) * length( ks )
@@ -93,8 +96,10 @@ clusters.w.conds <- function( conds, ks=1:k.clust, p.val=F ) {
 ## }
 
 cluster.summary <- function( e.cutoff=0.01, nrow.cutoff=5, seq.type=names( mot.weights )[ 1 ], plot=F,
-                            sort=c("score.norm","score","resid","e.value1","e.value2","nrow") ) {
-  ms <- meme.scores[[ seq.type ]]
+                            sort=c("score.norm","score","resid","e.value1","e.value2","nrow") ) { ##"loglik",
+  ms <- NULL
+  if ( ! is.null( seq.type ) ) ms <- meme.scores[[ seq.type ]]
+  if ( is.null( ms ) ) e.cutoff <- NA
   score <-
     sapply( 1:k.clust, function( k ) mean( r.scores[ get.rows( k ), k ], na.rm=T, trim=0.01 ) ) *
       row.scaling[ iter ] + if ( ! is.null( mot.scores ) )
@@ -107,17 +112,17 @@ cluster.summary <- function( e.cutoff=0.01, nrow.cutoff=5, seq.type=names( mot.w
   out <- data.frame( k=1:k.clust, nrow=nrow, score=score, ##score.norm=score.norm,
                     resid=sapply( 1:k.clust, cluster.resid, varNorm=F ), 
                     consensus1=sapply( 1:k.clust,
-                      function( k ) if ( length( ms[[ k ]] ) <= 2 ) "" else
+                      function( k ) if ( is.null( ms ) || length( ms[[ k ]] ) <= 3 ) "" else
                       pssm.to.string( ms[[ k ]]$meme.out[[ 1 ]]$pssm ) ),
                     e.value1=sapply( 1:k.clust,
-                      function( k ) if ( length( ms[[ k ]] ) <= 2 ) Inf else
+                      function( k ) if ( is.null( ms ) || length( ms[[ k ]] ) <= 3 ) Inf else
                       ms[[ k ]]$meme.out[[ 1 ]]$e.value ),
                     consensus2=sapply( 1:k.clust,
-                      function( k ) if ( length( ms[[ k ]] ) <= 2 ) "" else
+                      function( k ) if ( is.null( ms ) || length( ms[[ k ]] ) <= 3 ) "" else
                       if ( length( ms[[ k ]]$meme.out ) == 1 ) "" else
                       pssm.to.string( ms[[ k ]]$meme.out[[ 2 ]]$pssm ) ),
                     e.value2=sapply( 1:k.clust,
-                      function( k ) if ( length( ms[[ k ]] ) <= 2 ) Inf else
+                      function( k ) if ( is.null( ms ) || length( ms[[ k ]] ) <= 3 ) Inf else
                       if ( length( ms[[ k ]]$meme.out ) <= 1 ) Inf else
                       ms[[ k ]]$meme.out[[ 2 ]]$e.value )
                     )
@@ -328,44 +333,6 @@ update.cmonkey.env <- function( object, ... ) { ## Update all funcs contained in
   ##invisible( env )
 }
 
-adjust.clust.2 <- function( k, row.memb=get("row.membership"), expand.only=T, plot=F, limit=100, ##motif=F, 
-                           scores="r.scores", quant.cutoff=0.33, force.expand=0 ) {
-  if ( scores == "rr.scores" ) {
-    if ( ! exists( "rr.scores" ) ) scores <- get.density.scores( ks=1:k.clust )$r
-    else scores <- get( scores )
-    scores <- 1 - scores[,]
-  } else if ( scores == "r.scores" ) {
-    scores <- get.combined.scores()$r
-  } else {
-    scores <- get( scores )
-  }
-  scores <- scores[,] ## In case it's an ff
-  old.rows <- get.rows( k )
-  sc.in <- scores[ old.rows, k ]
-  sc.out <- scores[ ! rownames( scores ) %in% old.rows, k ]
-  pv <- t.test( sc.out, sc.in, alt='g' )$p.value
-  to.add <- to.remove <- character()
-  new.rows <- orig.rows <- old.rows
-  for ( g in 1:10000 ) {
-    g <- sample( rownames( scores ), 1 )
-    ##new.rows <- orig.rows
-    if ( g %in% old.rows ) new.rows <- new.rows[ old.rows != g ]
-    else new.rows <- unique( c( old.rows, g ) )
-    sc.in1 <- scores[ new.rows, k ]
-    sc.out1 <- scores[ ! rownames( scores ) %in% new.rows, k ]
-    pv1 <- t.test( sc.out1, sc.in1, alt='g' )$p.value
-    if ( pv1 <= pv ) {
-      cat( g, pv, pv1, g %in% old.rows, "\n" )
-      if ( g %in% orig.rows ) to.remove <- unique( c( to.remove, g ) )
-      else to.add <- unique( c( to.add, g ) )
-      pv <- pv1
-    } else {
-      new.rows <- old.rows
-    }
-    old.rows <- new.rows
-  }
-  list( add=to.add, remove=to.remove )
-}
 
 ## Hacky way to improve cluster in one swoop - add the best outside gene with a better score than the worst gene
 ##   already in, then remove that worst gene. Repeat until there are no outside genes better than any inside genes.

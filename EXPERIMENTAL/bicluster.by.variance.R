@@ -141,8 +141,8 @@ getVarianceMeanSD <- function(ratios, n, tolerance = 0.01 ,maxTime=600, chunkSiz
 			i<-which(keepRunning)[ctr]
 			curReg <- names(keepRunning)[i]
 			rawScores[[curReg]] <- c(rawScores[[curReg]],newScores[[ctr]])
-			curMeans[i] <- mean(rawScores[[curReg]])
-			curSds[i] <- sd(rawScores[[curReg]])
+			curMeans[i] <- mean(rawScores[[curReg]],na.rm=T)
+			curSds[i] <- sd(rawScores[[curReg]],na.rm=T)
 		}
 
 		#browser()
@@ -186,21 +186,22 @@ getVarianceMeanSD.all <- function(ratios, n, numSamples = -1) {
 }
 
 
+#' OBSOLETE
 #' Return a dataframe containing the means and standard deviations for all ratios matrixes in list ratios
 #' 
 #' @param ratios  A list of ratios matrixes
 #' @param n  The number of genes
 #' @param numSamples  The number of samples (DEFAULT: -1, i.e. autodetect)
-#' @param all  Set to false to get a different means and sd for each experimental condition (DEFAULT: T)
+#' @param all  Set to false to get a different means and sd for each experimental condition (DEFAULT: F)
 #' @export
-#' @usage varCutoff <- getVarianceMeanSD(ratios, n,numSamples = 10000, all = T)
-getVarianceMeanSD.DF <- function(ratios, n, numSamples = -1, all = T) {
+#' @usage varCutoff <- getVarianceMeanSD.DF.bk(ratios, n,numSamples = 10000, all = F)
+getVarianceMeanSD.DF.bk <- function(ratios, n, numSamples = -1, all = F) {
     expNames <- as.character(unlist(lapply(ratios, colnames)))
     if (n == 1) {
         sds <- means <- rep(0,length(expNames))
     } else {
     	if (all == T) {
-    		means.sds<-getVarianceMeanSD.all(ratios, n, numSamples)
+    		means.sds<-getVarianceMeanSD(ratios, n, numSamples)
     		means<-rep(means.sds$means, sum(sapply(ratios,ncol)))
         	sds<-rep(means.sds$sds, sum(sapply(ratios,ncol)))
         } else {
@@ -208,6 +209,25 @@ getVarianceMeanSD.DF <- function(ratios, n, numSamples = -1, all = T) {
         	means<-unlist(means.sds['means',],use.names=F)
         	sds<-unlist(means.sds['sds',],use.names=F)
         }
+    }
+    names(means) <- names(sds) <- expNames
+    return(data.frame(means=means,sds=sds))
+}
+
+#' Return a dataframe containing the means and standard deviations for all ratios matrixes in list ratios
+#' 
+#' @param ratios  A list of ratios matrixes
+#' @param n  The number of genes
+#' @export
+#' @usage varCutoff <- getVarianceMeanSD(ratios, n)
+getVarianceMeanSD.DF <- function(ratios, n) {
+    expNames <- as.character(unlist(lapply(ratios, colnames)))
+    if (n == 1) {
+        sds <- means <- rep(0,length(expNames))
+    } else {
+       	means.sds<-sapply(ratios,function(x) {getVarianceMeanSD(refdata(x), n)})
+       	means<-unlist(means.sds['means',],use.names=F)
+       	sds<-unlist(means.sds['sds',],use.names=F)
     }
     names(means) <- names(sds) <- expNames
     return(data.frame(means=means,sds=sds))
@@ -272,7 +292,7 @@ cluster.ratPval <- function( k, rats.inds="COMBINED", means.sds=list(), clusterS
 
 #' Return a list of pVals for a list of genes under all conditions
 #' 
-#' @param e  The cMonkey environment.  Used for the ratios matrix
+#' @param e  The cMonkey environment.  Used for the ratios matrix.  Will also accept a list containing a list of ratios matrices
 #' @param geneList  ne data.frame for each number of genes.
 #' @param mean.sd  A single elements of means.sds.  A DF with means and sds, one for each experimental condition.  
 #' @export
@@ -294,6 +314,7 @@ getRatPvals <- function(e, geneList, mean.sd) {
 	}
 	col.pVals
 }
+
 
 #' Given a cMonkey environment, build a new clusterStack with different cols & pValues based on variance
 #' Returns "newClusterStack" and "means.sds".  "means.sds" may be used in subsequent calls to avoid recomputation
@@ -379,10 +400,344 @@ resplitClusters <- function(e, means.sds=list(), numSamples = -1, pValCut = 0.1,
 	return(list(newClusterStack=newClustStack, means.sds=means.sds))
 }
 
+#' Return the column scores for a given cluster k
+#' Default is to normalize (diff)^2 by mean expression level, similar to "index of dispersion"
+#'    http://en.wikipedia.org/wiki/Index_of_dispersion
+#' 
+#' @param k  The cluster number or a vector with the row names.
+#' @param for.cols  The column names to include. (DEFAULT: "all")
+#' @param ratios  The rations matrix.  (DEFAULT: ratios[[1]])
+#' @param norm.method  The normalization method. (DEFAULT: c("mean","all.colVars","none")[1])  
+#' @param scoring.method  The scoring method.  res.like is resildual like, var.p is variance pValue  (DEFAULT: c("var.p","res.like")[1])
+#' @param ...    
+#' @export
+#' @usage pValList <- get.col.scores(k, for.cols="all", ratios=ratios[[ 1 ]],norm.method=c("mean","all.colVars","none")[1],scoring.method=c("var.p","res.like")[1])
+get.col.scores <- function( k, for.cols="all", ratios=ratios[[ 1 ]], 
+                           norm.method=c("mean","all.colVars","none")[1], 
+                           scoring.method=c("var.p","res.like")[1],... ) {
+	## Compute scores for ALL cols (over just the rows IN the cluster)
+	if ( length( k ) <= 0 ) return( NULL )
+	if ( is.numeric( k[ 1 ] ) ) rows <- get.rows( k ) 
+	else rows <- k
+	if ( for.cols[ 1 ] == "all" ) for.cols <- colnames( ratios ) ##attr( ratios, "cnames" )
+	rows <- rows[ rows %in% rownames( ratios ) ]
+	if ( length( rows ) <= 1 ) return( rep( NA, length( for.cols ) ) )
+
+	rats <- ratios[ rows, for.cols, drop=F ]
+	
+	if (scoring.method != "var.p") { "res.like"
+		row.weights <- if ( exists( "get.row.weights" ) ) get.row.weights( rows, cols, ratios ) else NA
+
+		if ( is.na( row.weights[ 1 ] ) ) { ## Default
+			rats.mn <- matrix( colMeans( rats, na.rm=T ), nrow=nrow( rats ), ncol=ncol( rats ), byrow=T )
+		} else { ## Custom row weights
+			rats.mn <- matrix( apply( rats, 2, weighted.mean, w=row.weights[ rows ], na.rm=T ), ncol=ncol( rats ), byrow=T )
+		}
+
+		rats[,] <- ( rats[,] - rats.mn )^2 ## abs( Multiplying is faster than squaring
+		rats <- colMeans( rats, na.rm=T )
+
+		var.norm <- 0.99
+		if ( norm.method == "all.colVars" ) {
+			all.colVars <- attr( ratios, "all.colVars" )
+			if ( ! is.null( all.colVars ) ) var.norm <- all.colVars[ for.cols ]
+		} else if ( norm.method == "mean" ) {
+			var.norm <- abs( rats.mn[ 1, ] ) ##0.99 ## Use the mean expr. level (higher expressed expected to have higher noise)
+		}
+
+		##col.weights <- get.col.weights( rows, cols )
+		##if ( is.na( col.weights ) )
+		rats <- rats / ( var.norm + 0.01 ) ## default
+		##!else rats <- colMeans( rats, na.rm=T ) / ( var.norm * col.weights[ cols ] + 0.01 ) ## customized col. weights
+
+		##return( log( rats + 1e-99 ) )
+	} else { #var.p,  Use the bicluster.by.variance code to get a pValue
+		#browser()
+		numGenes <- nrow(rats)
+		#means.sds must be pulled from the environment.  It is a class variable
+		if (is.null(means.sds[[as.character(numGenes)]])) { 
+			means.sds[[as.character(numGenes)]] <- getVarianceMeanSD(ratios[ rows, get.rows( k ), drop=F ], numGenes) 
+		}
+		mean.sd <- means.sds[[as.character(numGenes)]]  
+		
+		ratList <- list()
+		ratList[["ratios"]] <- list(rats)
+		pVals <- getRatPvals(ratList, rows, mean.sd)  #env is usual first parameter.  Fake it with ratList
+		
+		rats <- pVals		
+	}
+	rats
+}
+
+#' Make sure that env$means.sds contains all necessary background distributions
+#' 
+#' @param env  The cMonkey environment.
+#' @export
+#' @usage env <- update.means.sds(env)
+update.means.sds <- function( env ) {
+	mc <- env$get.parallel()
+	means.sds <- as.list(env$means.sds)
+	if (env$scoring.method == "var.p") {
+		#numGenesInClusters<- unique(sort(sapply(env$clusterStack,function(x) {x$nrows} )))
+		numGenesInClusters<- unique(colSums(env$row.memb))
+  		numGenesInClusters <- sort(unique(c(numGenesInClusters,numGenesInClusters+1,numGenesInClusters-1))) #Include +/- one gene
+  	
+  		#Load means.sds as necessary
+		numGeneList<-numGenesInClusters[! numGenesInClusters %in% names(means.sds)]
+		lGeneList<-length(numGeneList)
+		if (lGeneList > 0) {
+			numGeneLists<-split(1:lGeneList,cut(1:lGeneList,max(floor(lGeneList/mc$par),2)))
+			cat("Calculating variance means and sd's for",lGeneList,"gene counts\n")
+			for (geneListNums in numGeneLists) { #Embed in for loop to have a status monitor
+				curNumGenes<-numGeneList[geneListNums]
+				cat(curNumGenes,'',sep=",")
+				flush.console()
+				#browser()
+				new.means.sds<- mc$apply( curNumGenes, function( n ) {
+					getVarianceMeanSD.DF(env$ratios, n)
+				} ) #for (n in numGeneList)
+				names(new.means.sds)<-as.character(curNumGenes)
+				means.sds<-c(means.sds,new.means.sds)
+			}
+		}
+		cat('\n')
+	} #if (scoring.method == "var.p") {
+	if ( ! is.null( env ) ) assign( "means.sds", means.sds, envir=env )
+	invisible(env)
+}
+
+#' Seed the biclusters
+#'   Modified 03-15-11 so that get.col.scores will use scoring.method="res.like"
+#' 
+#' @param k.clust  The number of clusters to create.
+#' @param seed.method  . (DEFAULT: "rnd")
+#' @param col.method  . (DEFAULT: "rnd")
+#' @export
+#' @usage env <- seed.clusters(env)
+seed.clusters <- function( k.clust, seed.method="rnd", col.method="rnd" ) {
+  ## Allow it to be overridden by a custom function if desired (e.g. to seed from a gene list -- no that's a bad
+  ## example -- there's the "list=" option below)
+  if ( seed.method == "custom" && exists( "seed.clusters.custom" ) )
+    return( seed.clusters.custom( k.clust, col.method ) )
+  if ( substr( seed.method, 1, 3 ) == "net" && length( networks ) <= 0 ) {
+    cat( "Seed method is", seed.method, ", but no networks -- using 'kmeans' instead.\n" )
+    seed.method <- "kmeans"
+  }
+  if ( seed.method == "rnd" ) { ## RANDOM, ALL GENES ASSIGNED TO k.clust CLUSTERS
+    row.membership <- t( sapply( 1:attr( ratios, "nrow" ),
+                                function( i ) sample( 1:k.clust, n.clust.per.row[ 1 ],
+                                                     replace=n.clust.per.row[ 1 ] > attr( ratios, "nrow" ) ) ) )
+  } else if ( substr( seed.method, 1, 5 ) == "list=" ) { ## File with sets of genes - one set of genes per line
+    row.membership <- matrix( 0, nrow=attr( ratios, "nrow" ), ncol=n.clust.per.row[ 1 ] ) ## separated by space,tab,or comma
+    rownames( row.membership ) <- attr( ratios, "rnames" )
+    fname <- strsplit( seed.method, "=" )[[ 1 ]][ 2 ]
+    if ( exists( fname ) ) lists <- get( fname ) ## List of vectors already exists in memory
+    else if ( file.exists( fname ) ) lists <- strsplit( readLines( fname ), split="[ \t,]", perl=T )
+    for ( k in 1:min( c( k.clust, length( lists ) ) ) ) {
+      probes <- unlist( lapply( get.synonyms( lists[[ k ]] ), function( i ) i %in% rownames( row.membership ) ) )
+      row.membership[ probes[ row.membership[ probes, 1 ] == 0 ], 1 ] <- k
+      row.membership[ probes[ row.membership[ probes, 1 ] != 0 ], 2 ] <- k
+    }
+    if ( length( lists ) < k.clust ) { ## Fill in additional clusters randomly
+      for ( k in ( length( lists ) + 1 ):k.clust ) {
+        rnames <- attr( ratios, "rnames" )[ ! attr( ratios, "rnames" ) %in% unlist( lists ) ]
+        rows <- sample( rnames, 5 )
+        row.membership[ rows[ row.membership[ rows, 1 ] == 0 ], 1 ] <- k
+        row.membership[ rows[ row.membership[ rows, 1 ] != 0 & row.membership[ rows, 2 ] == 0 ], 2 ] <- k
+      }
+    }
+  } else if ( substr( seed.method, 1, 4 ) == "rnd=" ) { ## RANDOM SAMPLED N per cluster
+    n.samp <- as.integer( strsplit( seed.method, "=" )[[ 1 ]][ 2 ] )
+    row.membership <- matrix( 0, nrow=attr( ratios, "nrow" ), ncol=n.clust.per.row[ 1 ] )
+    rownames( row.membership ) <- attr( ratios, "rnames" )
+    for ( i in 1:n.clust.per.row ) {
+      sampled <- rep( FALSE, attr( ratios, "nrow" ) ); names( sampled ) <- attr( ratios, "rnames" )
+      for ( k in 1:k.clust ) {
+        g <- sample( attr( ratios, "rnames" )[ ! sampled ], n.samp )
+        row.membership[ g, 1 ] <- k
+        sampled[ g ] <- TRUE
+      }
+    }
+  } else if ( seed.method == "kmeans" ) { ## Kmeans seeded
+    if ( ! exists( "ratios" ) ) stop( "kmeans seed method but no ratios" )
+    tmp.rat <- get.cluster.matrix() ##ratios;
+    tmp.rat[ is.na( tmp.rat ) ] <- 0
+    ##cat(dim(tmp.rat),k.clust,"\n")
+    km <- kmeans
+    row.membership <- km( tmp.rat, centers=k.clust, iter.max=20, nstart=2 )$cluster
+    names( row.membership ) <- attr( ratios, "rnames" )
+    if ( n.clust.per.row[ 1 ] > 1 ) row.membership <-
+      cbind( row.membership, matrix( rep( 0, attr( ratios, "nrow" ) * ( n.clust.per.row[ 1 ] - 1 ) ),
+                                         ncol=n.clust.per.row[ 1 ] - 1 ) )
+  }
+  
+  if ( is.vector( row.membership ) ) row.membership <- t( row.membership ) ## probably n.clust.per.row == 1
+  if ( nrow( row.membership ) == 1 ) row.membership <- t( row.membership ) ## probably n.clust.per.row == 1
+ 
+  if ( col.method == "rnd" ) {
+    col.membership <- t( sapply( 1:attr( ratios, "ncol" ), function( i )
+                                sample( 1:k.clust, n.clust.per.col[ 1 ],
+                                       replace=n.clust.per.col[ 1 ] > k.clust ) ) ) ##attr( ratios, "ncol" ) ) ) )
+  } else if ( col.method == "best" ) {
+    if ( ! exists( "ratios" ) ) stop( "best col seed method but no ratios" )
+    all.rats <- get.cluster.matrix()
+    attr( all.rats, "all.colVars" ) <- apply( all.rats, 2, var, use="pair", na.rm=T )
+    col.scores <- -sapply( 1:k.clust, function( k )
+                          if ( sum( row.membership == k, na.rm=T ) <= 0 ) rep( NA, attr( ratios, "ncol" ) ) else 
+                          get.col.scores( k=get.rows( k, row.membership ), ratios=all.rats, method="orig" ,scoring.method="res.like") ) 
+    col.membership <- t( apply( col.scores, 1, function( i ) order( i, decreasing=T )[ 1:n.clust.per.col[ 1 ] ] ) )
+  }
+
+  rownames( row.membership ) <- attr( ratios, "rnames" ) 
+  rownames( col.membership ) <- attr( ratios, "cnames" )
+  list( row.membership=row.membership, col.membership=col.membership )
+}
+
+#' Run one iteration of the cMonkey algorithm
+#'   BIG TODO: make it so all big.memory are updated in-place
+#'   Updated on 03-15-11 to make sure that all necessary background ditributions are calculated for var.p column scoring
+#' 
+#' @param env  The cMonkey environment.
+#' @param dont.update  Set to T to not update the iteration counter & other iteration related functions. (DEFAULT: F)
+#' @export
+#' @usage env <- cmonkey.one.iter(env, dont.update=F)
+cmonkey.one.iter <- function( env, dont.update=F, ... ) {  
+  ##if ( ! exists( "clust.changed", envir=env ) ) env$clust.changed <- rep( FALSE, k.clust )
+  if ( ! exists( "row.memb", envir=env ) ) {
+    env$row.memb <- t( apply( row.membership[], 1, function( i ) 1:k.clust %in% i ) )
+    env$col.memb <- t( apply( col.membership[], 1, function( i ) 1:k.clust %in% i ) )
+    env$row.memb <- matrix.reference( env$row.memb, backingfile="row.memb", backingpath=env$cmonkey.filename )
+    env$col.memb <- matrix.reference( env$col.memb, backingfile="col.memb", backingpath=env$cmonkey.filename )
+  } else {
+    env$row.memb[,] <- t( apply( row.membership[], 1, function( i ) 1:k.clust %in% i ) )
+    env$col.memb[,] <- t( apply( col.membership[], 1, function( i ) 1:k.clust %in% i ) )
+  }
+
+  #browser()
+  env <- update.means.sds(env) #SD 03-15-11
+  tmp <- get.all.scores( ... )
+  env$row.scores <- tmp$r##[,];
+  env$mot.scores <- tmp$m; env$net.scores <- tmp$n; env$col.scores <- tmp$c
+  env$meme.scores <- tmp$ms
+  if ( ! is.null( tmp$cns ) ) env$cluster.net.scores <- tmp$cns
+
+  tmp <- get.combined.scores( quant=T )
+  env$r.scores <- tmp$r; env$c.scores <- tmp$c; env$n.scores <- tmp$n; env$m.scores <- tmp$m
+  if ( ! is.null( env$row.scores ) ) attr( env$row.scores, "changed" ) <- FALSE
+  if ( ! is.null( env$col.scores ) ) attr( env$col.scores, "changed" ) <- FALSE
+  if ( ! is.null( env$mot.scores ) ) attr( env$mot.scores, "changed" ) <- FALSE
+  if ( ! is.null( env$net.scores ) ) attr( env$net.scores, "changed" ) <- FALSE
+
+  if ( length( tmp$scalings ) > 0 ) {
+    env$row.scaling[ iter ] <- tmp$scalings[ "row" ]
+    env$mot.scaling[ iter ] <- tmp$scalings[ "mot" ]
+    env$net.scaling[ iter ] <- tmp$scalings[ "net" ]
+  }
+
+  ## Fuzzify scores a bit for stochasticity! (fuzz should be between 0.2 and 0 (decreasing with iter)
+  if ( fuzzy.index[ iter ] > 1e-5 ) {
+    env$r.scores[,] <- env$r.scores[,] +
+      rnorm( length( env$r.scores[,] ), sd=sd( env$r.scores[,][ row.memb[,] == 1 ], na.rm=T ) * fuzzy.index[ iter ] )
+    if ( ! is.null( env$c.scores ) ) env$c.scores[,] <- env$c.scores[,] +
+      rnorm( length( env$c.scores[,] ), sd=sd( env$c.scores[,][ col.memb[,] == 1 ], na.rm=T ) * fuzzy.index[ iter ] )
+  }
+
+  tmp <- get.density.scores( ks=1:k.clust ) ## r.scores, col.scores, 
+  env$rr.scores <- tmp$r; env$cc.scores <- tmp$c ##; rm( tmp )
+
+  ## OUTPUT
+  if ( iter %in% stats.iters ) { 
+    env$clusterStack <- get.clusterStack( ks=1:k.clust ) 
+    env$stats <- rbind( stats, get.stats() )
+    cat( organism, as.matrix( stats[ nrow( stats ), ] ), '\n' )
+  } else {
+    cat( sprintf( "==> %04d %.3f %.3f %.3f\n", iter, ##%5d sum( row.memb != old.row.memb, na.rm=T ),
+                 mean( row.scores[,][ row.memb[,] == 1 ], na.rm=T ), ##mean( col.scores[ col.memb ], na.rm=T, trim=0.05 ),
+                 if ( ! is.null( mot.scores ) ) mean( mot.scores[,][ row.memb[,] == 1 & mot.scores[,] < 0 ], na.rm=T, trim=0.05 )
+                 else NA,
+                 if ( ! is.null( net.scores ) ) mean( net.scores[,][ row.memb[,] == 1 ##& net.scores < 0
+                                                                 ], na.rm=T, trim=0.05 ) else NA ) ) ##, "\n" )
+  }
+    
+  ## NEW - will it work? -- help shrink big clusters, grow small clusters, both in rows and cols
+  size.compensation.func.rows <- function( n ) exp( -n / ( attr( ratios, "nrow" ) * n.clust.per.row / k.clust ) )
+  size.compensation.func.cols <- function( n ) exp( -n / ( attr( ratios, "ncol" ) * n.clust.per.col / k.clust ) )
+  for ( k in 1:k.clust ) {
+    tmp <- sum( row.memb[ ,k ] )
+    if ( tmp > 0 ) env$rr.scores[ ,k ] <- env$rr.scores[ ,k ] * size.compensation.func.rows( tmp ) 
+    else env$rr.scores[ ,k ] <- env$rr.scores[ ,k ] * size.compensation.func.rows( cluster.rows.allowed[ 1 ] )
+    if ( ! is.null( env$cc.scores ) ) {
+      tmp <- sum( col.memb[ ,k ] )
+      if ( tmp > 0 ) env$cc.scores[ ,k ] <- env$cc.scores[ ,k ] * size.compensation.func.cols( tmp ) 
+      else env$cc.scores[ ,k ] <- env$cc.scores[ ,k ] * size.compensation.func.cols( attr( ratios, "ncol" ) / 10 )
+    }
+  }
+  
+  ## Fuzzify it along the lines of fuzzy c-means clustering
+  ##   -- see http://en.wikipedia.org/wiki/Data_clustering#Fuzzy_c-means_clustering
+  ## No -- it doesnt affect things - same ordering (and updated memberships are based on ordering)
+  ##   but should use these scores to weight the centroids that are selected in the next iteration.
+  ##   for this, fuzz should vary between e.g. 10 and 2
+  ##rr.scores <- ( rr.scores / sum( rr.scores, na.rm=T ) )^( 2 / ( fuzz - 1 ) )
+  ##cc.scores <- ( cc.scores / sum( cc.scores, na.rm=T ) )^( 2 / ( fuzz - 1 ) )
+
+  if ( ! dont.update ) {
+  
+    ## Make a matrix of m[i,k] = whether row/col i is in cluster k
+    if ( exists( "row.membership" ) ) { 
+      env$old.row.membership <- row.membership 
+      env$old.col.membership <- col.membership 
+    }
+
+    tmp <- get.updated.memberships() ## rr.scores, cc.scores )
+    env$row.membership <- tmp$r; env$col.membership <- tmp$c
+    if ( ! is.null( tmp ) ) { env$row.membership <- tmp$r; env$col.membership <- tmp$c }
+    
+    
+    ## PLOTTING
+    if ( ! is.na( plot.iters ) && iter %in% plot.iters ) {
+      env$clusterStack <- get.clusterStack( ks=1:k.clust ) 
+      try( plotStats( iter, plot.clust=env$favorite.cluster(), new.dev=T ), silent=T ) ## Can be set for your given organism
+    }
+  
+    if ( exists( "cm.func.each.iter" ) ) try( cm.func.each.iter(), silent=T ) ## User-defined func. to run each iteration
+    
+    ## Allow temp source file to be sourced (e.g. to change a param in the middle of a run, or print or plot or save
+    ## some intermediate results). If first line of file is '## QUIET' then this is done quietly.
+    if ( any( cm.script.each.iter != "" ) ) {
+      for ( f in cm.script.each.iter ) {
+        if ( file.exists( f ) && file.info( f )$size > 1 ) {
+          tmp <- readLines( f )
+          if ( all( substr( tmp, 1, 1 ) == "#" ) ) next ## All commented-out code
+          if ( tmp[ 1 ] != "## QUIET" ) cat( "Sourcing the script '", f, "' ...\n", sep="" )
+          try( source( f, echo=tmp[ 1 ] != "## QUIET", local=T ), silent=T )
+        }
+      }
+    }
+  }
+
+  
+  ## Note: with the above code, when the env is saved via save.image(), all ff obj's are "closed" but their
+  ##   filestores still exist, so you can "open.ff(x)" each of them after the env is re-loaded,
+  ##   and that will reconnect them with their files.
+  
+  if ( get.parallel()$mc ) {
+    if ( getDoParName() == "doMC" ) { ##require( multicore, quietly=T ) ) { ## Clean up any multicore spawned processes (as doc'ed in mclapply help)
+      chld <- multicore::children()
+      if ( length( chld ) > 0 ) { try( { multicore::kill( chld ); tmp <- multicore::collect( chld ) }, silent=T ) }
+    } else if ( getDoParName() == "doSNOW" && "data" %in% ls( pos=foreach:::.foreachGlobals ) ) {
+      cl <- get( "data", pos=foreach:::.foreachGlobals ) ## Tricky, eh?
+      if ( ! is.null( data ) ) stopCluster( cl )
+    }
+  }
+  
+  if ( ! dont.update ) env$iter <- env$iter + 1
+  invisible( env )
+} #cmonkey.one.iter <- function
 
 
 #These two functions update cMonkey to pull the rows & cols directly from the clusterStack
-runnit <- function( e ) {
+runnit.BBV <- function( e ) {
 	##infFile <- 'DR.Inferelator-run-sce-2011-01-05.RData'
 	##load(infFile)
 	##colMap<-DrData$colMap
@@ -459,6 +814,6 @@ runnit <- function( e ) {
 	e$write.project()
 }
 
-if ( TRUE ) {
-  runnit( e )
-}
+#if ( TRUE ) {
+#  runnit( e )
+#}
