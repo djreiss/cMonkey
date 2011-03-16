@@ -458,13 +458,13 @@ get.col.scores <- function( k, for.cols="all", ratios=ratios[[ 1 ]],
 		if (is.null(means.sds[[as.character(numGenes)]])) { 
 			means.sds[[as.character(numGenes)]] <- getVarianceMeanSD(ratios[ rows, get.rows( k ), drop=F ], numGenes) 
 		}
-		mean.sd <- means.sds[[as.character(numGenes)]]  
+		mean.sd <- means.sds[[as.character(numGenes)]]
 		
 		ratList <- list()
 		ratList[["ratios"]] <- list(rats)
 		pVals <- getRatPvals(ratList, rows, mean.sd)  #env is usual first parameter.  Fake it with ratList
 		
-		rats <- pVals		
+		rats <- log(pVals)
 	}
 	rats
 }
@@ -479,25 +479,27 @@ update.means.sds <- function( env ) {
 	means.sds <- as.list(env$means.sds)
 	if (env$scoring.method == "var.p") {
 		#numGenesInClusters<- unique(sort(sapply(env$clusterStack,function(x) {x$nrows} )))
-		numGenesInClusters<- unique(colSums(env$row.memb))
+		numGenesInClusters <- unique(colSums(env$row.memb))
   		numGenesInClusters <- sort(unique(c(numGenesInClusters,numGenesInClusters+1,numGenesInClusters-1))) #Include +/- one gene
   	
   		#Load means.sds as necessary
-		numGeneList<-numGenesInClusters[! numGenesInClusters %in% names(means.sds)]
-		lGeneList<-length(numGeneList)
+		numGeneList <- numGenesInClusters[! numGenesInClusters %in% names(means.sds)]
+		lGeneList <- length(numGeneList)
 		if (lGeneList > 0) {
-			numGeneLists<-split(1:lGeneList,cut(1:lGeneList,max(floor(lGeneList/mc$par),2)))
+			numGroups <- floor(lGeneList/mc$par)
+			numGeneLists <- list(1:lGeneList)
+			if (numGroups > 2) { numGeneLists <- split(numGeneLists[[1]],cut(numGeneLists[[1]],numGroups)) }
 			cat("Calculating variance means and sd's for",lGeneList,"gene counts\n")
 			for (geneListNums in numGeneLists) { #Embed in for loop to have a status monitor
-				curNumGenes<-numGeneList[geneListNums]
+				curNumGenes <- numGeneList[geneListNums]
 				cat(curNumGenes,'',sep=",")
 				flush.console()
 				#browser()
-				new.means.sds<- mc$apply( curNumGenes, function( n ) {
+				new.means.sds <- mc$apply( curNumGenes, function( n ) {
 					getVarianceMeanSD.DF(env$ratios, n)
 				} ) #for (n in numGeneList)
-				names(new.means.sds)<-as.character(curNumGenes)
-				means.sds<-c(means.sds,new.means.sds)
+				names(new.means.sds) <- as.character(curNumGenes)
+				means.sds <- c(means.sds,new.means.sds)
 			}
 		}
 		cat('\n')
