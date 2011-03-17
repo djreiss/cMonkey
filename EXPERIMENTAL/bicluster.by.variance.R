@@ -322,12 +322,12 @@ getRatPvals <- function(e, geneList, mean.sd) {
 #' @param e  The cMonkey environment
 #' @param means.sds  a list containing one data.frame for each number of genes.  Each data frame has means and sds. (DEFAULT: generate all)
 #' @param numSamples  The number of times to sample the background distribution to determine the pValues (DEFAULT: -1, i.e. autodetect)
-#' @param pValCut  The pValue at which to cut-off bicluster inclusion.  (DEFAULT: 0.1)
+#' @param pValCut  The pValue at which to cut-off bicluster inclusion.  (DEFAULT: 0.05)
 #' @param bonferroni  Set to TRUE to turn bonferroni correction on.  Prelimiary tests show this to be too strict. (DEFAULT: FALSE)
 #' @param aveNumCond  The average number of conditions to include in each cluster.  If set, will ignor pValCut   (DEFAULT: NULL)
 #' @export
 #' @usage clusterStack <- resplitClusters(e, means.sds=list(), numSamples = 10000, bonferroni = F, aveNumCond=NULL))
-resplitClusters <- function(e, means.sds=list(), numSamples = -1, pValCut = 0.1, bonferroni = F, aveNumCond=NULL, all = T) {
+resplitClusters <- function(e, means.sds=list(), numSamples = -1, pValCut = 0.05, bonferroni = F, aveNumCond=NULL, all = T) {
 
 	#Calculate the background distribution
 	numGenesInClusters<- unique(sort(sapply(e$clusterStack,function(x) {x$nrows} )))
@@ -343,7 +343,7 @@ resplitClusters <- function(e, means.sds=list(), numSamples = -1, pValCut = 0.1,
 			cat(curNumGenes,'',sep=",")
 			flush.console()
 			new.means.sds<- foreach (n=curNumGenes, .inorder=TRUE) %dopar% {
-				getVarianceMeanSD.DF(e$ratios, n, numSamples = numSamples, all = all)
+				getVarianceMeanSD.DF(e$ratios, n)
 			} #for (n in numGeneList)
 			names(new.means.sds)<-as.character(curNumGenes)
 			means.sds<-c(means.sds,new.means.sds)
@@ -738,48 +738,20 @@ cmonkey.one.iter <- function( env, dont.update=F, ... ) {
 } #cmonkey.one.iter <- function
 
 
-#These two functions update cMonkey to pull the rows & cols directly from the clusterStack
-runnit.BBV <- function( e ) {
-	##infFile <- 'DR.Inferelator-run-sce-2011-01-05.RData'
-	##load(infFile)
-	##colMap<-DrData$colMap
-	##cMonkeyFile <- 'cmonkey-run-sce-2011-03-04.RData'
-	##cMonkeyFile <- 'e.resplit.RData'
-	##if (exists('env')) { e <- env }
-	
-	##load(cMonkeyFile)
-	##for (i in 1:length(e$ratios)){
-	##	e$ratios[[i]]<-sortRatiosByTime(e$ratios[[i]], colMap)
-	##}
-	##attr(e$ratios,"cnames")<-unlist(sapply(e$ratios,colnames))
-	##environment(e$ratios) <- e
+#' Change the cluster breaks so that inclusion is based on variance background distribution
+#' 
+#' @param e  The cMonkey environment.
+#' @param pValCut  The pValue at which to cut-off bicluster inclusion.  (DEFAULT: 0.05)
+#' @export
+#' @usage env <- resplitClusters.by.var( e, pValCut = 0.05 )
+resplitClusters.by.var <- function( e, pValCut = 0.05 ) {
+	means.sds<-list()
+	if (! is.null(e$means.sds)) { means.sds <- e$means.sds }
 
-	##e$get.rows <- function (k, cs = get("clusterStack")) 
-	##{
-	##    return(cs[[k]]$rows)
-	##}
-	##environment(e$get.rows) <- e
-
-	##e$get.cols <- function (k, cs = get("clusterStack")) 
-	##{
-	##    return(cs[[k]]$cols)
-	##}
-	##environment(e$get.cols) <- e
-
-	##e$parallel.cores<-multicore:::detectCores()
-	##environment(e$parallel.cores) <- e
-
-	##e$foreach.register.backend(multicore:::detectCores())
-	
-	newClusterStack <- resplitClusters(e, pValCut = 0.1, aveNumCond=round(sum(sapply(ratios,ncol))/2) )
-	
-	##e$clusterStack <- newClusterStack$newClusterStack
-	##environment(e$clusterStack) <- e
-	
+	newClusterStack <- resplitClusters(e,means.sds=means.sds)
 	e$means.sds <- newClusterStack$means.sds
-	##environment(e$means.sds) <- e
 	
-	row.col.membership.from.clusterStack <- function( cs ) {
+	row.col.membership.from.clusterStack <- function( cs, row.membership, col.membership ) {
 		row.memb <- row.membership * 0
 		col.memb <- col.membership * 0
 		for ( k in 1:length( cs ) ) {
@@ -800,20 +772,21 @@ runnit.BBV <- function( e ) {
 	}
 	
 	##environment( row.col.membership.from.clusterStack ) <- e
-	tmp <- row.col.membership.from.clusterStack( newClusterStack$newClusterStack ) ##e$clusterStack )
+	tmp <- row.col.membership.from.clusterStack( newClusterStack$newClusterStack, e$row.membership, e$col.membership ) ##e$clusterStack )
 	e$row.membership <- tmp$r
 	e$col.membership <- tmp$c
-	e$row.memb <- t( apply( e$row.membership, 1, function( i ) 1:k.clust %in% i ) )
-	e$col.memb <- t( apply( e$col.membership, 1, function( i ) 1:k.clust %in% i ) )
-	e$clusterStack <- get.clusterStack( force=T )
-	e$stats <- rbind( stats, get.stats() )
-	stop()
+	e$row.memb <- t( apply( e$row.membership, 1, function( i ) 1:e$k.clust %in% i ) )
+	e$col.memb <- t( apply( e$col.membership, 1, function( i ) 1:e$k.clust %in% i ) )
+	e$clusterStack <- e$get.clusterStack( force=T )
+	e$stats <- rbind( e$stats, e$get.stats() )
+	#stop()
 	  
-	save(e,file="e.resplit.RData")
+	#save(e,file="e.resplit.RData")
 	
 	#browser()	
-	source('write.project.R')
-	e$write.project()
+	#source('write.project.R')
+	#e$write.project()
+	return(e)
 }
 
 #if ( TRUE ) {
