@@ -293,7 +293,7 @@ cluster.ratPval <- function( k, rats.inds="COMBINED", means.sds=list(), clusterS
 #' Return a list of pVals for a list of genes under all conditions
 #' 
 #' @param e  The cMonkey environment.  Used for the ratios matrix.  Will also accept a list containing a list of ratios matrices
-#' @param geneList  ne data.frame for each number of genes.
+#' @param geneList  one data.frame for each number of genes.
 #' @param mean.sd  A single elements of means.sds.  A DF with means and sds, one for each experimental condition.  
 #' @export
 #' @usage pValList <- getRatPvals(e, geneList, mean.sd=means.sds[["6"]])
@@ -477,7 +477,7 @@ get.col.scores <- function( k, for.cols="all", ratios=ratios[[ 1 ]],
 update.means.sds <- function( env ) {
 	mc <- env$get.parallel()
 	means.sds <- as.list(env$means.sds)
-	if (env$scoring.method == "var.p") {
+	if (is.null(env$scoring.method) || env$scoring.method == "var.p") {
 		#numGenesInClusters<- unique(sort(sapply(env$clusterStack,function(x) {x$nrows} )))
 		numGenesInClusters <- unique(colSums(env$row.memb))
   		numGenesInClusters <- sort(unique(c(numGenesInClusters,numGenesInClusters+1,numGenesInClusters-1))) #Include +/- one gene
@@ -739,12 +739,15 @@ cmonkey.one.iter <- function( env, dont.update=F, ... ) {
 
 
 #' Change the cluster breaks so that inclusion is based on variance background distribution
+#'  This should usually be called at the end of a cMonkey run.
 #' 
 #' @param e  The cMonkey environment.
 #' @param pValCut  The pValue at which to cut-off bicluster inclusion.  (DEFAULT: 0.05)
 #' @export
 #' @usage env <- resplitClusters.by.var( e, pValCut = 0.05 )
 resplitClusters.by.var <- function( e, pValCut = 0.05 ) {
+	e$MPV <- getMPV(e) #Save the MPV so that it isn't lost by splitting the cluster
+
 	means.sds<-list()
 	if (! is.null(e$means.sds)) { means.sds <- e$means.sds }
 
@@ -779,16 +782,36 @@ resplitClusters.by.var <- function( e, pValCut = 0.05 ) {
 	e$col.memb <- t( apply( e$col.membership, 1, function( i ) 1:e$k.clust %in% i ) )
 	e$clusterStack <- e$get.clusterStack( force=T )
 	e$stats <- rbind( e$stats, e$get.stats() )
-	#stop()
-	  
-	#save(e,file="e.resplit.RData")
-	
-	#browser()	
-	#source('write.project.R')
-	#e$write.project()
 	return(e)
 }
 
-#if ( TRUE ) {
-#  runnit( e )
-#}
+#' Get the pValues for all conditions in a given cluster
+#' 
+#' @param e  The cMonkey environment
+#' @param i  The cluster index to get the score for
+#' @export
+#' @usage pVals <- getClusterPVals( e, i )
+getClusterPVals <- function( e, i ) {
+	geneList <- e$clusterStack[[i]]$rows
+	mean.sd <- e$means.sds[[as.character(length(geneList))]]
+	pValList <- getRatPvals(e, geneList, mean.sd)
+	return(pValList)
+}
+
+#' Get the Mean pValue for all included conditions
+#' 
+#' @param e  A cMonkey environment
+#' @export
+#' @usage env <- getMPV( e )
+getMPV <- function( e ) {
+	e <- update.means.sds(e)  #Make sure all back dsitributions exist
+
+	relPvals <- NULL
+	for (i in 1:length(e$clusterStack)){
+		curConds <- e$clusterStack[[i]]$cols
+		pVals <- getClusterPVals( e, i )
+		relPvals <- c(relPvals, pVals[curConds])
+	}
+	MPV <- mean(relPvals)
+	return(MPV)
+}
