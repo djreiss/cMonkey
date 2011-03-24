@@ -484,6 +484,7 @@ update.means.sds <- function( env ) {
   	
   		#Load means.sds as necessary
 		numGeneList <- numGenesInClusters[! numGenesInClusters %in% names(means.sds)]
+		numGeneList <- numGeneList[numGeneList > 0]
 		lGeneList <- length(numGeneList)
 		if (lGeneList > 0) {
 			numGroups <- floor(lGeneList/mc$par)
