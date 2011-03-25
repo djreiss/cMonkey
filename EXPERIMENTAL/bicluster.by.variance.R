@@ -478,8 +478,8 @@ update.means.sds <- function( env ) {
 	mc <- env$get.parallel()
 	means.sds <- as.list(env$means.sds)
 	if (is.null(env$scoring.method) || env$scoring.method == "var.p") {
-		#numGenesInClusters<- unique(sort(sapply(env$clusterStack,function(x) {x$nrows} )))
-		numGenesInClusters <- unique(colSums(env$row.memb))
+		numGenesInClusters<- as.numeric(sapply(env$clusterStack,function(x) {x$nrows} ))
+		numGenesInClusters <- unique( c(colSums(env$row.memb), numGenesInClusters) )
   		numGenesInClusters <- sort(unique(c(numGenesInClusters,numGenesInClusters+1,numGenesInClusters-1))) #Include +/- one gene
   	
   		#Load means.sds as necessary
