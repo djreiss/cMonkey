@@ -452,11 +452,11 @@ get.col.scores <- function( k, for.cols="all", ratios=ratios[[ 1 ]],
 
 		##return( log( rats + 1e-99 ) )
 	} else { #var.p,  Use the bicluster.by.variance code to get a pValue
-		#browser()
 		numGenes <- nrow(rats)
 		#means.sds must be pulled from the environment.  It is a class variable
-		if (is.null(means.sds[[as.character(numGenes)]])) { 
-			means.sds[[as.character(numGenes)]] <- getVarianceMeanSD(ratios[ rows, get.rows( k ), drop=F ], numGenes) 
+		if (is.null(means.sds[[as.character(numGenes)]])) {
+			cat('\tRecalculating means and sds for',numGenes,'\n')
+			means.sds[[as.character(numGenes)]] <- getVarianceMeanSD(refdata(get.cluster.matrix()), numGenes) 
 		}
 		mean.sd <- means.sds[[as.character(numGenes)]]
 		
