@@ -478,13 +478,13 @@ update.means.sds <- function( env ) {
 	mc <- env$get.parallel()
 	means.sds <- as.list(env$means.sds)
 	if (is.null(env$scoring.method) || env$scoring.method == "var.p") {
-		numGenesInClusters<- as.numeric(sapply(env$clusterStack,function(x) {x$nrows} ))
-		numGenesInClusters <- unique( c(colSums(env$row.memb), numGenesInClusters) )
-  		numGenesInClusters <- sort(unique(c(numGenesInClusters,numGenesInClusters+1,numGenesInClusters-1))) #Include +/- one gene
+		#Some conditions tested may have less than the number of genes in the cluster due to missing data
+		maxNumGenes <- max ( as.numeric(sapply(env$clusterStack,function(x) {x$nrows} )), colSums(env$row.memb))
+		maxNumGenes <- maxNumGenes + 1 #Include + one gene in case of growth
+		numGenesInClusters <- 1:maxNumGenes
   	
   		#Load means.sds as necessary
 		numGeneList <- numGenesInClusters[! numGenesInClusters %in% names(means.sds)]
-		numGeneList <- numGeneList[numGeneList > 0]
 		lGeneList <- length(numGeneList)
 		if (lGeneList > 0) {
 			numGroups <- floor(lGeneList/mc$par)
