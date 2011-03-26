@@ -95,6 +95,7 @@ clusters.w.conds <- function( conds, ks=1:k.clust, p.val=F ) {
 ##   table( tmp )
 ## }
 
+
 cluster.summary <- function( e.cutoff=0.01, nrow.cutoff=5, seq.type=names( mot.weights )[ 1 ], plot=F,
                             sort=c("score.norm","score","resid","e.value1","e.value2","nrow") ) { ##"loglik",
   ms <- NULL

@@ -6,7 +6,7 @@
 ## liable for anything that happens as a result of using this software
 ###################################################################################
 
-cm.version <- "4.8.2"
+cm.version <- "4.8.3"
 
 
 cmonkey <- function( env=NULL, ... ) {

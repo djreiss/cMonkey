@@ -142,11 +142,12 @@ get.genome.info <- function( fetch.upstream=F, fetch.predicted.operons="rsat" ) 
     fname <- paste( "data/", rsat.species, "/feature.tab", sep="" )
     use.cds <- FALSE
     err <- dlf( fname, paste( genome.loc, "feature.tab", sep="" ),
-               paste( "Fetching genome data from RSAT", rsat.url, "..." ) )
+               paste( "Fetching genome annotation data from RSAT", rsat.url, "..." ) )
     if ( class( err ) == "try-error" ) {
       err <- dlf( fname, paste( genome.loc, "cds.tab", sep="" ) )
       use.cds <- TRUE
     }
+    cat( "Loading genome annotation data...\n" )
     head <- readLines( gzfile( fname ), n=30 ); nskip <- length( grep( '^--', head ) )
     feature.tab <- read.delim( gzfile( fname ), skip=nskip, head=F, comment='', as.is=F ) ##skip=16, 
     closeAllConnections()
