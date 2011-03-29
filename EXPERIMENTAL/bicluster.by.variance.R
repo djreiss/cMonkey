@@ -298,18 +298,24 @@ cluster.ratPval <- function( k, rats.inds="COMBINED", means.sds=list(), clusterS
 #' @export
 #' @usage pValList <- getRatPvals(e, geneList, mean.sd=means.sds[["6"]])
 getRatPvals <- function(e, geneList, mean.sd) {
+
 	col.pVals<-NULL
 	for (ratIdx in 1:length(e$ratios)) {
 		curExps <- colnames(e$ratios[[ratIdx]])
 		relRats<- e$ratios[[ratIdx]] [rownames(e$ratios[[ratIdx]]) %in% geneList,]
-		vars <- apply(relRats,2,var,na.rm=T)
+		if (is.array(relRats)) { 
+			vars <- apply(relRats,2,var,na.rm=T)
+		} else {
+			vars <- rep(0,length(relRats))
+			names(vars)<-names(relRats)
+		}
 
 		pVals<-vars
 		for (x.idx in 1:length(vars)) {
 			x<-vars[x.idx]
 			pVals[x.idx]<-pnorm(x,mean.sd[names(x),'means'],mean.sd[names(x),'sds']) 
 		}
-		
+
 		col.pVals <- c(pVals,col.pVals)
 	}
 	col.pVals
