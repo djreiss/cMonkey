@@ -1527,6 +1527,11 @@ function (inf.result, clusterStack, sif.filename)
 #' @return A vector of similar elements to remove
 get.cluster.matrix <- function(ratios, rows=NULL, cols=NULL, matrices=names( ratios ) ) {
   if (! is.null(ratios) ) {
+	if (is.list(ratios)) { 
+		keepBool<-sapply(ratios,length)!=0 
+		ratios<-ratios[keepBool]
+		matrices <- matrices[matrices %in% names(ratios)]
+	}
 	if ( is.null( attr( ratios, "rnames" ) ) ) attr( ratios, "rnames" ) <- unique(unlist(sapply(ratios,rownames))) #Match list up with cMonkey ratios list
 	if ( is.null( rows ) ) rows <- attr( ratios, "rnames" )
 	if ( is.null( attr( ratios, "cnames" ) ) ) attr( ratios, "cnames" ) <- unique(unlist(sapply(ratios,colnames)))
