@@ -1143,7 +1143,7 @@ plotStats <- function( iter=stats$iter[ nrow( stats ) ], plot.clust=NA, new.dev=
   par( opar )
 }
 
-write.project <- function( ks=sapply( as.list( clusterStack ), "[[", "k" ), ##save.session=T, ##pdfs=T, ##dev="SVG", 
+write.project <- function( ks=sapply( as.list( clusterStack ), "[[", "k" ), para.cores=1, ##save.session=T, ##pdfs=T, ##dev="SVG", 
                           out.dir=NULL, gaggle=T, seq.type=names( e$mot.weights )[ 1 ], gzip=T,
                           output=c("svg","pdf","png","html","main","rdata"), ... ) { ##network=F, 
   if ( is.null( out.dir ) ) {
@@ -1160,9 +1160,8 @@ write.project <- function( ks=sapply( as.list( clusterStack ), "[[", "k" ), ##sa
   ##clusterStack <- get.clusterStack( ks=1:k.clust )
   ##ks <- sapply( clusterStack, "[[", "k" )
   clusterStack <- clusterStack[ ks ]
-  mc <- get.parallel( length( ks ) )
-  has.pdftk <- length( system( "which pdftk", intern=T ) ) > 0 ## Use for compressing pdfs
-
+  mc <- get.parallel( length( ks ), para.cores=para.cores )
+  
   if ( ! file.exists( paste( out.dir, "/svgs", sep="" ) ) )
     dir.create( paste( out.dir, "/svgs", sep="" ), showWarnings=F )
   if ( ! file.exists( paste( out.dir, "/pdfs", sep="" ) ) ) ##pdfs && 
@@ -1210,8 +1209,7 @@ write.project <- function( ks=sapply( as.list( clusterStack ), "[[", "k" ), ##sa
       ##k <- ks[ i ]
       if ( k %% 25 == 0 ) cat( k ) else cat( "." )
       if ( file.exists( sprintf( "%s/pdfs/cluster%04d.pdf", out.dir, k ) ) ) return( NULL )
-      if ( has.pdftk ) pdf( sprintf( "%s/pdfs/cluster%04d.pdf", out.dir, k ) ) ## Will be compressed later
-      else cairo_pdf( sprintf( "%s/pdfs/cluster%04d.pdf", out.dir, k ) ) ## Writes out smaller PDFs
+        pdf( sprintf( "%s/pdfs/cluster%04d.pdf", out.dir, k ) ) ## Will be compressed later
       try( plotClust( k, w.motifs=T, seq.type=seq.type, ... ), silent=T )
       dev.off()
     } )
@@ -1668,14 +1666,6 @@ write.project <- function( ks=sapply( as.list( clusterStack ), "[[", "k" ), ##sa
     ##for ( f in list.files( out.dir, pattern=glob2rx( "*.html" ), full=T ) ) {
     ##  cat( f, "\n" ); rpl( '.svg"', '.svgz"', f, fixed=T ) }
     ##}
-    if ( has.pdftk )
-      mc$apply( list.files( paste( out.dir, "/pdfs", sep="" ), full=T ), function( f )
-               if ( grepl( ".pdf", f, fixed=T ) ) {
-                 ##system( sprintf( "ls -al %s", f ) )
-                 system( sprintf( "pdftk %s output %s.tmp compress", f, f ) )
-                 system( sprintf( "/bin/mv -fv %s.tmp %s", f, f ) )
-                 ##system( sprintf( "ls -al %s", f ) )
-               } )
   }
   if ( "rdata" %in% output ) save.cmonkey.env( file=paste( out.dir, "/cm_session.RData", sep="" ) )
   out.dir
