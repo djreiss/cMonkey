@@ -750,9 +750,10 @@ cmonkey.one.iter <- function( env, dont.update=F, ... ) {
 #' 
 #' @param e  The cMonkey environment.
 #' @param pValCut  The pValue at which to cut-off bicluster inclusion.  (DEFAULT: 0.05)
+#' @param colMap  Include to sort the conditions by time.  (DEFAULT: NULL)
 #' @export
-#' @usage env <- resplitClusters.by.var( e, pValCut = 0.05 )
-resplitClusters.by.var <- function( e, pValCut = 0.05 ) {
+#' @usage env <- resplitClusters.by.var( e, pValCut = 0.05, colMap=NULL )
+resplitClusters.by.var <- function( e, pValCut = 0.05, colMap=NULL ) {
 	e$MPV <- getMPV(e) #Save the MPV so that it isn't lost by splitting the cluster
 
 	means.sds<-list()
@@ -787,6 +788,12 @@ resplitClusters.by.var <- function( e, pValCut = 0.05 ) {
 	e$col.membership <- tmp$c
 	e$row.memb <- t( apply( e$row.membership, 1, function( i ) 1:e$k.clust %in% i ) )
 	e$col.memb <- t( apply( e$col.membership, 1, function( i ) 1:e$k.clust %in% i ) )
+	if (!is.null(colMap)) {
+		condNames <- rownames(colMap)[order(colMap$time)]
+		condNames <- condNames[condNames %in% rownames(e$col.memb)]
+		e$col.memb <- e$col.memb[condNames,]
+	}
+	
 	e$clusterStack <- e$get.clusterStack( force=T )
 	e$stats <- rbind( e$stats, e$get.stats() )
 	return(e)
