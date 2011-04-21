@@ -775,7 +775,7 @@ function (x, y, family = c("gaussian", "binomial", "poisson",
         ncol(x)), exclude, penalty.factor = rep(1, ncol(x)), 
     maxit = 100, HessianExact = FALSE, type = c("covariance", 
         "naive"), ...)  {
-        browser()
+        
   glmnet(x=x, y=y, family=family, weights=weights, offset=offset, alpha=alpha, nlambda=nlambda, 
   	lambda.min.ratio=lambda.min, lambda=lambda, standardize=standardize, thresh=thresh, dfmax=dfmax, 
   	pmax=pmax, exclude=exclude, penalty.factor=penalty.factor, maxit=maxit, type.gaussian=type)
@@ -1189,7 +1189,6 @@ function (ks, data, col.map, predictors, clusterStack, tau = 10, pred.data = NUL
 	    	clust$rows <- clust$rows[!missingBool]
 	    }		
 
-	#browser()
             coeffs <- inferelate.one.cluster(clust, predictors, 
                 data, predictor.mats = predictor.mats, tau = tau, 
                 col.map = col.map, n.boot = n.boot.lars, boot.opt = boot.opt.lars, 
