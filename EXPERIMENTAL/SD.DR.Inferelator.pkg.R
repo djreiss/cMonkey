@@ -775,10 +775,10 @@ function (x, y, family = c("gaussian", "binomial", "poisson",
         ncol(x)), exclude, penalty.factor = rep(1, ncol(x)), 
     maxit = 100, HessianExact = FALSE, type = c("covariance", 
         "naive"), ...)  {
-        #browser()
-  glmnet(x, y, family, weights, offset, alpha, nlambda, lambda.min, 
-      lambda, standardize, thresh, dfmax, pmax, exclude, penalty.factor, 
-      maxit, HessianExact, type)
+        browser()
+  glmnet(x=x, y=y, family=family, weights=weights, offset=offset, alpha=alpha, nlambda=nlambda, 
+  	lambda.min.ratio=lambda.min, lambda=lambda, standardize=standardize, thresh=thresh, dfmax=dfmax, 
+  	pmax=pmax, exclude=exclude, penalty.factor=penalty.factor, maxit=maxit, type.gaussian=type)
 }
 nwInf.package <-
 function (install = T, update.web = F, check = F, version = "0.0.5") 
@@ -1189,6 +1189,7 @@ function (ks, data, col.map, predictors, clusterStack, tau = 10, pred.data = NUL
 	    	clust$rows <- clust$rows[!missingBool]
 	    }		
 
+	#browser()
             coeffs <- inferelate.one.cluster(clust, predictors, 
                 data, predictor.mats = predictor.mats, tau = tau, 
                 col.map = col.map, n.boot = n.boot.lars, boot.opt = boot.opt.lars, 
@@ -1354,9 +1355,20 @@ function(e)
     invisible(out)
 }
 
-#SD 10/11/10 Should work for Halo or Yeast
+#' SD 10/11/10 Should work for Halo or Yeast
+#'
+#' @param f  
+#' @param ks  
+#' @param filter.pred.by.col  
+#' @param predictors  The genes to be considered as predictors
+#' @usage incEnv  Set to T to include the environmental conditions in the inference (DEFAULT: F)
+#' @param ...  
+#' @return Coefficients for putative regulators
+#' @usage coeffs<-runnit.wrapper(f, ks = "all", filter.pred.by.col = T, predictors = predictors, incEnv = F, ...)
+#' @export
 runnit.wrapper <-
-function (f, ks = "all", filter.pred.by.col = T, predictors = predictors, ...) 
+function (f, ks = "all", filter.pred.by.col = T, predictors = predictors, 
+	incEnv = F, ...) 
 {
     if (is.character(f) && file.exists(f) && (!exists("e") || 
         e$tmp.file != f)) {
@@ -1389,9 +1401,12 @@ function (f, ks = "all", filter.pred.by.col = T, predictors = predictors, ...)
             drop = F]
         ratios.raw <- ratios.raw[, colnames(ratios) %in% rownames(envMap), 
             drop = F]
-        pred.data <- rbind(ratios.raw, t(as.matrix(envMap)))
-        ratios <- rbind(ratios, t(as.matrix(envMap)))
-        predictors <- c(predictors, colnames(envMap))
+            
+        if (incEnv == T) {
+		pred.data <- rbind(ratios.raw, t(as.matrix(envMap)))
+		ratios <- rbind(ratios, t(as.matrix(envMap)))
+		predictors <- c(predictors, colnames(envMap))
+        }
         
         #SD 10/11/10  Construct the "weights" matrix for priors
         if (!is.null(row.weights)) {
