@@ -815,9 +815,10 @@ getClusterPVals <- function( e, i ) {
 #' Get the Mean pValue for all included conditions
 #' 
 #' @param e  A cMonkey environment
+#' @param VERBOSE  Set to T to display if NA values are removed (Default: T)
 #' @export
-#' @usage env <- getMPV( e )
-getMPV <- function( e ) {
+#' @usage env <- getMPV( e, VERBOSE=T )
+getMPV <- function( e, VERBOSE=T ) {
 	e <- update.means.sds(e)  #Make sure all back distributions exist
 
 	relPvals <- NULL
@@ -827,7 +828,8 @@ getMPV <- function( e ) {
 		relPvals <- c(relPvals, pVals[curConds])
 	}
 	if (any(is.na(relPvals))) {
-		cat(sum(is.na(relPvals)),"NAs removed\n")
+		numOnes <- sum(sapply(e$clusterStack, function(x) {x$ncols})==1)
+		if (VERBOSE) { cat(sum(is.na(relPvals)),"NAs removed\t", numOnes,"Size one clusters\n") }
 	}
 	MPV <- mean(relPvals,na.rm=T)
 	return(MPV)
