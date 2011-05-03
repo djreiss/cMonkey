@@ -818,7 +818,7 @@ getClusterPVals <- function( e, i ) {
 #' @export
 #' @usage env <- getMPV( e )
 getMPV <- function( e ) {
-	e <- update.means.sds(e)  #Make sure all back dsitributions exist
+	e <- update.means.sds(e)  #Make sure all back distributions exist
 
 	relPvals <- NULL
 	for (i in 1:length(e$clusterStack)){
@@ -826,6 +826,9 @@ getMPV <- function( e ) {
 		pVals <- getClusterPVals( e, i )
 		relPvals <- c(relPvals, pVals[curConds])
 	}
-	MPV <- mean(relPvals)
+	if (any(is.na(relPvals))) {
+		cat(sum(is.na(relPvals)),"NAs removed\n")
+	}
+	MPV <- mean(relPvals,na.rm=T)
 	return(MPV)
 }
