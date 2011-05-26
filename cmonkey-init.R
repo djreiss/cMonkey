@@ -82,8 +82,8 @@ cmonkey.init <- function( env=NULL, ... ) {
 
   ## If ratios doesnt exist but row.weights does, create a list w/ the objects named by names(row.weights)
   if ( ! exists( "ratios" ) && exists( "row.weights" ) ) {
-    ratios <- lapply( names( row.weights ), get ) ## default is length-1 vector with name "ratios" so this works.
-    names( ratios ) <- names( row.weights )
+    try( { ratios <- lapply( names( row.weights ), get ) ## default is length-1 vector with name "ratios" so this works.
+    names( ratios ) <- names( row.weights ) } )
   }
 
   ## Ratios can be a single matrix/df/filename or a list of those; if a single matrix/df, make it a list w/that
@@ -102,7 +102,7 @@ cmonkey.init <- function( env=NULL, ... ) {
     }
     rm( n )
   }
-  if ( ! is.null( env ) ) assign( "ratios", ratios, envir=env )
+  if ( ! is.null( env ) && exists( "ratios" ) ) assign( "ratios", ratios, envir=env )
 
   ## if ( exists( "is.eukaryotic" ) && is.eukaryotic ) {
   ##   set.param( "operon.shift", FALSE )
@@ -301,10 +301,11 @@ cmonkey.init <- function( env=NULL, ... ) {
     rm( tab, fname )
   }
 
-  if ( ! exists( "cog.org" ) || cog.org == "?" || is.na( cog.org ) ) {
+  if ( ! exists( "cog.org" ) || cog.org == '?' || is.na( cog.org ) ) {
     tmp <- strsplit( organism, "" )[[ 1 ]]; tmp[ 1 ] <- toupper( tmp[ 1 ] )
-    cog.o <- paste( tmp, sep="", collapse="" )
-    set.param( "cog.org", cog.o, override=T )
+    cog.o <- paste( tmp, sep='', collapse='' )
+    if ( cog.o == '' ) cog.o <- '?'
+    set.param( 'cog.org', cog.o, override=T )
     rm( cog.o, tmp )
   } else {
     set.param( "cog.org", cog.org )
@@ -404,6 +405,44 @@ cmonkey.init <- function( env=NULL, ... ) {
       rm( tmp.operons )
       if ( ! is.null( env ) ) assign( "genome.info", genome.info, envir=env )
     }
+    
+    ## Get common prefix from feature.names and use those genes (assume >40% of ORF names have this suffix)
+    if ( exists( 'genome.info' ) && ! is.null( genome.info$feature.names ) &&
+        ( ! exists( 'ratios' ) || is.null( ratios ) ) )
+      tmp <- toupper( subset( genome.info$feature.names, type == "primary", select="names", drop=T ) )
+    else if ( ! no.genome.info ) tmp <- toupper( subset( genome.info$feature.names,
+                                                        type == "primary" | names %in% attr( ratios, "rnames" ),
+                                                        select="names", drop=T ) )
+    else if ( exists( 'ratios' ) && ! is.null( ratios ) ) tmp <- toupper( attr( ratios, "rnames" ) )
+    qqq <- sapply( 1:4, function( nch ) max( table( substr( tmp, 1, nch ) ) ) / length( tmp ) ); nch <- 0
+    if ( any( qqq > 0.6 ) ) { nch <- which( qqq > 0.6 ); nch <- nch[ length( nch ) ] } ## Longest prefix in >60% of names
+    else if ( any( qqq > 0.4 ) ) { nch <- which( qqq > 0.4 ); nch <- nch[ length( nch ) ] } ## Longest prefix in >40% of names
+    ##nch <- 0; while( max( table( substr( tmp, 1, nch + 1 ) ) ) / length( tmp ) > 0.4 ) nch <- nch + 1
+    prefix <- NA
+    if ( nch > 0 ) {
+      prefix <- names( which.max( table( substr( tmp, 1, nch ) ) ) )
+      message( "Assuming gene/probe names have common prefix '", prefix, "'." )
+      genome.info$gene.prefix <- prefix
+    } else {
+      message( "Could not find a common gene/probe identifier prefix. This only matters if there's no expression matrix." )
+      prefix <- genome.info$gene.prefix <- NA
+    }
+    if ( ! is.null( env ) ) assign( "genome.info", genome.info, envir=env )
+    
+    if ( ! exists( 'ratios' ) || is.null( ratios ) ) {
+      message( "WARNING: No ratios matrix -- will generate an 'empty' one with all annotated ORFs for 'probes'." )
+      if ( ! is.na( prefix ) ) rows <- unique( as.character( subset( genome.info$feature.names,
+                                                                    grepl( paste( "^", prefix, sep="" ), names,
+                                                                    ignore=T, perl=T ), select="names", drop=T ) ) )
+      else rows <- unique( as.character( subset( genome.info$feature.names, type=="primary", select="names", drop=T ) ) )
+
+      ratios <- list( ratios=t( t( rep( NA, length( rows ) ) ) ) ); rownames( ratios$ratios ) <- rows
+      attr( ratios, "rnames" ) <- sort( unique( rows ) ); rm( rows )
+      attr( ratios, "nrow" ) <- length( attr( ratios, "rnames" ) )
+      attr( ratios, "ncol" ) <- 1
+      cat( "Ratios: ", attr( ratios, "nrow" ), "x", 1, "\n" )
+    }
+    rm( nch, prefix, tmp, qqq )
 
     ## Get upstream/downstream seqs, compute bg model, optionally discard genome seqs (for memory)
     if ( ! is.null( genome.info$genome.seqs ) ) {
@@ -439,39 +478,6 @@ cmonkey.init <- function( env=NULL, ... ) {
 ##        list.reference( genome.info$all.upstream.seqs, sprintf( "%s/all.genome.seqs", cmonkey.filename ) )
 ##!endif
     }
-    
-    ## Get common prefix from feature.names and use those genes (assume >40% of ORF names have this suffix)
-    if ( exists( 'genome.info' ) && ! is.null( genome.info$feature.names ) &&
-        ( ! exists( 'ratios' ) || is.null( ratios ) ) )
-      tmp <- toupper( subset( genome.info$feature.names, type == "primary", select="names", drop=T ) )
-    else if ( ! no.genome.info ) tmp <- toupper( subset( genome.info$feature.names,
-                                                        type == "primary" | names %in% attr( ratios, "rnames" ),
-                                                        select="names", drop=T ) )
-    else if ( exists( 'ratios' ) && ! is.null( ratios ) ) tmp <- toupper( attr( ratios, "rnames" ) )
-    qqq <- sapply( 1:4, function( nch ) max( table( substr( tmp, 1, nch ) ) ) / length( tmp ) ); nch <- 0
-    if ( any( qqq > 0.6 ) ) { nch <- which( qqq > 0.6 ); nch <- nch[ length( nch ) ] } ## Longest prefix in >60% of names
-    else if ( any( qqq > 0.4 ) ) { nch <- which( qqq > 0.4 ); nch <- nch[ length( nch ) ] } ## Longest prefix in >40% of names
-    ##nch <- 0; while( max( table( substr( tmp, 1, nch + 1 ) ) ) / length( tmp ) > 0.4 ) nch <- nch + 1
-    if ( nch > 0 ) {
-      prefix <- names( which.max( table( substr( tmp, 1, nch ) ) ) )
-      message( "Assuming gene/probe names have common prefix '", prefix, "'." )
-      genome.info$gene.prefix <- prefix
-    } else {
-      message( "Could not find a common gene/probe identifier prefix. This only matters if there's no expression matrix." )
-      prefix <- genome.info$gene.prefix <- NA
-    }
-    if ( ! is.null( env ) ) assign( "genome.info", genome.info, envir=env )
-    
-    if ( ! is.na( prefix ) && ( ! exists( 'ratios' ) || is.null( ratios ) ) ) {
-      message( "WARNING: No ratios matrix -- will generate an 'empty' one with all known ORFs as probes." )
-      rows <- unique( as.character( subset( genome.info$feature.names, grepl( paste( "^", prefix, sep="" ), names,
-                                                                             ignore=T, perl=T ), select="names", drop=T ) ) )
-      ratios <- list( ratios=t( t( rep( NA, length( rows ) ) ) ) ); rownames( ratios$ratios ) <- rows
-      attr( ratios, "rnames" ) <- sort( unique( rows ) ); rm( rows )
-      attr( ratios, "nrow" ) <- length( attr( ratios, "rnames" ) )
-      attr( ratios, "ncol" ) <- 1
-    }
-    rm( nch, prefix, tmp, qqq )
     
     networks <- list()
     if ( ! is.na( net.iters ) && any( net.iters %in% 1:n.iter ) ) {
@@ -740,7 +746,7 @@ cmonkey.init <- function( env=NULL, ... ) {
     }    
 
     
-    if ( ! no.genome.info ) {
+    if ( ! no.genome.info && cog.org != '' && cog.org != '?' && ! is.null( cog.org ) ) {
       ## COG code from NCBI whog file
       cat( "Loading COG functional codes (for plotting), org. code", cog.org, ": trying NCBI whog file...\n" )
       genome.info$cog.code <- get.COG.code( cog.org ) ##, genome.info$feature.names ) ##genome.info$transl.table,

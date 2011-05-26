@@ -779,8 +779,8 @@ get.sequences <- function( k, seq.type=paste( c("upstream","upstream.noncod","up
                           distance=motif.upstream.search[[ seq.type ]], ... ) {
   if ( length( k ) <= 0 ) return( NULL )
   if ( is.numeric( k[ 1 ] ) ) rows <- get.rows( k )
-  else if ( ! is.null( e$genome.info$genome.seqs ) && k %in% names( e$genome.info$genome.seqs ) )
-    return( e$genome.info$genome.seqs[ k ] )
+  else if ( ! is.null( genome.info$genome.seqs ) && k %in% names( genome.info$genome.seqs ) )
+    return( genome.info$genome.seqs[ k ] )
   else rows <- k
   if ( is.null( rows ) ) return( NULL )
   start.stops <- NULL

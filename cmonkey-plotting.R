@@ -1083,12 +1083,13 @@ plotStats <- function( iter=stats$iter[ nrow( stats ) ], plot.clust=NA, new.dev=
   clusterStack <- get.clusterStack( ks=1:k.clust )
   resids <- sapply( as.list( clusterStack ), "[[", "resid" )
   
-  try( hist( resids[ resids <= 1.5 ], main=NULL, xlab="Cluster Residuals", xlim=c( 0, 1.5 ), breaks=k.clust/4 ),
+  try( hist( resids[ resids <= 1.5 ], main=NULL, xlab="Cluster Residuals",
+            xlim=if ( all( resids > 0 ) ) c( 0, 1.5 ) else range( resids, na.rm=T ), breaks=k.clust/4 ),
       silent=T )
  
   if ( ! is.null( mot.scores ) && ! all( is.na( mot.scores[,] ) ) && ! all( mot.scores[,] == 0 ) ) {
     plot.all.clusterMotifPositions <- function( ks=1:k.clust, mots=1, e.cutoff=1, p.cutoff=0.05,
-                                               seq.type=names( e$mot.weights )[ 1 ], breaks=100, ... ) {
+                                               seq.type=names( mot.weights )[ 1 ], breaks=100, ... ) {
       if ( seq.type == "ALL" ) seq.type <- names( mot.weights )
       df <- NULL
       for ( st in seq.type ) {
@@ -1144,7 +1145,7 @@ plotStats <- function( iter=stats$iter[ nrow( stats ) ], plot.clust=NA, new.dev=
 }
 
 write.project <- function( ks=sapply( as.list( clusterStack ), "[[", "k" ), para.cores=1, ##save.session=T, ##pdfs=T, ##dev="SVG", 
-                          out.dir=NULL, gaggle=T, seq.type=names( e$mot.weights )[ 1 ], gzip=T,
+                          out.dir=NULL, gaggle=T, seq.type=names( mot.weights )[ 1 ], gzip=T,
                           output=c("svg","pdf","png","html","main","rdata"), ... ) { ##network=F, 
   if ( is.null( out.dir ) ) {
     out.dir <- cmonkey.filename
@@ -1671,11 +1672,11 @@ write.project <- function( ks=sapply( as.list( clusterStack ), "[[", "k" ), para
   out.dir
 }
 
-write.bicluster.network <- function( out.dir=NULL, ks=1:k.clust, seq.type=names( e$mot.weights )[ 1 ], tomtom=T,
+write.bicluster.network <- function( out.dir=NULL, ks=1:k.clust, seq.type=names( mot.weights )[ 1 ], tomtom=T,
                                     tt.filter=function( tt ) subset( tt, overlap >= 4 & q.value <= 0.05 ),
                                     m.filter=function( m ) subset( m, e.value <= Inf ),
                                     gene.url=function( g ) sprintf( "http://microbesonline.org/cgi-bin/keywordSearch.cgi?taxId=%d&keyword=%s", taxon.id, g ),
-                                    image.urls=T, ## currently ignored
+                                    image.urls=T,
                                     ... ) {
   if ( is.null( out.dir ) ) {
     out.dir <- paste( cmonkey.filename, "network", sep="/" )
