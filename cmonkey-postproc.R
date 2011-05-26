@@ -102,7 +102,7 @@ cluster.summary <- function( e.cutoff=0.01, nrow.cutoff=5, seq.type=names( mot.w
   if ( ! is.null( seq.type ) ) ms <- meme.scores[[ seq.type ]]
   if ( is.null( ms ) ) e.cutoff <- NA
   score <-
-    sapply( 1:k.clust, function( k ) mean( r.scores[ get.rows( k ), k ], na.rm=T, trim=0.01 ) ) *
+    sapply( 1:k.clust, function( k ) mean( row.scores[ get.rows( k ), k ], na.rm=T, trim=0.01 ) ) *
       row.scaling[ iter ] + if ( ! is.null( mot.scores ) )
         sapply( 1:k.clust, function( k ) mean( mot.scores[ get.rows( k ), k ], na.rm=T, trim=0.01 ) ) *
           mot.scaling[ iter ] else 0 + if ( ! is.null( net.scores ) )
@@ -334,12 +334,10 @@ update.cmonkey.env <- function( object, ... ) { ## Update all funcs contained in
   ##invisible( env )
 }
 
-
 ## Hacky way to improve cluster in one swoop - add the best outside gene with a better score than the worst gene
 ##   already in, then remove that worst gene. Repeat until there are no outside genes better than any inside genes.
 ## Meme the cluster (TODO: during each iteration?); TODO: update row/mot/net/col scores too?
-## Now we add outside genes that are better than in-genes with scores at the 66% quantile level.
-adjust.clust <- function( k, row.memb=get("row.membership"), expand.only=T, plot=F, limit=100, ##motif=F, 
+adjust.clust <- function( k, row.memb=get("row.membership"), expand.only=T, limit=100, ##motif=F, plot=F, 
                          ##scores="rr.scores", quant.cutoff=0.1, force.expand=0 ) { ##0.25 ) {
                          scores="r.scores", quant.cutoff=0.33, force.expand=0 ) {
   if ( scores == "rr.scores" ) {
@@ -395,6 +393,7 @@ adjust.clust <- function( k, row.memb=get("row.membership"), expand.only=T, plot
   colnames( row.memb ) <- NULL
   invisible( list( r=row.memb ) )
 }
+
 
 adjust.all.clusters <- function( env, ks=1:env$k.clust, force.motif=T, ... ) {
   old.stats <- env$stats

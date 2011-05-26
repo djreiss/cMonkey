@@ -77,7 +77,7 @@ preprocess.ratios <- function( ratios, filter=T, normalize=T, col.groups=NULL, f
   if ( normalize ) {
     for ( cg in unique( col.groups ) ) {
       cols <- names( which( col.groups == cg ) )
-      cat( "Normalizing ratios matrix", cg, "...\n" )
+      cat( "Converting ratios matrix", cg, "to z-scores...\n" )
       ratios[ ,cols ] <- t( scale( t( ratios[ ,cols ,drop=F ] ),
                                   center=apply( ratios[ ,cols ,drop=F ], 1, median, na.rm=T ),
                  scale=apply( ratios[ ,cols ,drop=F ], 1, sd, na.rm=T ) ) ) ## Row center by median AND scale by sd!
@@ -183,8 +183,9 @@ get.genome.info <- function( fetch.upstream=F, fetch.predicted.operons="rsat" ) 
           } else fname <- paste( "data/", rsat.species, "/", ii, ".raw", sep="" )
         }
         out <- try( readLines( gzfile( fname ) ), silent=T )
-        if ( class( out ) == "try-error" || length( out ) == 0 ) cat( "ERROR reading genome sequence", i, "\n" )
-        closeAllConnections()
+        ##closeAllConnections()
+        if ( class( out ) == "try-error" || length( out ) == 0 || is.na( out ) || out == "" ||
+            out == "CHARACTER(0)" ) out <- try( readLines( fname ), silent=T )
         if ( class( out ) == "try-error" || length( out ) == 0 || is.na( out ) || out == "" ||
             out == "CHARACTER(0)" ) {
           cat( "ERROR reading genome sequence", i, "\n" )
@@ -333,6 +334,9 @@ get.operon.predictions <- function( fetch.predicted.operons="microbes.online", o
 ##                    paste(paste(org.id,rownames(ratios),sep="."),collapse="%0D"),sep="") )
 ## but apparently this is not allowed (but can do it in increments of 200 ...
 ## See STRING API info page: http://string.embl.de/help/index.jsp?topic=/org.string-db.docs/api.html
+## NOTE for mammalian (at least mouse and human(?)) you do orgid.geneid ONLY if it's e.g.
+##      9544.ENSMMUP00000032511  but if it's e.g. Apo3, then leave out the orgid prefix.
+##      (need to implement this!)
 get.STRING.links <- function( org.id=genome.info$org.id$V1[ 1 ], all.genes=attr( ratios, "rnames" ),
                              score="score", min.score=02, string.url="http://string-db.org/" ) {
   if ( file.exists( paste( "data/", rsat.species, "/string_links_FALSE_", org.id, ".tab", sep="" ) ) ) {
@@ -352,7 +356,8 @@ get.STRING.links <- function( org.id=genome.info$org.id$V1[ 1 ], all.genes=attr(
   file <- sprintf( "data/%s/string_links_%s.tab", rsat.species, org.id )
 
   proc.string.df <- function( file ) {
-    tmp <- unique( read.delim( file, head=F, sep="" ) ) ## "" Allows tabs OR spaces
+    err <- try( tmp <- unique( read.delim( file, head=F, sep="" ) ) ) ## "" Allows tabs OR spaces
+    if ( "try-catch" %in% class( err ) ) return( NULL )
     tmp2 <- strsplit( as.character( tmp$V15 ), "[:|]", perl=T )
     tmp2a <- sapply( tmp2, function( i ) which( i == score ) )
     tmp2b <- sapply( 1:length( tmp2 ), function( i ) if ( length( tmp2a[[ i ]] ) == 0 ) NA else
