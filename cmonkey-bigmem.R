@@ -1,5 +1,4 @@
-## Slurp an env's ff's and filehashes back into memory, save out image,
-##    and optionally restore them back to the original ff's
+## Slurp an env's ff's and filehashes back into memory, save out image
 save.cmonkey.env <- function( env=NULL, file=NULL, verbose=T ) { ##restore=T, 
   ## If 'env' is null, search for all env's in globalenv() and try to save those
   if ( is.null( env ) ) {
@@ -24,15 +23,15 @@ list.reference <- function( l, file, ... ) {
   if ( ! is.null( l ) && ( "filehashDB1" %in% class( l ) || length( l ) <= 0 ) ) return( l ) ##l <- dbInit( file )
   if ( big.memory && ! file.exists( cmonkey.filename ) ) dir.create( cmonkey.filename, recursive=T, show=F )
   if ( big.memory.verbose ) try( message( "Filehashing: ", file ), silent=T )
-  if ( file.exists( file ) ) unlink( file )
+  if ( file.exists( file ) ) unlink( file, recursive=T )
   if ( is.null( l ) ) { dbCreate( file, ... ); l <- dbInit( file, ... ) } ## No list given, just create a database and initialize it.
   else l <- dumpList( l, file, ... )
   l
 }
 
 ffify.env <- function( env ) { ## Make all internal big matrices and lists disk-based
-  for ( i in c( "row.scores", "mot.scores", "net.scores", "r.scores", "rr.scores", "col.scores",
-               "c.scores", "cc.scores", "net.scores", "row.memb", "col.memb" ) ) {
+  for ( i in c( "row.scores", "mot.scores", "net.scores", "r.scores", "m.scores", "n.scores", "rr.scores",
+               "col.scores", "c.scores", "cc.scores", "row.memb", "col.memb" ) ) {
     if ( exists( i, envir=env ) ) {
       tmp <- matrix.reference( env[[ i ]], backingfile=i, backingpath=env$cmonkey.filename )
       assign( i, tmp, envir=env )
@@ -57,8 +56,8 @@ ffify.env <- function( env ) { ## Make all internal big matrices and lists disk-
 
 ## NOTE: this should work whether the objects are on disk or not!
 un.ffify.env <- function( env ) {
-  for ( i in c( "row.scores", "mot.scores", "net.scores", "r.scores", "rr.scores", "col.scores", "net.scores",
-               "cc.scores", "row.memb", "col.memb" ) ) 
+  for ( i in c( "row.scores", "mot.scores", "net.scores", "r.scores", "m.scores", "n.scores", "rr.scores",
+               "col.scores", "c.scores", "cc.scores", "row.memb", "col.memb" ) )
     if ( exists( i, envir=env ) ) env[[ i ]] <- env[[ i ]][,]
   for ( i in names( env$ratios ) ) if ( ! is.null( env$ratios[[ i ]] ) ) ##&& is.big.matrix( env$ratios[[ i ]] ) )
     env$ratios[[ i ]] <- env$ratios[[ i ]][,]

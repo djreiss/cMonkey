@@ -367,8 +367,9 @@ get.all.scores <- function( ks=1:k.clust, force.row=F, force.col=F, force.motif=
     if ( force.motif == "run.meme" || ( mot.scaling[ iter ] > 0 && ! is.na( meme.iters[[ i ]][ 1 ] ) &&
            iter %in% meme.iters[[ i ]] && exists( "genome.info" ) && ! no.genome.info ) ) {
       if ( mot.weights[ i ] == 0 || is.na( mot.weights[ i ] ) ) next
-      meme.scores[[ i ]] <- motif.all.clusters( ks, seq.type=i, verbose=T ) ##strsplit( i, " " )[[ 1 ]][ 1 ],
+      tmp <- motif.all.clusters( ks, seq.type=i, verbose=T ) ##strsplit( i, " " )[[ 1 ]][ 1 ],
                                                ##algo=strsplit( i, " " )[[ 1 ]][ 2 ] )
+      meme.scores[[ i ]] <- tmp
     }
   }
   
@@ -477,6 +478,7 @@ cluster.resid <- function( k, rats.inds="COMBINED", varNorm=F, in.cols=T, ... ) 
     rows <- rows[ rows %in% rownames( rats ) ]
     cols <- cols[ cols %in% colnames( rats ) ]
     if ( length( rows ) <= 1 || length( cols ) <= 1 ) return( 1 )
+    maxRowVar <- attr( rats, "maxRowVar" )
     rats <- rats[ rows, cols ]
     if ( is.vector( rats ) || any( dim( rats ) <= 1 ) || mean( is.na( rats ) ) > 0.95 ) return( 1 )
 
@@ -490,8 +492,8 @@ cluster.resid <- function( k, rats.inds="COMBINED", varNorm=F, in.cols=T, ... ) 
     ##rij[,] <- rij[,] - outer( d.rows, d.cols, '+' ) ## more elegant but slower!
 
     average.r <- mean( abs( rij ), na.rm = TRUE )
-    if ( varNorm ) {
-      maxRowVar <- attr( rats, "maxRowVar" )
+    if ( varNorm && ! is.null( maxRowVar ) ) {
+      ##maxRowVar <- attr( rats, "maxRowVar" )
       row.var <- mean( apply( rats, 1, var, use = "pairwise.complete.obs" ), na.rm=T )
       if ( is.na( row.var ) || row.var > maxRowVar ) row.var <- maxRowVar
       average.r <- average.r / row.var
@@ -828,7 +830,7 @@ get.combined.scores <- function( quantile.normalize=F ) {
       c.scores <- col.scores[,] * 0
       c.scores <- matrix.reference( c.scores )
     } else c.scores[,] <- col.scores[,]
-    if ( attr( col.scores, "changed" ) == TRUE ) {
+    if ( is.null( attr( col.scores, "changed" ) ) || attr( col.scores, "changed" ) == TRUE ) {
       ##cat("HERE: col", col.scores[1,1], "\n")
       tmp <- c.scores[,] < -20; c.scores[,][ tmp ] <- min( c.scores[,][ ! tmp ], na.rm=T ); rm( tmp ) ## effective zero ##-220
     }

@@ -52,6 +52,10 @@ cmonkey.init <- function( env=NULL, ... ) {
     if ( ! is.null( f2 ) && class( f2 ) == "function" && object.size( f2 ) != object.size( f ) ) {
       environment( f2 ) <- sys.frames()[[ length( sys.frames() ) ]] ## Make each func's env be this func's frame
       assign( paste( "super", i, sep="." ), f2 ) ## Copy over overridden cmonkey function w/ "super." at end of name
+      if ( ! is.null( env ) ) {
+        assign( paste( "super", i, sep="." ), f2, envir=env )
+        environment( env[[ paste( "super", i, sep="." ) ]] ) <- env
+      }
     }
   }
   rm( f, f2, tmp.e )
@@ -78,8 +82,8 @@ cmonkey.init <- function( env=NULL, ... ) {
 
   ## If ratios doesnt exist but row.weights does, create a list w/ the objects named by names(row.weights)
   if ( ! exists( "ratios" ) && exists( "row.weights" ) ) {
-    ratios <- lapply( names( row.weights ), get ) ## default is length-1 vector with name "ratios" so this works.
-    names( ratios ) <- names( row.weights )
+    try( { ratios <- lapply( names( row.weights ), get ) ## default is length-1 vector with name "ratios" so this works.
+    names( ratios ) <- names( row.weights ) } )
   }
 
   ## Ratios can be a single matrix/df/filename or a list of those; if a single matrix/df, make it a list w/that
@@ -98,7 +102,7 @@ cmonkey.init <- function( env=NULL, ... ) {
     }
     rm( n )
   }
-  if ( ! is.null( env ) ) assign( "ratios", ratios, envir=env )
+  if ( ! is.null( env ) && exists( "ratios" ) ) assign( "ratios", ratios, envir=env )
 
   ## if ( exists( "is.eukaryotic" ) && is.eukaryotic ) {
   ##   set.param( "operon.shift", FALSE )
@@ -122,7 +126,11 @@ cmonkey.init <- function( env=NULL, ... ) {
   set.param( "meme.iters", c( seq( 600, 1200, by=100 ), seq( 1250, 1500, by=50 ), seq( 1525, 1800, by=25 ),
                              seq( 1810, max( n.iter, 1820 ), by=10 ) ) )
   ##set.param( "mot.iters", seq( 100, n.iter, by=10 ) ) ## Which iters to use results of most recent meme run in scores
+<<<<<<< HEAD
   set.param( "mot.iters", seq( 601, n.iter, by=3 ) ) ## Which iters to use results of most recent meme run in scores
+=======
+  set.param( "mot.iters", seq( 601, max( n.iter, 605 ), by=3 ) ) ## Which iters to use results of most recent meme run in scores
+>>>>>>> 95ebf69154f46fab7b09fd3687841cb03a88c68c
   set.param( "net.iters", seq( 1, n.iter, by=7 ) ) ## Which iters to re-calculate network scores?
   set.param( "row.scaling", 6 )  ## Seems to work best for Mpn, works good for Halo
   set.param( "row.weights", c( ratios=1 ) ) ## Optionally load multiple ratios files and set relative weights
@@ -226,6 +234,8 @@ cmonkey.init <- function( env=NULL, ... ) {
       if ( any( strsplit( rsat.spec, "" )[[ 1 ]] == "(" ) ) rsat.spec <- gsub( '\\s\\(.*\\)', "", rsat.spec )
     }
     rsat.spec <- gsub( " ", "_", rsat.spec, fixed=T )
+    kegg.spec <- rsat.spec
+    
     ## Check to see if species is in RSAT dir... if not, guess or ask.
     if ( ! file.exists( "data/RSAT_genomes_listing.txt" ) ) {
       require( RCurl )
@@ -240,19 +250,44 @@ cmonkey.init <- function( env=NULL, ... ) {
       tmp <- readLines( "data/RSAT_genomes_listing.txt" )
       vals <- grep( rsat.spec, tmp, fixed=T, val=T )
     }
+<<<<<<< HEAD
     
     if ( length( vals ) <= 0 ) {
+=======
+
+    if ( ##! file.exists( "data/RSAT_genomes_listing.txt" ) ||
+        length( vals ) <= 0 ) {
+>>>>>>> 95ebf69154f46fab7b09fd3687841cb03a88c68c
       message( "Could not find correct organism for RSAT... will try to guess..." )
-      max.dist <- 0.5; vals <- rep( "", 2 )
+
+      ## err <- dlf( "data/KEGG/KEGG_all_species.tab", "ftp://ftp.genome.jp/pub/kegg/genes/etc/all_species.tab" )
+      ## if ( class( err ) != "try-error" ) {
+      ##   tab <- read.delim( "data/KEGG/KEGG_all_species.tab", sep='\t', comment='#', head=F, as.is=T )
+      ##   vals <- grep( rsat.spec, tab$V9, val=T )
+      ##   if ( length( vals ) >= 1 ) rsat.spec <- vals
+      ## } else {
+      
+      max.dist <- 0.5; vals <- rep( "", 3 )
       while( length( vals ) > 1 ) {
         vals <- agrep( rsat.spec, tmp, ignore=T, max.dist=max.dist, val=T ) ## tailored for Halo...
         max.dist <- max.dist - 0.01
+        if ( length( vals ) <= 0 ) {
+          max.dist <- max.dist + 0.02
+          vals <- agrep( rsat.spec, tmp, ignore=T, max.dist=max.dist, val=T )
+          break
+        }
+      }
+      if ( length( vals ) > 1 ) {
+        rsat.spec <- sapply( strsplit( vals, "[<>/]" ), "[", 8 )
+        message( "Found ", length( rsat.spec ), " matches..." )
+        rsat.spec <- rsat.spec[ menu( rsat.spec, graphics=F, title="Please choose one." ) ]
       }
       if ( length( vals ) == 1 ) {
         rsat.spec <- strsplit( vals, "[<>/]" )[[ 1 ]][ 8 ]
         message( "Found one match: ", rsat.spec, " ..." )
         message( "If this is not correct, you're not quite out of luck -- set the 'rsat.species' parameter manually." )
       }
+      ##}
     }
     set.param( "rsat.species", rsat.spec, override=T )
     ##dlf( paste( "data/STRING/species.", string.version, ".txt", sep="" ),
@@ -275,10 +310,11 @@ cmonkey.init <- function( env=NULL, ... ) {
     rm( tab, fname )
   }
 
-  if ( ! exists( "cog.org" ) || cog.org == "?" || is.na( cog.org ) ) {
+  if ( ! exists( "cog.org" ) || cog.org == '?' || is.na( cog.org ) ) {
     tmp <- strsplit( organism, "" )[[ 1 ]]; tmp[ 1 ] <- toupper( tmp[ 1 ] )
-    cog.o <- paste( tmp, sep="", collapse="" )
-    set.param( "cog.org", cog.o, override=T )
+    cog.o <- paste( tmp, sep='', collapse='' )
+    if ( cog.o == '' ) cog.o <- '?'
+    set.param( 'cog.org', cog.o, override=T )
     rm( cog.o, tmp )
   } else {
     set.param( "cog.org", cog.org )
@@ -298,6 +334,8 @@ cmonkey.init <- function( env=NULL, ... ) {
     message( "Organism is a eukaryote; presuming there are no operons." )
     set.param( "is.eukaryotic", TRUE, override=T )
     set.param( "operon.shift", FALSE, override=T )
+    set.param( "discard.genome", TRUE, override=T ) ## big genomes and no operon shifting, so we can discard it.
+    set.param( "recalc.bg", FALSE, override=T ) ## Takes too much RAM to do this once per motif run
     ##set.param( "remove.low.complexity.subseqs", TRUE, override=T )
     if ( "operons" %in% names( net.weights ) ) {
       net.weights <- net.weights[ names( net.weights ) != "operons" ]
@@ -354,9 +392,10 @@ cmonkey.init <- function( env=NULL, ... ) {
     if ( is.na( taxon.id ) || length( taxon.id ) <= 0 ) {
       taxon.id <- genome.info$taxon.id
       set.param( "taxon.id", taxon.id, override=T )
+      message( "Organism is ", organism, " ", cog.org, " ", rsat.species, " ", taxon.id )
     }
 
-    ## Get operon predictions
+    ## Get operon predictions; do this before getting sequences so we can op-shift if desired
     genome.info$operons <- NULL
     if ( ( operon.shift || "operons" %in% names( net.weights ) ) && ! no.genome.info ) {
       tmp.operons <- try( get.operon.predictions( "microbes.online" ) )
@@ -375,7 +414,7 @@ cmonkey.init <- function( env=NULL, ... ) {
       rm( tmp.operons )
       if ( ! is.null( env ) ) assign( "genome.info", genome.info, envir=env )
     }
-      
+    
     ## Get common prefix from feature.names and use those genes (assume >40% of ORF names have this suffix)
     if ( exists( 'genome.info' ) && ! is.null( genome.info$feature.names ) &&
         ( ! exists( 'ratios' ) || is.null( ratios ) ) )
@@ -388,6 +427,7 @@ cmonkey.init <- function( env=NULL, ... ) {
     if ( any( qqq > 0.6 ) ) { nch <- which( qqq > 0.6 ); nch <- nch[ length( nch ) ] } ## Longest prefix in >60% of names
     else if ( any( qqq > 0.4 ) ) { nch <- which( qqq > 0.4 ); nch <- nch[ length( nch ) ] } ## Longest prefix in >40% of names
     ##nch <- 0; while( max( table( substr( tmp, 1, nch + 1 ) ) ) / length( tmp ) > 0.4 ) nch <- nch + 1
+    prefix <- NA
     if ( nch > 0 ) {
       prefix <- names( which.max( table( substr( tmp, 1, nch ) ) ) )
       message( "Assuming gene/probe names have common prefix '", prefix, "'." )
@@ -398,16 +438,62 @@ cmonkey.init <- function( env=NULL, ... ) {
     }
     if ( ! is.null( env ) ) assign( "genome.info", genome.info, envir=env )
     
+<<<<<<< HEAD
     if ( ! is.na( prefix ) && ( ! exists( 'ratios' ) || is.null( ratios ) ) ) {
       message( "WARNING: No ratios matrix -- will generate an 'empty' one with all known ORFs as probes." )
       rows <- unique( as.character( subset( genome.info$feature.names, grepl( paste( "^", prefix, sep="" ), names,
                                                                              ignore=T, perl=T ), select="names", drop=T ) ) )
+=======
+    if ( ! exists( 'ratios' ) || is.null( ratios ) ) {
+      message( "WARNING: No ratios matrix -- will generate an 'empty' one with all annotated ORFs for 'probes'." )
+      if ( ! is.na( prefix ) ) rows <- unique( as.character( subset( genome.info$feature.names,
+                                                                    grepl( paste( "^", prefix, sep="" ), names,
+                                                                    ignore=T, perl=T ), select="names", drop=T ) ) )
+      else rows <- unique( as.character( subset( genome.info$feature.names, type=="primary", select="names", drop=T ) ) )
+
+>>>>>>> 95ebf69154f46fab7b09fd3687841cb03a88c68c
       ratios <- list( ratios=t( t( rep( NA, length( rows ) ) ) ) ); rownames( ratios$ratios ) <- rows
       attr( ratios, "rnames" ) <- sort( unique( rows ) ); rm( rows )
       attr( ratios, "nrow" ) <- length( attr( ratios, "rnames" ) )
       attr( ratios, "ncol" ) <- 1
+      cat( "Ratios: ", attr( ratios, "nrow" ), "x", 1, "\n" )
     }
     rm( nch, prefix, tmp, qqq )
+
+    ## Get upstream/downstream seqs, compute bg model, optionally discard genome seqs (for memory)
+    if ( ! is.null( genome.info$genome.seqs ) ) {
+      genome.info$all.upstream.seqs <- genome.info$bg.list <- list()
+      genome.info$bg.fname <- character()
+
+      ##if ( ! all( is.na( bg.order ) ) ) {
+      for ( i in names( mot.weights ) ) {
+        cat( "Pre-computing all '", i, "' seqs (", paste( motif.upstream.scan[[ i ]], collapse=", " ), ")...\n", sep="" )
+        ## Note we don't filter all seqs (used for background) - even removing ATGs; is this okay?
+        genome.info$all.upstream.seqs[[ i ]] <- get.sequences( attr( ratios, "rnames" ), seq.type=i,
+                                                              distance=motif.upstream.scan[[ i ]], filter=F )
+        if ( ! is.null( env ) ) assign( "genome.info", genome.info, envir=env )
+        message( sum( ! attr( ratios, "rnames" ) %in% names( genome.info$all.upstream.seqs[[ i ]] ) ),
+                " probes have no '", i, "' sequence." )
+        if ( ! is.na( bg.order[ i ] ) ) {
+          cat( "Pre-computing '", i, "' residue bg distrib (order=", bg.order[ i ], ")...\n", sep="" )
+          tmp.seqs <- if ( ! is.null( genome.info$all.upstream.seqs[[ i ]] ) ) genome.info$all.upstream.seqs[[ i ]]
+          else get.sequences( attr( ratios, "rnames" ), distance=motif.upstream.search[[ i ]], seq.type=i, filter=F )
+          genome.info$bg.fname[ i ] <- my.tempfile( "meme.tmp", suf=".bg" ) 
+          capture.output( genome.info$bg.list[[ i ]] <- mkBgFile( tmp.seqs, order=bg.order[ i ],
+                                                                 bgfname=genome.info$bg.fname[ i ],
+                                                                 use.rev.comp=grepl( "-revcomp", meme.cmd[ i ] ) ) )
+          rm( tmp.seqs )
+        } else {
+          message( "NOT USING a global sequence background distribution!" )
+        }
+        if ( ! is.null( env ) ) assign( "genome.info", genome.info, envir=env )
+      }
+      ##}
+##!ifndef 
+##      if ( big.memory ) genome.info$all.upstream.seqs <-
+##        list.reference( genome.info$all.upstream.seqs, sprintf( "%s/all.genome.seqs", cmonkey.filename ) )
+##!endif
+    }
     
     networks <- list()
     if ( ! is.na( net.iters ) && any( net.iters %in% 1:n.iter ) ) {
@@ -676,6 +762,7 @@ cmonkey.init <- function( env=NULL, ... ) {
     }    
 
     
+<<<<<<< HEAD
     if ( ! is.null( genome.info$genome.seqs ) ) {
       genome.info$all.upstream.seqs <- genome.info$bg.list <- list()
       genome.info$bg.fname <- character()
@@ -711,6 +798,9 @@ cmonkey.init <- function( env=NULL, ... ) {
     }
     
     if ( ! no.genome.info ) {
+=======
+    if ( ! no.genome.info && cog.org != '' && cog.org != '?' && ! is.null( cog.org ) ) {
+>>>>>>> 95ebf69154f46fab7b09fd3687841cb03a88c68c
       ## COG code from NCBI whog file
       cat( "Loading COG functional codes (for plotting), org. code", cog.org, ": trying NCBI whog file...\n" )
       genome.info$cog.code <- get.COG.code( cog.org ) ##, genome.info$feature.names ) ##genome.info$transl.table,
