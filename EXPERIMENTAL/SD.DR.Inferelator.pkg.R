@@ -31,8 +31,7 @@ function (x, y, lambda, K = 10, cv.reps = 10, trace = FALSE,
             omit <- all.folds[[i]]
             fit <- my.glmnet(x[-omit, ], y[-omit], lambda = lambda, 
                 weights = weights[-omit], ...)
-            fit <- predict.elnet(fit, x[omit, , drop = FALSE], 
-                ...)
+	    fit <- predict(fit, x[omit, , drop = FALSE], ...)
             if (length(omit) == 1) {
                 fit <- matrix(fit, nrow = 1)
             }
@@ -207,6 +206,10 @@ function (profile, predictor.mat, conds.use = "ALL", col.map = NULL,
         if (!quiet) 
             cat("Tau =", tau, "\n")
         conds <- colnames(predictor.mat)
+        #SD 061311 Check to make sure that conditions are there
+        if(any(!conds %in% rownames(col.map))) {
+           cat(conds[!conds %in% rownames(col.map)],"row names missing from col.map\n")    
+        }
         cm <- col.map[conds, ]
         good.i <- ((cm$isTs == TRUE) & (cm$is1stLast %in% c("m", 
             "l"))) | (cm$isTs == FALSE & cm$is1stLast == "e")
@@ -365,7 +368,7 @@ function (cluster, predictors, data, col.map = NULL, conds.use = c("clust",
     coeffs<-NULL #SD 02-11-2011, If shrinkage fails for any reason, don't have any coeffs
     if (shrink.opt == "glmnet") {
     	#SD 9/28/10 to include possible priors
-    	penalties<-NULL
+    	penalties<-NA
     	if ( ! is.null(cluster$priors) ) {penalties<-1-cluster$priors+.5}
     	
         try(coeffs <- inferelator.enet(cluster.profile, predictor.mat, 
@@ -526,7 +529,7 @@ function (profile, predictor.mat, conds.use, col.map = NULL,
 {
     if (cv.choose == "min") 
         cv.choose <- "min+0se"
-    tmp <- get.input.matrix(profile, predictor.mat, conds.use, 
+    tmp <- get.input.matrix(profile, predictor.mat, conds.use,
         col.map = col.map, tau = tau, ratio.cutoff = ratio.cutoff, 
         quiet = quiet)
 
@@ -773,12 +776,11 @@ function (x, y, family = c("gaussian", "binomial", "poisson",
     nlambda = 100, lambda.min = 1e-06, lambda = NULL, standardize = TRUE, 
     thresh = 1e-04, dfmax = ncol(x) + 1, pmax = min(dfmax * 1.2, 
         ncol(x)), exclude, penalty.factor = rep(1, ncol(x)), 
-    maxit = 100, HessianExact = FALSE, type = c("covariance", 
+    maxit = 1000, HessianExact = FALSE, type = c("covariance", 
         "naive"), ...)  {
         
-  glmnet(x=x, y=y, family=family, weights=weights, offset=offset, alpha=alpha, nlambda=nlambda, 
-  	lambda.min.ratio=lambda.min, lambda=lambda, standardize=standardize, thresh=thresh, dfmax=dfmax, 
-  	pmax=pmax, exclude=exclude, penalty.factor=penalty.factor, maxit=maxit, type.gaussian=type)
+  glmnet(x=x, y=y, family=family, weights=weights, offset=offset, alpha=alpha, nlambda=nlambda,
+lambda.min.ratio=lambda.min, lambda=lambda, standardize=standardize, thresh=thresh, dfmax=dfmax, pmax=pmax, exclude=exclude, penalty.factor=penalty.factor, maxit=maxit, type.gaussian=type)
 }
 nwInf.package <-
 function (install = T, update.web = F, check = F, version = "0.0.5") 
