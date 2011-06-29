@@ -113,17 +113,17 @@ cluster.summary <- function( e.cutoff=0.01, nrow.cutoff=5, seq.type=names( mot.w
   out <- data.frame( k=1:k.clust, nrow=nrow, score=score, ##score.norm=score.norm,
                     resid=sapply( 1:k.clust, cluster.resid, varNorm=F ), 
                     consensus1=sapply( 1:k.clust,
-                      function( k ) if ( is.null( ms ) || length( ms[[ k ]] ) <= 3 ) "" else
+                      function( k ) if ( is.null( ms ) || is.null( ms[[ k ]]$meme.out ) || length( ms[[ k ]] ) <= 3 ) "" else
                       pssm.to.string( ms[[ k ]]$meme.out[[ 1 ]]$pssm ) ),
                     e.value1=sapply( 1:k.clust,
-                      function( k ) if ( is.null( ms ) || length( ms[[ k ]] ) <= 3 ) Inf else
+                      function( k ) if ( is.null( ms ) || is.null( ms[[ k ]]$meme.out ) || length( ms[[ k ]] ) <= 3 ) Inf else
                       ms[[ k ]]$meme.out[[ 1 ]]$e.value ),
                     consensus2=sapply( 1:k.clust,
-                      function( k ) if ( is.null( ms ) || length( ms[[ k ]] ) <= 3 ) "" else
+                      function( k ) if ( is.null( ms ) || is.null( ms[[ k ]]$meme.out ) || length( ms[[ k ]] ) <= 3 ) "" else
                       if ( length( ms[[ k ]]$meme.out ) == 1 ) "" else
                       pssm.to.string( ms[[ k ]]$meme.out[[ 2 ]]$pssm ) ),
                     e.value2=sapply( 1:k.clust,
-                      function( k ) if ( is.null( ms ) || length( ms[[ k ]] ) <= 3 ) Inf else
+                      function( k ) if ( is.null( ms ) || is.null( ms[[ k ]]$meme.out ) || length( ms[[ k ]] ) <= 3 ) Inf else
                       if ( length( ms[[ k ]]$meme.out ) <= 1 ) Inf else
                       ms[[ k ]]$meme.out[[ 2 ]]$e.value )
                     )
@@ -175,6 +175,7 @@ row.col.membership.from.clusterStack <- function( cs ) {
 
 ## TODO: add another function to randomly seed clusters with no rows or no cols
 re.seed.empty.clusters <- function( toosmall.r=cluster.rows.allowed[ 1 ], toosmall.c=0,
+                                   toobig.r=cluster.rows.allowed[ 2 ], 
                                    n.r=cluster.rows.allowed[ 1 ] * 2, n.c=5 ) {
   ## TODO: for zero-row clusters, take a random gene(s) and assign it to this cluster.
   rm <- row.membership
@@ -182,6 +183,9 @@ re.seed.empty.clusters <- function( toosmall.r=cluster.rows.allowed[ 1 ], toosma
   if ( any( tabulate( unlist( apply( rm, 1, unique ) ), k.clust ) <= toosmall.r ) ) {
     which.zero <- which( tabulate( unlist( apply( rm, 1, unique ) ), k.clust ) <= toosmall.r )
     cat( "These", length( which.zero ), "clusters have TOO FEW rows: ", which.zero, "\n" )
+    which.toobig <- which( tabulate( unlist( apply( rm, 1, unique ) ), k.clust ) >= toobig.r )
+    cat( "These", length( which.toobig ), "clusters have TOO MANY rows: ", which.toobig, "\n" )
+    which.zero <- c( which.zero, which.toobig )
     for ( k in which.zero ) {
       all.zero <- names( which( apply( rm, 1, function( i ) all( i <= toosmall.r ) ) ) )
       if ( length( all.zero ) < n.r ) {

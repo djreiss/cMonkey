@@ -6,13 +6,13 @@
 ## liable for anything that happens as a result of using this software
 ###################################################################################
 
-motif.one.cluster <- function( k, seq.type=names( mot.weights )[ 1 ], verbose=F, ##mask=T, blast=F, ##addl.args="", 
+motif.one.cluster <- function( k, seq.type=names( mot.weights )[ 1 ], verbose=F, force=F, ##mask=T, blast=F, ##addl.args="", 
                              ##pseudocount=1/length(get.rows(k)), ms=meme.scores[[ seq.type ]][[ k ]], 
                              ##min.seqs=cluster.rows.allowed[ 1 ], max.seqs=cluster.rows.allowed[ 2 ],
                              ##pal.opt="non",
                              ... ) {
   st <- strsplit( seq.type, " " )[[ 1 ]]
-  out <- NULL
+  out <- meme.scores[[ seq.type ]][[ k ]] ##NULL
   if ( st[ 2 ] == "meme" ) out <- meme.one.cluster( k, seq.type=seq.type, verbose, ... )
   invisible( out )
 }
@@ -138,11 +138,25 @@ meme.one.cluster <- function( k, seq.type=names( mot.weights )[ 1 ], verbose=F, 
 
   ## Options: normal use: have either "-pal=non" or no pal option in meme.cmd
   ##          force pal: have either "-pal=pal" or "-pal" option in meme.cmd
-  ##   Use best (e-value) of pal/non-pal: have "-pal=both" in meme.cmd
+  ##   Use best (e-value) of pal/non-pal: have "-pal=both" in meme.cmd  
+##   pal.opt <- "non"
+##   if ( grepl( "-pal=non", cmd ) ) { ## Can have "-pal=non" or nothing for this case
+##     cmd <- gsub( "-pal=non", "", cmd )
+##   }
+## #!ifndef 
+##   else if ( grepl( "-pal=pal", cmd ) ) { ## Can have "-pal=pal" or "-pal" for this case
+##     cmd <- gsub( "-pal=pal", "", cmd ); pal.opt="pal"
+##   } else if ( grepl( "-pal=both", cmd ) ) { ## Have to have "-pal=both" for this case
+##     cmd <- gsub( "-pal=both", "", cmd ); pal.opt="both"
+##   } else if ( grepl( "-pal", cmd ) ) { ## Can have "-pal=pal" or "-pal" for this case
+##     cmd <- gsub( "-pal", "", cmd ); pal.opt="pal"
+##   }
+## #!endif
+
+  ## Better option - if pal.opt is passed to this function, use that.
+  ## This will happen if motif finding command is 'memepal' or 'memeboth'
   pal.opt <- "non"
-  if ( grepl( "-pal=non", cmd ) ) { ## Can have "-pal=non" or nothing for this case
-    cmd <- gsub( "-pal=non", "", cmd )
-  }
+  if ( "pal.opt" %in% names( list( ... ) ) ) pal.opt <- list( ... )$pal.opt
 
   ##run.meme <- runMeme
   ## if ( pal.opt == "both" ) run.meme <- runMemePalNonPal
@@ -785,11 +799,25 @@ get.sequences <- function( k, seq.type=paste( c("upstream","upstream.noncod","up
   if ( is.null( rows ) ) return( NULL )
   start.stops <- NULL
   if ( is.na( seq.type ) || strsplit( seq.type, " " )[[ 1 ]][ 1 ] == "gene" ) op.shift <- FALSE
-  seq.type <- seq.type; n.seq.type <- strsplit( seq.type, " " )[[ 1 ]][ 1 ]
+  n.seq.type <- strsplit( seq.type, " " )[[ 1 ]][ 1 ]
 
-  if ( substr( seq.type, 1, 5 ) == "file=" ) { ## if seq.type is e.g. 'file=asdfg.fst' then get seqs from fasta file
-    seqs <- read.fasta( fname=strsplit( n.seq.type, "=" )[[ 1 ]][ 2 ] )
-    seqs <- seqs[ rows ]; names( seqs ) <- rows
+  if ( substr( n.seq.type, 1, 8 ) == "fstfile=" ) { ## if seq.type is e.g. 'fstfile=asdfg.fst' then get seqs from fasta file
+    if ( ! is.null( genome.info$all.upstream.seqs[[ seq.type ]] ) &&
+        length( genome.info$all.upstream.seqs[[ seq.type ]] ) > 0 ) { ## use cached values
+      seqs <- genome.info$all.upstream.seqs[[ seq.type ]]
+    } else {
+      seqs <- read.fasta( fname=gzfile( strsplit( n.seq.type, "=" )[[ 1 ]][ 2 ] ) )
+    }
+    seqs <- seqs[ rows ]; names( seqs ) <- toupper( rows )
+  } else if ( substr( n.seq.type, 1, 8 ) == "csvfile=" ) { ## if seq.type is e.g. 'csvfile=asdfg.csv' then get seqs from csv file
+    if ( ! is.null( genome.info$all.upstream.seqs[[ seq.type ]] ) &&
+        length( genome.info$all.upstream.seqs[[ seq.type ]] ) > 0 ) {
+      seqs <- genome.info$all.upstream.seqs[[ seq.type ]]
+    } else {
+      tab <- read.csv( gzfile( strsplit( n.seq.type, "=" )[[ 1 ]][ 2 ] ), head=F )
+      seqs <- as.character( tab[ ,2 ] ); names( seqs ) <- toupper( as.character( tab[ ,1 ] ) )
+    }
+    seqs <- seqs[ rows ]; names( seqs ) <- toupper( rows )
   } else {
     if ( is.null( genome.info$feature.tab ) || ! "genome.seqs" %in% names( genome.info ) ||
         is.null( genome.info$genome.seqs ) ) {

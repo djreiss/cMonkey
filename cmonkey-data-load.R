@@ -138,7 +138,8 @@ get.genome.info <- function( fetch.upstream=F, fetch.predicted.operons="rsat" ) 
   cat( "Organism taxon id:", taxon.id, "\n" ) 
   closeAllConnections()
   
-  if ( ! no.genome.info ) {
+  ## If we are getting all sequences from a fasta or csv file, skip downloading of genome seq info
+  if ( ! no.genome.info && ! all( grepl( "file=", names( mot.weights ) ) ) ) {
     fname <- paste( "data/", rsat.species, "/feature.tab", sep="" )
     use.cds <- FALSE
     err <- dlf( fname, paste( genome.loc, "feature.tab", sep="" ),
@@ -204,39 +205,40 @@ get.genome.info <- function( fetch.upstream=F, fetch.predicted.operons="rsat" ) 
       if ( length( genome.seqs ) <= 0 ) genome.seqs <- NULL
     }
 
-    if ( exists( "ratios" ) && ! is.null( ratios ) ) {
-      cat( "Gathering all \"standard\" orf names and other synonyms for all probe names...\n" )
-      tmp <- get.synonyms( attr( ratios, "rnames" ), feature.names, verbose=T ) 
-      is.bad <- sapply( names( tmp ), function( i ) length( tmp[[ i ]] ) == 0 ||
-                       substr( tmp[[ i ]][ 1 ], 1, 5 ) == "Error" )
-      if ( sum( is.bad ) > 0 ) {
-        cat( "These", sum( is.bad ), "probe names have no matching ORF annotation:\n" )
-        print( names( which( is.bad ) ) )
-      }
-      
-      cat( "Mean number of synonyms per probe:", mean( sapply( tmp, length ), na.rm=T ), "\n" )
-      synonyms <- tmp
-      rm( tmp, is.bad )
-    }
-  
-    if ( ! is.na( mot.iters[ 1 ] ) && fetch.upstream ) {
-      ## Can optionally also get upstream 400bp seqs (or upstream seqs not overlapping w/ orfs):
-      ## Naah, lets extract the sequences ourselves! (See get.sequences() below.)
-      fname <- paste( "data/", rsat.species, "/upstream-noorf.fasta.gz", sep="" )
-      err <- dlf( fname, paste( genome.loc, rsat.species, "_upstream-noorf.fasta.gz", sep="" ),
-                 "Fetching upstream sequences from RSAT..." )
-      upstream.noorf <- readLines( gzfile( fname ) )
-      fname <- paste( "data/", rsat.species, "/upstream.fasta.gz", sep="" )
-      err <- dlf( fname, paste( genome.loc, rsat.species, "_upstream.fasta.gz", sep="" ) )
-      upstream <- readLines( gzfile( fname ) )
-    }
   }
+
+  synonyms <- NULL
+  if ( exists( "synonym.thesaurus" ) ) {
+    ## Load thesaurus file and turn it into a list of character arrays which are keyed with
+    ## a probe id, and then have the synonyms as the elements of the character array.
+    ## If an element doesn't exist for a gene then leave it out of the character array.
+    cat( "Loading synonym information from custom thesaurus...\n" )
+    tmp <- read.csv( gzfile( synonym.thesaurus ), header=F )
+    synonyms <- strsplit( toupper( as.character( tmp[ ,2 ] ) ), ';' )
+    names( synonyms ) <- toupper( as.character( tmp[ ,1 ] ) )
+    rm( tmp )
+  } else if ( exists( "ratios" ) && ! is.null( ratios ) ) {
+    cat( "Gathering all \"standard\" orf names and other synonyms for all probe names...\n" )
+    synonyms <- get.synonyms( attr( ratios, "rnames" ), feature.names, verbose=T ) 
+  }
+
+  if ( ! is.null( synonyms ) ) {
+    cat( "Mean number of synonyms per probe:", mean( sapply( synonyms, length ), na.rm=T ), "\n" )
+    ##synonyms <- tmp
+    is.bad <- sapply( names( synonyms ), function( i ) length( synonyms[[ i ]] ) == 0 ||
+                     substr( synonyms[[ i ]][ 1 ], 1, 5 ) == "Error" )
+    if ( sum( is.bad ) > 0 ) {
+      cat( "These", sum( is.bad ), "probe names have no matching ORF annotation:\n" )
+      print( names( which( is.bad ) ) )
+    }
+    rm( is.bad ) ##tmp
+  }
+  
   closeAllConnections()
   
   invisible( list( species=rsat.species, genome.seqs=genome.seqs, feature.tab=feature.tab, feature.names=feature.names,
                   org.id=org.id, taxon.id=taxon.id, synonyms=synonyms ) ) 
 }
-
 
 ## Can get operon predictions from RSAT (http://rsat.ccb.sickkids.ca/infer-operons.cgi).
 ## See http://rsat.ccb.sickkids.ca/help.infer-operons.html for how these are computed.
@@ -337,6 +339,7 @@ get.operon.predictions <- function( fetch.predicted.operons="microbes.online", o
 ## NOTE for mammalian (at least mouse and human(?)) you do orgid.geneid ONLY if it's e.g.
 ##      9544.ENSMMUP00000032511  but if it's e.g. Apo3, then leave out the orgid prefix.
 ##      (need to implement this!)
+## TODO: download parsed organism-specific files from bragi instead. See proc_string.pl ...
 get.STRING.links <- function( org.id=genome.info$org.id$V1[ 1 ], all.genes=attr( ratios, "rnames" ),
                              score="score", min.score=02, string.url="http://string-db.org/" ) {
   if ( file.exists( paste( "data/", rsat.species, "/string_links_FALSE_", org.id, ".tab", sep="" ) ) ) {
@@ -358,6 +361,7 @@ get.STRING.links <- function( org.id=genome.info$org.id$V1[ 1 ], all.genes=attr(
   proc.string.df <- function( file ) {
     err <- try( tmp <- unique( read.delim( file, head=F, sep="" ) ) ) ## "" Allows tabs OR spaces
     if ( "try-catch" %in% class( err ) ) return( NULL )
+    if ( ! exists( "tmp" ) || nrow( tmp ) <= 0 ) return( NULL )
     tmp2 <- strsplit( as.character( tmp$V15 ), "[:|]", perl=T )
     tmp2a <- sapply( tmp2, function( i ) which( i == score ) )
     tmp2b <- sapply( 1:length( tmp2 ), function( i ) if ( length( tmp2a[[ i ]] ) == 0 ) NA else
@@ -408,115 +412,6 @@ get.STRING.links <- function( org.id=genome.info$org.id$V1[ 1 ], all.genes=attr(
   invisible( string.links )
 }
 
-get.STRING.links.OLD <- function( org.id=genome.info$org.id$V1[ 1 ], detailed=T ) { 
-  ## line format is something like this (85962 is Hpy Org.id):
-  ## 85962.HP0001 85962.HP0617 180
-  ## Note old versions of string can be fetched from here: http://string.embl.de/server_versions.html
-  ##   e.g. v8.0 from http://string80.embl.de/newstring_download/protein.links.v8.0.txt.gz
-  
-  ##if ( exists( "get.STRING.links.NEW" ) ) return( invisible( get.STRING.links.NEW( org.id ) ) )
-  
-  url <- string.links.url
-  fname <- strsplit( url, "/" )[[ 1 ]]; fname <- sprintf( "data/STRING/%s", fname[ length( fname ) ] )
-  small.fname <- paste( "data/", rsat.species, "/string_links_", detailed, "_", org.id, ".tab", sep="" )
-  if ( ( ! file.exists( small.fname ) || file.info( small.fname )$size <= 0 ) ) {
-    if ( ! file.exists( fname ) ) {
-      err <- dlf( fname, url, paste( "Fetching STRING protein links file", url, "\nThis will take a while...\n" ) )
-      if ( class( err ) == "try-error" || ! file.exists( fname ) || file.info( fname )$size < 1e9 ) 
-        stop( paste( "Whoops, the file was not completely downloaded. Please try to download it yourself from",
-                    string.links.url, "and place it in data/STRING/, then restart cMonkey.\n" ) )
-    }
-
-    cat( "Loading organism-specific EMBL STRING interaction links (requires UNIX programs \"gunzip\" and \"grep\")",
-        "...\nUsing local file", fname, "->", small.fname, "\n" )
-    system.time.limit( paste( "gunzip -c ", fname, " | grep -E \"combined_score|^", org.id, ".\" > ", small.fname, sep="" ) )
-  }
-  
-  if ( file.exists( small.fname ) && file.info( small.fname )$size == 0 )
-    system.time.limit( paste( "gunzip -c ", fname, " | grep -E \"combined_score|^", org.id, ".\" > ", small.fname, sep="" ) )
-  if ( file.exists( small.fname ) && file.info( small.fname )$size > 0 ) {
-    cat( "Loading EMBL STRING interaction links from local file", small.fname, "\n" )
-    string.links <- read.delim( gzfile( small.fname ), sep=" ", head=T )
-  
-    string.links$protein1 <- gsub( paste( org.id, ".", sep="" ), "", string.links$protein1 ) 
-    string.links$protein2 <- gsub( paste( org.id, ".", sep="" ), "", string.links$protein2 )
-  }
-  url <- string.links.url
-  fname <- strsplit( url, "/" )[[ 1 ]]; fname <- sprintf( "data/STRING/%s", fname[ length( fname ) ] )
-  dlf( gsub( ".gz", "", gsub( "protein.links", "species", fname ) ),
-      gsub( ".gz", "", gsub( "protein.links", "species", url ) ) )
-  closeAllConnections()
-  invisible( string.links )
-}
-
-get.prolinks.links <- function( org.id=genome.info$org.id$V1[ 1 ] ) { ##, filter=F ) {
-  fname <- paste( "data/", rsat.species, "/prolinks_", gsub( " ", "_", org.id ), ".txt", sep="" )
-  org.file <- paste( "http://mysql5.mbi.ucla.edu/public/Genomes/", gsub( " ", "_", org.id ), ".txt", sep="" )
-  err <- dlf( fname, org.file, paste( "Fetching PROLINKS links from", org.file ) )
-  prol.tab <- read.delim( gzfile( fname ), head=T, as.is=T )
-  fname <- paste( "data/prolinks_GeneID_Genename.txt", sep="" )
-  id.file <- "http://mysql5.mbi.ucla.edu/public/reference_files/GeneID_Genename.txt"
-  err <- dlf( fname, id.file, paste( "Fetching PROLINKS genename ref. file from", id.file ) )
-
-  id.tab <- read.delim( gzfile( fname ), head=T, as.is=T )
-  merged.tab <- merge( merge( prol.tab, id.tab, by.x="gene_id_a", by.y="gene_id" ), id.tab, by.x="gene_id_b",
-                      by.y="gene_id" )
-  out <- list()
-  for ( i in unique( merged.tab$method ) ) { ## Already symmetric, it seems
-    out[[ i ]] <- merged.tab[ merged.tab$method == i, c( "name.x", "name.y", "confidence" ) ]
-    colnames( out[[ i ]] ) <- c( "protein1", "protein2", "combined_score" )
-  }
-  closeAllConnections()
-  out
-}
-
-get.predictome.links <- function( org.id=organism ) {
-  out <- list()
-  for ( i in c( "chromo", "comp", "fusion", "phylogenetic" ) ) {
-    fname <- paste( "data/predictome/predictome_", i, "_links.txt", sep="" )
-    pred.file <- paste( "http://predictome.bu.edu/data/all", i, "links.txt", sep="_" )
-    err <- dlf( fname, pred.file, paste( "Reading in predictome links from", pred.file ) )
-    pred.tab <- read.delim( gzfile( fname ), head=T, as.is=T )
-    pred.tab <- pred.tab[ pred.tab$species == org.id, ] ## Alreay symmetric, it seems
-    out[[ i ]] <- data.frame( protein1=pred.tab$orf_id_1, protein2=pred.tab$orf_id_2, combined_score=1.0 )
-  }
-  closeAllConnections()
-  out
-}
-
-## get.mint.links <- function( org.id=rownames( genome.info$org.id )[ 1 ] ) {
-##   file <- "data/MINT-2009-02-03-full.txt"
-##   dlf( file, "ftp://mint.bio.uniroma2.it/pub/release/txt/2009-02-03/2009-02-03-full.txt",
-##       "Fetching MINT interactions from ftp://mint.bio.uniroma2.it/pub/release/txt/2009-02-03/2009-02-03-full.txt." )
-##   mint.head <- strsplit( readLines( gzfile( file, n=1 ), "\t" )[[ 1 ]]
-##   mint.ints <- read.delim( file, head=F, skip=1, as.is=T )
-##   mint.ints <- mint.ints[ grep( paste( "taxid\\:", org.id, "\\(" ), mint.ints$`Taxid interactor A (bait)` ), ]
-## }
-
-## Assumes weights are 2nd column (if they exist) - if not (if they are a type, e.g. 'pp', weights are all 1
-## Weights are all then scaled to 0 -> 1000 to match those from STRING file.
-load.sif.interactions <- function( sif.fname ) { ##, sif.weight ) {
-  sif <- read.delim( gzfile( sif.fname ), sep='', head=F, comment="#" )
-  contains.weights <- ncol( sif ) == 3 && any( sapply( 1:ncol( sif ), function( i ) is.numeric( sif[ ,i ] ) ) )
-  if ( contains.weights ) {
-    weight.col <- which( sapply( 1:ncol( sif ), function( i ) is.numeric( sif[ ,i ] ) ) )
-    ##sif$V2 <- as.numeric( sif$V2 )
-    if ( length( weight.col ) == 1 ) {
-      sif[ ,weight.col ] <- sif[ ,weight.col ] * 1000 / max( sif[ ,weight.col ], na.rm=T ) ##* sif.weight
-      if ( weight.col == 1 ) sif <- sif[ ,c( 2, 1, 3 ) ]
-      else if ( weight.col == 3 ) sif <- sif[ ,c( 1, 3, 2 ) ]
-      colnames( sif ) <- c( "V1", "V2", "V3" )
-    }
-  } else if ( ncol( sif ) == 3 ) { ## Middle column is NOT numeric
-    sif <- data.frame( V1=sif$V1, V2=rep( 1000, nrow( sif ) ), V3=sif$V3 )
-  } else { 
-    sif <- data.frame( V1=sif$V1, V2=rep( 1000, nrow( sif ) ), V3=sif$V2 ) 
-  }
-  sif$V2[ is.na( sif$V2 ) ] <- 0
-  sif <- sif[ ,c( "V1", "V3", "V2" ) ]; colnames( sif ) <- c( "protein1", "protein2", "combined_score" )
-  closeAllConnections()
-  sif
-}
 
 get.COG.code <- function( org, rows=attr( ratios, "rnames" ) ) {
   ## Can we use the updated mappings from STRING? Not sure...

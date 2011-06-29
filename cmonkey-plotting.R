@@ -496,7 +496,7 @@ plotCluster.network <- function( cluster, network="all", o.genes=NULL, colors=NU
 
 col.let <- c( "A", "C", "G", "T" )
                    
-viewPssm <- function( pssm, e.val=NA, mot.ind=NA, use.char=T, main.title=NA, ... ) { 
+viewPssm <- function( pssm, e.val=NA, mot.ind=NA, use.char=T, main.title=NA, no.par=F, ... ) { 
   if ( is.null( pssm ) ) return()
   getEntropy <- function( pssm ) {
     pssm[ pssm == 0 ] <- 0.00001
@@ -519,7 +519,7 @@ viewPssm <- function( pssm, e.val=NA, mot.ind=NA, use.char=T, main.title=NA, ...
   }
 
   win.size <- nrow( pssm )
-  par( mar=rep(0.5,4)+0.1, mgp=c(3,1,0)*0.75 )##; on.exit( par( old.pars ) )
+  if ( ! no.par ) par( mar=rep(0.5,4)+0.1, mgp=c(3,1,0)*0.75 )##; on.exit( par( old.pars ) )
   if ( any( pssm <= 0 ) ) pssm <- pssm + 1e-10
   if ( any( pssm > 1 ) ) pssm <- t( apply( pssm, 1, function( i ) i / ( sum( i ) + 1e-10 ) ) )
 
@@ -1187,17 +1187,18 @@ write.project <- function( ks=sapply( as.list( clusterStack ), "[[", "k" ), para
     require( igraph )
     cat( "SVGS: " )
     for ( qqq in 1:3 ) {
-    mc$apply( ks, function( k ) { ## will this work in parallel? seems to. No, it doesn't.
-      ##k <- ks[ i ]
-      if ( k %% 25 == 0 ) cat( k ) else cat( "." )
-      if ( file.exists( sprintf( "%s/svgs/cluster%04d.svg", out.dir, k ) ) ||
-          file.exists( sprintf( "%s/svgs/cluster%04d.svgz", out.dir, k ) ) ) return( NULL )
-      devSVGTips( sprintf( "%s/svgs/cluster%04d.svg", out.dir, k ), toolTipMode=2,
-                 title=sprintf( "Bicluster %04d", k ), xmlHeader=T )
-      ##try(
-      plotClust( k, w.motifs=T, seq.type=seq.type, ... ) ##)
-      dev.off()
-    } )
+    ##mc$
+      lapply( ks, function( k ) { ## will this work in parallel? seems to. No, it doesn't.
+        ##k <- ks[ i ]
+        if ( k %% 25 == 0 ) cat( k ) else cat( "." )
+        if ( file.exists( sprintf( "%s/svgs/cluster%04d.svg", out.dir, k ) ) ||
+            file.exists( sprintf( "%s/svgs/cluster%04d.svgz", out.dir, k ) ) ) return( NULL )
+        devSVGTips( sprintf( "%s/svgs/cluster%04d.svg", out.dir, k ), toolTipMode=2,
+                   title=sprintf( "Bicluster %04d", k ), xmlHeader=T )
+        ##try(
+        plotClust( k, w.motifs=T, seq.type=seq.type, ... ) ##)
+        dev.off()
+      } )
     }
     cat( "\n" )
   }
@@ -1206,7 +1207,8 @@ write.project <- function( ks=sapply( as.list( clusterStack ), "[[", "k" ), para
   if ( "pdf" %in% output ) {
     require( igraph ) ## load it here
     cat( "PDFS: " )
-    mc$apply( ks, function( k ) { ## will this work in parallel? seems to.
+    ##mc$
+    lapply( ks, function( k ) { ## will this work in parallel? seems to.
       ##k <- ks[ i ]
       if ( k %% 25 == 0 ) cat( k ) else cat( "." )
       if ( file.exists( sprintf( "%s/pdfs/cluster%04d.pdf", out.dir, k ) ) ) return( NULL )

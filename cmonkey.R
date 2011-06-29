@@ -6,7 +6,7 @@
 ## liable for anything that happens as a result of using this software
 ###################################################################################
 
-cm.version <- "4.8.6"
+cm.version <- "4.8.7"
 
 
 cmonkey <- function( env=NULL, ... ) {
@@ -85,7 +85,8 @@ DEBUG <- function( ... ) {
 }
 
 install.binaries <- function( meme.version="4.3.0",
-                       url=sprintf( "http://meme.nbcr.net/downloads/old_versions/meme_%s.tar.gz", meme.version ) ) {
+                       url=sprintf( "http://meme.nbcr.net/downloads/old_versions/meme_%s.tar.gz", meme.version ),
+                             make='make -j 4' ) {
   cwd <- setwd( system.file( package="cMonkey" ) ); on.exit( setwd( cwd ) )
   if ( ! exists( "progs" ) ) dir.create( "progs" )
   setwd( "progs/" )
@@ -93,7 +94,7 @@ install.binaries <- function( meme.version="4.3.0",
   system( sprintf( "tar -xzf meme_%s.tar.gz", meme.version ) ); unlink( sprintf( "meme_%s.tar.gz", meme.version ) )
   setwd( sprintf( "meme_%s", meme.version ) ); dir.create( "local" )
   system( sprintf( "./configure --prefix=%s/local/ --enable-dependency-tracking --enable-opt --disable-shared --disable-fast-install --enable-serial --enable-build-libxml2 --enable-build-libxslt --disable-shared --enable-static --with-gnu-ld", getwd() ) )
-  system( "make" ); system( "make install" )
+  system( make ); system( "make install" )
   setwd( ".." )
   system( sprintf( "ln -s meme_%s/local/bin/meme", meme.version ) )
   system( sprintf( "ln -s meme_%s/local/bin/mast", meme.version ) )

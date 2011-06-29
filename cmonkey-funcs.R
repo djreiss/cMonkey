@@ -20,8 +20,9 @@ cmonkey.one.iter <- function( env, dont.update=F, ... ) {
     env$row.memb <- matrix.reference( env$row.memb, backingfile="row.memb", backingpath=env$cmonkey.filename )
     env$col.memb <- matrix.reference( env$col.memb, backingfile="col.memb", backingpath=env$cmonkey.filename )
   } else {
-    env$row.memb[,] <- t( apply( row.membership[], 1, function( i ) 1:k.clust %in% i ) )
-    env$col.memb[,] <- t( apply( col.membership[], 1, function( i ) 1:k.clust %in% i ) )
+    inds <- 1:k.clust
+    env$row.memb[,] <- t( apply( row.membership[], 1, function( i ) inds %in% i ) )
+    env$col.memb[,] <- t( apply( col.membership[], 1, function( i ) inds %in% i ) )
   }
 
   tmp <- get.all.scores( ... )
@@ -100,7 +101,6 @@ cmonkey.one.iter <- function( env, dont.update=F, ... ) {
 
     tmp <- get.updated.memberships() ## rr.scores, cc.scores )
     env$row.membership <- tmp$r; env$col.membership <- tmp$c
-    if ( ! is.null( tmp ) ) { env$row.membership <- tmp$r; env$col.membership <- tmp$c }
     
     
     ## PLOTTING
@@ -309,7 +309,7 @@ quantile.normalize.scores <- function( scores, weights=NULL, keep.nas=F ) {
 }
 
 get.all.scores <- function( ks=1:k.clust, force.row=F, force.col=F, force.motif=F, force.net=F,
-                           quantile.normalize=T ) {
+                           quantile.normalize=F ) {
   mc <- get.parallel( length( ks ) )
 
   ## Compute row.scores (microarray data)
@@ -323,6 +323,7 @@ get.all.scores <- function( ks=1:k.clust, force.row=F, force.col=F, force.motif=
     } else row.scores[ ,ks ] <- 0
     ## TODO: Try to quantile normalize the ratios scores too (as is done w/ mot.scores, net.scores below) but
     ##    this is harder because each different "tmp.row" matrix may have different nrows.
+    ##rs.func <- function() { ## for profiling
     for ( i in names( ratios ) ) { 
       if ( row.weights[ i ] == 0 || is.na( row.weights[ i ] ) ) next
       tmp.row <- do.call( cbind, mc$apply( ks, get.row.scores, ratios=ratios[[ i ]]
@@ -335,6 +336,7 @@ get.all.scores <- function( ks=1:k.clust, force.row=F, force.col=F, force.motif=
       rm( tmp.row, tmp )
     }
     attr( row.scores, "changed" ) <- TRUE
+    ##row.scores }; row.scores <- rs.func()    
   }
   
   ## Compute col.scores (microarray data)
@@ -348,6 +350,7 @@ get.all.scores <- function( ks=1:k.clust, force.row=F, force.col=F, force.motif=
       col.scores <- matrix.reference( col.scores )
     } else col.scores[ ,ks ] <- 0
     ##col.scores <- matrix( 0, nrow=attr( ratios, "ncol" ), ncol=max( ks ) )
+    ## cs.func <- function() { ## for profiling
     for ( i in names( row.weights ) ) { 
       if ( row.weights[ i ] == 0 || is.na( row.weights[ i ] ) ) next
       tmp.col <- do.call( cbind, mc$apply( ks, get.col.scores, ratios=ratios[[ i ]]
@@ -360,6 +363,7 @@ get.all.scores <- function( ks=1:k.clust, force.row=F, force.col=F, force.motif=
       rm( tmp.col, tmp )
     }
     attr( col.scores, "changed" ) <- TRUE
+    ## col.scores }; col.scores <- cs.func()
   }
   
   ## Run meme on each cluster (every meme.iters iterations)
@@ -392,6 +396,7 @@ get.all.scores <- function( ks=1:k.clust, force.row=F, force.col=F, force.motif=
       rm( tmp.mot )
     }
     if ( quantile.normalize && length( tmp.mots ) > 1 ) {
+      ##combine <- "sum" ## TODO: allow one to take eg. the "min" of each element in the matrices (instead of the sum)
       tmp.mots <- quantile.normalize.scores( tmp.mots, weights=mot.weights[ mot.weights != 0 ] )
       for ( i in names( tmp.mots ) ) mot.scores[ ,ks ] <- mot.scores[ ,ks ] + tmp.mots[[ i ]][,] * mot.weights[ i ]
       rm( tmp.mots )
@@ -410,6 +415,7 @@ get.all.scores <- function( ks=1:k.clust, force.row=F, force.col=F, force.motif=
       net.scores <- matrix.reference( net.scores )
     } else net.scores[ ,ks ] <- 0
     tmp.nets <- list()
+    ## ns.func <- function() { ## for profiling
     for ( i in names( networks ) ) { 
       if ( net.weights[ i ] == 0 || is.na( net.weights[ i ] ) ) next
       if ( nrow( subset( networks[[ i ]], protein1 %in% attr( ratios, "rnames" ) & protein2 %in%
@@ -425,10 +431,10 @@ get.all.scores <- function( ks=1:k.clust, force.row=F, force.col=F, force.motif=
                                                                                     na.rm=T, trim=0.05 ) ) ) )
       colnames( cluster.ns )[ ncol( cluster.ns ) ] <- i
       rm( tmp.net )
-    }
-    
+    }    
     if ( quantile.normalize && length( tmp.nets ) > 1 ) {
       tmp.nets <- quantile.normalize.scores( tmp.nets, weights=net.weights[ net.weights != 0 ] )
+      ##combine <- "sum" ## TODO: allow one to take eg. the "min" of each element in the matrices (instead of the sum)
       for ( i in names( tmp.nets ) ) net.scores[ ,ks ] <- net.scores[ ,ks ] + tmp.nets[[ i ]][,] * net.weights[ i ]
       rm( tmp.nets )
     }
@@ -437,6 +443,7 @@ get.all.scores <- function( ks=1:k.clust, force.row=F, force.col=F, force.motif=
     cluster.ns <- cbind( cluster.ns, do.call( c, mc$apply( ks, function( k ) mean( net.scores[ get.rows( k ), k ],
                                                                                   na.rm=T, trim=0.05 ) ) ) )
     colnames( cluster.ns )[ ncol( cluster.ns ) ] <- "net.scores"
+    ##list( net.scores, cluster.ns ) }; tmp <- ns.func(); net.scores <- tmp[[ 1 ]]; cluster.ns <- tmp[[ 2 ]]
   }
   list( r=row.scores, m=mot.scores, ms=meme.scores, n=net.scores, c=col.scores, cns=cluster.ns )  ##r=row.scores, 
 }
@@ -486,12 +493,14 @@ cluster.resid <- function( k, rats.inds="COMBINED", varNorm=F, in.cols=T, ... ) 
     d.cols <- colMeans( rats, na.rm=T )
     d.all <- mean( d.rows, na.rm=T )
 
-    rij <- rats + d.all
-    rij[,] <- rij[,] - matrix( d.cols, nrow=nrow( rij ), ncol=ncol( rij ), byrow=T )
-    rij[,] <- rij[,] - matrix( d.rows, nrow=nrow( rij ), ncol=ncol( rij ), byrow=F )
+    ##rij <- rats + d.all
+    ##rij[,] <- rij[,] - matrix( d.cols, nrow=nrow( rij ), ncol=ncol( rij ), byrow=T )
+    ##rij[,] <- rij[,] - matrix( d.rows, nrow=nrow( rij ), ncol=ncol( rij ), byrow=F )
     ##rij[,] <- rij[,] - outer( d.rows, d.cols, '+' ) ## more elegant but slower!
+    rats[,] <- rats[,] + d.all - outer( d.rows, d.cols, '+' ) ## more elegant but slower!
 
-    average.r <- mean( abs( rij ), na.rm = TRUE )
+    ##average.r <- mean( abs( rij ), na.rm = TRUE )
+    average.r <- mean( abs( rats ), na.rm = TRUE )
     if ( varNorm && ! is.null( maxRowVar ) ) {
       ##maxRowVar <- attr( rats, "maxRowVar" )
       row.var <- mean( apply( rats, 1, var, use = "pairwise.complete.obs" ), na.rm=T )
@@ -503,10 +512,10 @@ cluster.resid <- function( k, rats.inds="COMBINED", varNorm=F, in.cols=T, ... ) 
   
   inds <- rats.inds
   if ( rats.inds[ 1 ] == "COMBINED" ) inds <- names( get( "row.weights" ) )
+  rows <- get.rows( k ); cols <- get.cols( k )
   resids <- sapply( ratios[ inds ], function( rn ) {
-      if ( in.cols ) residual.submatrix( rn, get.rows( k ), get.cols( k ), varNorm=varNorm )
-      else residual.submatrix( rn, get.rows( k ), colnames( rn )[ ! colnames( rn ) %in% get.cols( k ) ],
-                              varNorm=varNorm )
+      if ( in.cols ) residual.submatrix( rn, rows, cols, varNorm=varNorm )
+      else residual.submatrix( rn, get.rows( k ), colnames( rn )[ ! colnames( rn ) %in% cols ], varNorm=varNorm )
   } )
   if ( rats.inds[ 1 ] == "COMBINED" ) resids <- weighted.mean( resids, row.weights[ inds ], na.rm=T )
   if ( rats.inds[ 1 ] != "COMBINED" && length( resids ) < length( inds ) && all( is.na( resids ) ) ) {
@@ -609,11 +618,12 @@ get.row.scores <- function( k, cols=get.cols( k ), for.rows="all", ratios=ratios
 
     rats <- ratios[ for.rows, cols, drop=F ]
     rats.mn <- colMeans( rats[ rows, , drop=F ], na.rm=T )
-    rats.mn <- matrix( rats.mn, nrow=nrow( rats ), ncol=ncol( rats ), byrow=T )
-    rats[,] <- ( rats[,] - rats.mn )^2 ## abs(
+    ##rats.mn <- matrix( rats.mn, nrow=nrow( rats ), ncol=ncol( rats ), byrow=T )
+    ##rats[,] <- ( rats[,] - rats.mn )^2 ## abs(
+    rats[,] <- t( t( rats ) - rats.mn )^2
     col.weights <- if ( exists( "get.col.weights" ) ) get.col.weights( rows, cols, ratios ) else NA
     if ( is.na( col.weights[ 1 ] ) ) rats <- rowMeans( rats, na.rm=T )
-    else rats <- apply( abs( rats ), 1, weighted.mean, w=col.weights[ cols ], na.rm=T )
+    else rats <- apply( rats, 1, weighted.mean, w=col.weights[ cols ], na.rm=T )
     rats <- log( rats + 1e-99 )
   return( rats )
 }
@@ -687,12 +697,14 @@ get.col.scores <- function( k, for.cols="all", ratios=ratios[[ 1 ]],
   row.weights <- if ( exists( "get.row.weights" ) ) get.row.weights( rows, cols, ratios ) else NA
 
     if ( is.na( row.weights[ 1 ] ) ) { ## Default
-      rats.mn <- matrix( colMeans( rats, na.rm=T ), nrow=nrow( rats ), ncol=ncol( rats ), byrow=T )
+      rats.mn <- ##matrix(
+        colMeans( rats, na.rm=T )##, nrow=nrow( rats ), ncol=ncol( rats ), byrow=T )
     } else { ## Custom row weights
-      rats.mn <- matrix( apply( rats, 2, weighted.mean, w=row.weights[ rows ], na.rm=T ), ncol=ncol( rats ), byrow=T )
+      rats.mn <- ##matrix(
+        apply( rats, 2, weighted.mean, w=row.weights[ rows ], na.rm=T )##, ncol=ncol( rats ), byrow=T )
     }
     
-    rats[,] <- ( rats[,] - rats.mn )^2 ## abs( Multiplying is faster than squaring
+    rats[,] <- t( t( rats ) - rats.mn )^2 ## abs( Multiplying is faster than squaring
     rats <- colMeans( rats, na.rm=T )
   
   var.norm <- 0.99
@@ -700,7 +712,7 @@ get.col.scores <- function( k, for.cols="all", ratios=ratios[[ 1 ]],
     all.colVars <- attr( ratios, "all.colVars" )
     if ( ! is.null( all.colVars ) ) var.norm <- all.colVars[ for.cols ]
   } else if ( norm.method == "mean" ) {
-    var.norm <- abs( rats.mn[ 1, ] ) ##0.99 ## Use the mean expr. level (higher expressed expected to have higher noise)
+    var.norm <- abs( rats.mn ) ##[ 1, ] ) ##0.99 ## Use the mean expr. level (higher expressed expected to have higher noise)
   }
   
   ##col.weights <- get.col.weights( rows, cols )
@@ -726,7 +738,7 @@ get.motif.scores <- function( k, seq.type="upstream meme", for.rows="all" ) { ##
 }
 
 get.network.scores <- function( k, net=networks$string, for.rows="all", p1.col="protein1", p2.col="protein2", 
-                               score.col="combined_score" ) {
+                               score.col="combined_score", combine.func=sum ) {
   if ( length( k ) <= 0 ) return( NULL )
   if ( is.numeric( k[ 1 ] ) ) rows <- get.rows( k )
   else rows <- k
@@ -737,7 +749,8 @@ get.network.scores <- function( k, net=networks$string, for.rows="all", p1.col="
   cons <- cons[ as.character( cons[[ p2.col ]] ) %in% for.rows, , drop=F ]
   ##cons <- get.cluster.network( rows, net, for.rows )
   if ( is.null( cons ) || nrow( cons ) <= 0 ) return( rep( NA, length( for.rows ) ) )
-  tmp <- tapply( as.numeric( cons[[ score.col ]] ), as.character( cons[[ p2.col ]] ), sum, na.rm=T ) / length( rows )
+  tmp <- tapply( as.numeric( cons[[ score.col ]] ), as.character( cons[[ p2.col ]] ), combine.func, na.rm=T ) /
+    length( rows )
   scores <- rep( NA, length( for.rows ) ); names( scores ) <- for.rows
   scores[ names( tmp ) ] <- tmp
   return( -log( scores + 1 ) )
@@ -1011,6 +1024,7 @@ get.updated.memberships <- function() { ## rr.scores, cc.scores ) {
   invisible( list( r=row.membership, c=col.membership ) )
 }
 
+
 seed.clusters <- function( k.clust, seed.method="rnd", col.method="rnd" ) {
   ## Allow it to be overridden by a custom function if desired (e.g. to seed from a gene list -- no that's a bad
   ## example -- there's the "list=" option below)
@@ -1147,15 +1161,16 @@ get.cluster.matrix <- function( rows=NULL, cols=NULL, matrices=names( ratios ) )
 get.synonyms <- function( gns, ft=genome.info$feature.names, ignore.case=T, verbose=F, fast=F, force=F ) { ##transl.table
   if ( exists( "no.genome.info" ) && no.genome.info ) { out <- as.list( gns ); names( out ) <- gns; return( out ) }
   out <- list()
-  if ( ! force && exists( "genome.info" ) && ! is.null( genome.info$synonyms ) ) {
+  if ( ( ! force && exists( "genome.info" ) && ! is.null( genome.info$synonyms ) ) ) {
     gns.cached <- gns[ gns %in% names( genome.info$synonyms ) ]
     out <- genome.info$synonyms[ gns.cached ]
     gns <- gns[ ! gns %in% names( genome.info$synonyms ) ]
-    if ( length( gns ) <= 0 ) return( out )
+    if ( length( gns ) <= 0 || ( is.null( ft ) && ( ! exists( "translation.tab" ) || is.null( translation.tab ) ) ) )
+      return( out )
   }
   ##cat( "Generating gene synonyms cache... this could take a little while.\n" )
   tmp.out <- as.list( gns ); names( tmp.out ) <- gns
-  if ( is.null( ft ) ) return( tmp.out ) ##character() )
+  if ( is.null( ft ) && ( ! exists( "translation.tab" ) || is.null( translation.tab ) ) ) return( c( out, tmp.out ) )
   gns.orig <- gns
   gns <- gsub( "m$|_\\d$|\\-\\S$", "", gns, perl=T ) ## specific for Halo, also works for yeast
   gns <- gsub( "([\\[\\]\\(\\)\\{\\}\\.\\+\\-'\"])", "\\\\\\1", gns, perl=T ) ## Escape the regex-y characters
@@ -1230,7 +1245,20 @@ get.gene.coords <- function( rows, op.shift=T, op.table=genome.info$operons, ...
 ##         }
 ##       }
     } else if ( attr( op.table, "source" ) == "microbes.online" ) {
-      ops <- merge( ids, op.table, by.x="names", by.y="gene", all.x=T )
+      ops <- NULL
+      if ( ! any( ids$names %in% op.table$gene ) ) {
+        ids2 <- lapply( syns, function( s ) s[ s %in% op.table$gene ] )
+        if ( all( sapply( ids2, length ) < 1 ) ) {
+          warning( "Could not find operon info for any input genes", call.=F )
+        } else {
+          if ( any( sapply( ids2, length ) < 1 ) ) warning( "Could not find operon info for all input genes", call.=F )
+          ids2 <- ids2[ sapply( ids2, length ) >= 1 ]
+          ids2 <- sapply( ids2, "[", 1 )
+          ids2 <- data.frame( id=ids2, names=names( ids2 ) ) ##, gene=rows )
+          ops <- merge( ids2, op.table, by.x="id", by.y="gene", all.x=T )
+        }
+      }
+      if ( is.null( ops ) ) ops <- merge( ids, op.table, by.x="names", by.y="gene", all.x=T )
       if ( any( is.na( ops$head ) ) ) {
         head <- as.character( ops$head ); head[ is.na( head ) ] <- as.character( ops$names[ is.na( head ) ] )
         ops$head <- as.factor( head )

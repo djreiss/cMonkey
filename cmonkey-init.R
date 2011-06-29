@@ -6,11 +6,7 @@
 ## liable for anything that happens as a result of using this software
 ###################################################################################
 
-## Just for fun: to run cMonkey as simple (slow) kmeans on ratios data, set:
-##   n.clust.per.row <- 1; n.clust.per.col <- k.clust
-##   no.genome.info <- TRUE; post.adjust <- FALSE; net.weights <- mot.weights <- numeric()
-
-#' Initialize a cMonkey environment for bilcustering
+#' Initialize a cMonkey environment for biclustering
 #' NOTE: to run cMonkey as simple (slow) kmeans on ratios data, set:
 #'   n.clust.per.row <- 1; n.clust.per.col <- k.clust
 #'   no.genome.info <- TRUE; post.adjust <- FALSE; net.weights <- mot.weights <- numeric()
@@ -46,7 +42,7 @@ cmonkey.init <- function( env=NULL, ... ) {
     } else {
       f <- try( get( i, envir=tmp.e ) ) ## Copy original func from cmonkey package env.
     }
-    if ( class( f ) == "function" )
+    if ( class( f ) == "function" ) 
       environment( f ) <- sys.frames()[[ length( sys.frames() ) ]] ## Make each func's env be this func's frame
     assign( i, f ) ## Copy over all cmonkey functions & objs into this frame - eventually get copied into env
     if ( ! is.null( f2 ) && class( f2 ) == "function" && object.size( f2 ) != object.size( f ) ) {
@@ -96,12 +92,15 @@ cmonkey.init <- function( env=NULL, ... ) {
     attr( ratios, "cnames" ) <- sort( unique( unlist( lapply( ratios, colnames ) ) ) )
     attr( ratios, "nrow" ) <- length( attr( ratios, "rnames" ) )
     attr( ratios, "ncol" ) <- length( attr( ratios, "cnames" ) ) ## Summary attributes (for multiple ratios matrices)
+    if ( is.null( names( ratios ) ) ) names( ratios ) <- paste( "ratios", 1:length( ratios ), sep='.' )
     for ( n in names( ratios ) ) {
       attr( ratios[[ n ]], "maxRowVar" ) <- mean( apply( ratios[[ n ]][,], 1, var, use="pair" ), na.rm=T ) ##* 1.2
       attr( ratios[[ n ]], "all.colVars" ) <- apply( ratios[[ n ]][,], 2, var, use="pair", na.rm=T )
     }
     rm( n )
   }
+  if ( exists( "ratios" ) && is.null( names( ratios ) ) )
+    names( ratios ) <- paste( "ratios", 1:length( ratios ), sep='.' )
   if ( ! is.null( env ) && exists( "ratios" ) ) assign( "ratios", ratios, envir=env )
 
   ## if ( exists( "is.eukaryotic" ) && is.eukaryotic ) {
@@ -131,7 +130,7 @@ cmonkey.init <- function( env=NULL, ... ) {
   set.param( "row.scaling", 6 )  ## Seems to work best for Mpn, works good for Halo
   set.param( "row.weights", c( ratios=1 ) ) ## Optionally load multiple ratios files and set relative weights
   set.param( "mot.scaling", seq( 0, 1, length=n.iter*3/4 ) ) ##* 0.5
-  set.param( "mot.weights", c( `upstream meme`=1 ) ) ##, `upstream weeder`=0.5, `upstream spacer`=1 ) ) ## Sequence and algorithm for for motif search: Optionally use different automatically computed sequences (e.g. `downstream meme`=1) or an input file (e.g. `file=zzz.fst meme`=1) and motif algos (e.g. weeder, spacer, prism)
+  set.param( "mot.weights", c( `upstream meme`=1 ) ) ##, `upstream weeder`=0.5, `upstream spacer`=1, `upstream memepal`=1 ) ) ## Sequence and algorithm for for motif search: Optionally use different automatically computed sequences (e.g. `downstream meme`=1) or an input file (e.g. `fstfile=zzz.fst meme`=1) (csvfile too!) and motif algos (e.g. weeder, spacer, prism, meme, memepal)
   set.param( "net.scaling", seq( 0, 0.5, length=n.iter*3/4 ) ) ##0.1 0.25
   ## Net weights and grouping weights - names must correspond to full file paths (sifs) that are to be read in.
   set.param( "net.weights", c( string=0.5, operons=0.5 ) ) ## prolinks=0.5 Relative scaling(s) of each network
@@ -162,7 +161,7 @@ cmonkey.init <- function( env=NULL, ... ) {
   } else if ( "package:cMonkey" %in% search() && file.exists( sprintf( "%s/progs/",
                                                                     system.file( package="cMonkey" ) ) ) ) {
     set.param( "progs.dir", sprintf( "%s/progs/", system.file( package="cMonkey" ) ) )
-  } else {
+  } else if ( any( mot.scaling > 0 ) && ( ! exists( "no.genome.info" ) || ! no.genome.info ) ) {
     message( "WARNING: You do not have meme/mast/dust installed.\nTrying to install it now.\n" )
     install.binaries()
     set.param( "progs.dir", sprintf( "%s/progs/", system.file( package="cMonkey" ) ) )
@@ -174,8 +173,8 @@ cmonkey.init <- function( env=NULL, ... ) {
   ##   "-bfile $bgFname" -- if this is omitted, then no background file is submitted; the default meme bg. is used (i.e. derived from the input sequences)
   ##   "-psp $pspFname" -- if this is omitted, no position-specific prior is used (default)
   ##   "-cons $none" -- if this is changed to "-cons $compute" then the consensus from previous meme run on this cluster is used as seed for this meme run (if the previous motif had a good E-value)
-  ##   "-pal=non" -- if this is changed to "-pal=pal" then force palindrome search; "-pal=both": try both pal and non-pal and use the result with the lowest E-value.
-  set.param( "meme.cmd", paste( progs.dir, "meme $fname -bfile $bgFname -psp $pspFname -time 600 -dna -revcomp -maxsize 9999999 -nmotifs %1$d -evt 1e9 -minw 6 -maxw 24 -mod zoops -nostatus -text -cons $none -pal=non", sep="/" ) )
+  ##   "-pal=non" -- if this is changed to "-pal=pal" then force palindrome search; "-pal=both": try both pal and non-pal and use the result with the lowest E-value. THIS IS DEFUNCT... now use memepal and memeboth motifing option instead
+  set.param( "meme.cmd", paste( progs.dir, "meme $fname -bfile $bgFname -psp $pspFname -time 600 -dna -revcomp -maxsize 9999999 -nmotifs %1$d -evt 1e9 -minw 6 -maxw 24 -mod zoops -nostatus -text -cons $none", sep="/" ) ) ##-pal=non
   set.param( "mast.cmd", sprintf( "%s/mast $memeOutFname -d $fname -bfile $bgFname -nostatus -stdout -text -brief -ev 99999 -mev 99999 -mt 0.99 -seqp -remcorr", progs.dir ) )
   set.param( "dust.cmd", sprintf( "%s/dust $fname", progs.dir ) )
   ##set.param( "meme.addl.args", "-time 600 -dna -revcomp -maxsize 9999999 -nmotifs %1$d -evt 1e9 -minw %2$d -maxw %3$d -mod zoops" ) ## -nomatrim -prior addone -spfuzz 1" )
@@ -407,13 +406,12 @@ cmonkey.init <- function( env=NULL, ... ) {
     }
     
     ## Get common prefix from feature.names and use those genes (assume >40% of ORF names have this suffix)
-    if ( exists( 'genome.info' ) && ! is.null( genome.info$feature.names ) &&
-        ( ! exists( 'ratios' ) || is.null( ratios ) ) )
+    if ( exists( 'ratios' ) && ! is.null( ratios ) ) tmp <- toupper( attr( ratios, "rnames" ) )
+    else if ( exists( 'genome.info' ) && ! is.null( genome.info$feature.names ) ) {
       tmp <- toupper( subset( genome.info$feature.names, type == "primary", select="names", drop=T ) )
-    else if ( ! no.genome.info ) tmp <- toupper( subset( genome.info$feature.names,
-                                                        type == "primary" | names %in% attr( ratios, "rnames" ),
-                                                        select="names", drop=T ) )
-    else if ( exists( 'ratios' ) && ! is.null( ratios ) ) tmp <- toupper( attr( ratios, "rnames" ) )
+      if ( exists( 'ratios' ) && ! is.null( ratios ) )
+        tmp <- tmp[ toupper( tmp ) %in% toupper( attr( ratios, "rnames" ) ) ]
+    }
     qqq <- sapply( 1:4, function( nch ) max( table( substr( tmp, 1, nch ) ) ) / length( tmp ) ); nch <- 0
     if ( any( qqq > 0.6 ) ) { nch <- which( qqq > 0.6 ); nch <- nch[ length( nch ) ] } ## Longest prefix in >60% of names
     else if ( any( qqq > 0.4 ) ) { nch <- which( qqq > 0.4 ); nch <- nch[ length( nch ) ] } ## Longest prefix in >40% of names
@@ -445,7 +443,7 @@ cmonkey.init <- function( env=NULL, ... ) {
     rm( nch, prefix, tmp, qqq )
 
     ## Get upstream/downstream seqs, compute bg model, optionally discard genome seqs (for memory)
-    if ( ! is.null( genome.info$genome.seqs ) ) {
+    if ( ! no.genome.info && length( mot.weights ) > 0 ) { ##is.null( genome.info$genome.seqs ) ) {
       genome.info$all.upstream.seqs <- genome.info$bg.list <- list()
       genome.info$bg.fname <- character()
 
@@ -499,11 +497,15 @@ cmonkey.init <- function( env=NULL, ... ) {
             string <- get.STRING.links( genome.info$org.id$V1[ 1 ] ) ##, detailed=F )
             ##string <- subset( string, combined_score >= 500 )
             ##cat( "Read in", nrow( string ), "STRING edges that pass cutoff (500); weight =", net.weights[ "string" ], "\n" )
-            cat( "Read in", nrow( string ), "STRING edges; weight =", net.weights[ "string" ], "\n" )
           }
-          string$combined_score <- string$combined_score / max( string$combined_score, na.rm=T ) * 1000
-          string$combined_score <- 1000 * exp( string$combined_score / 1000 ) / exp( 1 )
-          networks[[ "string" ]] <- string
+          if ( ! is.null( string ) && nrow( string ) > 0 ) {
+            cat( "Read in", nrow( string ), "STRING edges; weight =", net.weights[ "string" ], "\n" )
+            string$combined_score <- string$combined_score / max( string$combined_score, na.rm=T ) * 1000
+            string$combined_score <- 1000 * exp( string$combined_score / 1000 ) / exp( 1 )
+            networks[[ "string" ]] <- string
+          } else {
+            warning( "Could not load STRING network. Either", organism, "is not there or your gene names are not standard." )
+          }
           rm( string )
         }
         ## if ( length( grep( "string.", names( net.weights ) ) ) > 0 ) {
@@ -537,9 +539,11 @@ cmonkey.init <- function( env=NULL, ... ) {
           data.frame( protein1=tmp.sif[ ,1 ], protein2=tmp.sif[ ,2 ], combined_score=rep( 1000, nrow( tmp.sif ) ) )
         } ) )
         ##out.sif <- do.call( rbind, out.sif )
-        out.sif$combined_score <- rep( 1000, nrow( out.sif ) )
-        colnames( out.sif ) <- c( "protein1", "protein2", "combined_score" )
-        networks[[ "operons" ]] <- out.sif
+        if ( ! is.null( out.sif ) && nrow( out.sif ) > 0 ) {
+          out.sif$combined_score <- rep( 1000, nrow( out.sif ) )
+          colnames( out.sif ) <- c( "protein1", "protein2", "combined_score" )
+          networks[[ "operons" ]] <- out.sif
+        }
         rm( tmp, mc, out.sif )
       }
       if ( ! is.null( env ) ) assign( "networks", networks, envir=env )
@@ -721,8 +725,8 @@ cmonkey.init <- function( env=NULL, ... ) {
         cat( n, "network filtered, symmetrized and uniquified:", nrow( nn ), "edges.\n" )
         networks[[ n ]] <- nn
         if ( ! is.null( env ) ) assign( "networks", networks, envir=env )
+        rm( n, nn, nodes, dupes )
       }
-      rm( n, nn, nodes, dupes )
       
       ## Need to make sure sum of edge weights over all networks is the same so that bigger networks
       ##    dont get undue influence just because they're big.
