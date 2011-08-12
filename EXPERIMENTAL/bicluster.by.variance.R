@@ -834,3 +834,91 @@ getMPV <- function( e, VERBOSE=T ) {
 	MPV <- mean(relPvals,na.rm=T)
 	return(MPV)
 }
+
+#' Return a data frame with "ClusterSize" "Residual" "pValue"
+#' 
+#' @param e  A cMonkey environment
+#' @param VERBOSE  Set to T to display if NA values are removed (Default: T)
+#' @export
+#' @usage sizeDF <- getScoresVsize( e, VERBOSE=T )
+getScoresVsize <- function( e, VERBOSE=T ) {
+	e <- update.means.sds(e)  #Make sure all back distributions exist
+
+	sizeDF <- NULL
+	for (i in 1:length(e$clusterStack)){
+		curConds <- e$clusterStack[[i]]$cols
+		pVals <- getClusterPVals( e, i )
+		pValue <- mean(pVals[curConds],na.rm=T)
+		res <- e$clusterStack[[i]]$resid
+		n <- length(e$clusterStack[[i]]$rows)
+		sizeDF <- rbind(sizeDF, data.frame(n=n, res=res, pValue=pValue))
+	}
+	return(sizeDF)
+}
+
+#' Get the pValues for all conditions in a given cluster
+#' 
+#' @param e  The cMonkey environment
+#' @param i  The cluster index to get the score for
+#' @export
+#' @usage pVals <- getClusterPVals( e, i )
+getClusterPVals <- function( e, i ) {
+	geneList <- e$clusterStack[[i]]$rows
+	mean.sd <- e$means.sds[[as.character(length(geneList))]]
+	pValList <- getRatPvals(e, geneList, mean.sd)
+	return(pValList)
+}
+
+
+#' Determine the background distributions for experiments not in the original data set.
+#' 
+#' @param clusterStack  A cMonkey clusterStack
+#' @param newRatios  The ratios matrix for the new experimental conditions
+#' @export
+#' @usage new.means.sds <- getNew.means.sds( e$clusterStack, newRatios )
+getNew.means.sds <- function( clusterStack, newRatios) {
+	
+	#Note: need to iterate through all possible cluster sizes.
+	clusterSizes <- sort(unique(unlist(lapply(clusterStack, function(x) {x$nrows}))))
+	new.means.sds <- foreach (n = clusterSizes) %dopar% {
+		cat(n,',',sep="")
+		getVarianceMeanSD.DF(list(delRatios=newRatios), n)
+	}
+	cat('\n')
+	names(new.means.sds) <- clusterSizes
+	return(new.means.sds)
+}
+
+#' Return the probablities that new experiments are from the probability distribution 
+#'   of the training conditions
+#' 
+#' @param e  A cMonkey environment
+#' @param newRatios  The ratios matrix for the new experimental conditions
+#' @param condNames  The ratios names to use for the comparison (DEFAULT: c("oleate.lte90m","oleate.gt90m"))
+#' @param useMTC  Set to true to multiply pVals my multiple testing correction (DEFAULT: F)
+#' @export
+#' @usage diffPvals <- getNewPvals( e, newRatios, condNames=c("oleate.lte90m","oleate.gt90m"), useMTC=F )
+getNewPvals <- function( e, newRatios, condNames=c("oleate.lte90m","oleate.gt90m"), useMTC=F) {
+	
+	#Calculate the background distributions
+	new.means.sds <- getNew.means.sds( e$clusterStack, newRatios )
+	
+	#Calculate the pVals for each condition on each cluster
+	origE <- list(ratios=e$ratios[condNames],clusterStack=e$clusterStack, means.sds=e$means.sds)
+	newE <- list(ratios=list(newRatios),clusterStack=e$clusterStack, means.sds=new.means.sds)
+	ks <- sapply(e$clusterStack,function(x) {x$k})
+	diffPvals <- foreach (k = ks) %dopar% {
+		pVals.orig <- getClusterPVals( origE, k )
+		pVals.new <- getClusterPVals( newE, k )
+		
+		#Calculate the prob of being part of the same dist
+		dPvals <- sapply(pVals.new,function(x) {mean(x < pVals.orig)})
+		if (useMTC==T) { 
+			dPvals <- sapply(dPvals,function(x) {x*length(dPvals)})
+			dPvals[dPvals>1] <-1
+		}
+		return(dPvals)
+	}
+	names(diffPvals) <- as.character(ks)
+	return(diffPvals)
+}
