@@ -126,6 +126,7 @@ meme.one.cluster <- function( k, seq.type=names( mot.weights )[ 1 ], verbose=F, 
                              ##pseudocount=1/length(get.rows(k)), ##ms=meme.scores[[ seq.type ]][[ k ]], 
                              ##min.seqs=cluster.rows.allowed[ 1 ], max.seqs=cluster.rows.allowed[ 2 ],
                              ##pal.opt="non",
+<<<<<<< HEAD
                              ... ) {
   if ( is.numeric( k ) ) rows <- get.rows( k )
   else rows <- k
@@ -142,15 +143,30 @@ meme.one.cluster <- function( k, seq.type=names( mot.weights )[ 1 ], verbose=F, 
   all.seqs <- genome.info$all.upstream.seqs[[ seq.type ]]
   if ( is.null( all.seqs ) ) all.seqs <- get.sequences( "all", seq.type=seq.type,
                                                        distance=motif.upstream.scan[[ seq.type ]], filter=F, ... )
+=======
+                             force=F, ... ) {
+  if ( is.numeric( k ) ) rows <- get.rows( k )
+  else rows <- k
+  meme.out <- mast.out <- NULL
+>>>>>>> 95ebf69154f46fab7b09fd3687841cb03a88c68c
 
 ##  pal.opt <- motif.palindrome.option[ seq.type ]
   ##addl.args <- paste( addl.args, meme.addl.args[ seq.type ] ) 
   ##addl.args <- sprintf( addl.args, n.motifs[[ seq.type ]][ iter ], min.motif.width[[ seq.type ]][ iter ], max.motif.width[[ seq.type ]][ iter ] )
   cmd <- sprintf( meme.cmd[ seq.type ], n.motifs[[ seq.type ]][ iter ] ) ##, min.motif.width[[ seq.type ]][ iter ], max.motif.width[[ seq.type ]][ iter ] )
 
-  cat( k, "\t", Sys.getpid(), date(), "\t\t", seq.type, "\tSEQUENCES:", length( seqs ), "\n" )
+  ## Options: normal use: have either "-pal=non" or no pal option in meme.cmd
+  ##          force pal: have either "-pal=pal" or "-pal" option in meme.cmd
+  ##   Use best (e-value) of pal/non-pal: have "-pal=both" in meme.cmd
+  pal.opt <- "non"
+  if ( grepl( "-pal=non", cmd ) ) { ## Can have "-pal=non" or nothing for this case
+    cmd <- gsub( "-pal=non", "", cmd )
+  }
 
-  ms <- meme.scores[[ seq.type ]][[ k ]]
+  ##run.meme <- runMeme
+  ## if ( pal.opt == "both" ) run.meme <- runMemePalNonPal
+  ## else if ( pal.opt == "pal" ) run.meme <- runMemePal
+
   get.meme.consensus <- function( cmd, min.iter=500, max.e.value=0.1, ... ) {
     ##consensus <- meme.consensus[ seq.type ]
     if ( grepl( "-cons $compute", cmd, fixed=T ) ) {
@@ -168,29 +184,80 @@ meme.one.cluster <- function( k, seq.type=names( mot.weights )[ 1 ], verbose=F, 
     ##if ( ! is.null( consensus ) && ! is.na( consensus ) && consensus != "compute" && consensus != "" )
     ##  addl.args <- paste( addl.args, "-cons", consensus )
     if ( grepl( "-cons $compute", cmd, fixed=T ) ) cmd <- gsub( "-cons $compute", "", cmd, fixed=T )
-    else if ( grepl( "-cons $none", cmd, fixed=T ) ) cmd <- gsub( "-cons $none", "", cmd, fixed=T )
     cmd
   }
 
-  cmd <- get.meme.consensus( cmd, ... )
+  ms <- try( meme.scores[[ seq.type ]][[ k ]] )
+  if ( "try-error" %in% class( ms ) ) ms <- NULL
+  
+  if ( ! is.null( ms ) ) cmd <- get.meme.consensus( cmd, ... )
+  if ( grepl( "-cons $none", cmd, fixed=T ) ) cmd <- gsub( "-cons $none", "", cmd, fixed=T )
+  
+  bg.list <- genome.info$bg.list[[ seq.type ]]
+  bg.fname <- genome.info$bg.fname[ seq.type ]
+  bgo <- bg.order[ seq.type ]
+
+  ## TODO: should also check that the input seq's have same length as previous run.
+  if ( TRUE && ! force && ##! big.memory &&
+      ! is.null( ms ) && ! is.null( ms$prev.run ) && length( ms$prev.run$rows ) == length( rows ) &&
+      all( ms$prev.run$rows %in% rows ) && all( rows %in% ms$prev.run$rows ) && cmd == ms$prev.run$cmd &&
+      ( ms$prev.run$bg.order == bgo || sum( is.na( c( ms$prev.run$bg.order, bgo ) == 1 ) ) ) &&
+      all( motif.upstream.scan[[ seq.type ]] == ms$prev.run$m.u.scan ) ) {
+    message( "SKIPPING CLUSTER (UNCHANGED): ", k )
+    ms$iter = iter
+    ms$last.run = TRUE
+    return( ms )
+  }
+
+  seqs <- get.sequences( rows, seq.type=seq.type, verbose=verbose, ... ) ##mask=mask, blast=blast,
+  min.seqs <- cluster.rows.allowed[ 1 ]; max.seqs <- cluster.rows.allowed[ 2 ]
+  if ( is.null( seqs ) || length( seqs ) < min.seqs ) ##meme.seqs.allowed[[ seq.type ]][ 1 ] )
+    return( list( k=k, last.run=FALSE ) ) 
+  ##uniq <- uniquify.seqs[ seq.type ]
+  ##if ( uniq ) seqs <- seqs[ ! get.dup.seqs( seqs ) ] 
+  if ( length( seqs ) < min.seqs || ##meme.seqs.allowed[[ seq.type ]][ 1 ] ||
+      length( seqs ) > max.seqs ) ##meme.seqs.allowed[[ seq.type ]][ 2 ] )
+    return( list( k=k, last.run=FALSE ) ) 
+
+  cat( k, "\t", Sys.getpid(), date(), "\t\t", seq.type, "\tSEQUENCES:", length( seqs ), "\n" )
+  
+  all.seqs <- genome.info$all.upstream.seqs[[ seq.type ]]
+  if ( is.null( all.seqs ) ) all.seqs <- get.sequences( "all", seq.type=seq.type,
+                                                       distance=motif.upstream.scan[[ seq.type ]], filter=F, ... )
+  
+  if ( ! is.na( bgo ) && grepl( "-bfile $bgFname", cmd, fixed=T ) ) {
+    if ( ! recalc.bg && ! file.exists( bg.fname ) ) { ## On restart, tmpdir may have changed or been removed
+      genome.info$bg.fname[ seq.type ] <- bg.fname <- my.tempfile( "meme.tmp", suf=".bg" )
+      capture.output( genome.info$bg.list[[ seq.type ]] <- mkBgFile( all.seqs, order=bgo, 
+                                                                    bgfname=bg.fname, input.list=bg.list,
+                                                           use.rev.comp=grepl( "-revcomp", meme.cmd[ seq.type ] ) ) )
+    }
+    if ( recalc.bg || is.null( bg.list ) ) {
+      tmp.seqs <- all.seqs[ ! names( all.seqs ) %in% rows ]
+      ##if ( uniq ) tmp.seqs <- tmp.seqs[ ! get.dup.seqs( seqs ) ]
+      bg.fname <- my.tempfile( "meme.tmp", suf=".bg" ) 
+      capture.output( bg.list <- mkBgFile( tmp.seqs, order=bg.order[ seq.type ], verbose=F, bgfname=bg.fname,
+                          use.rev.comp=grepl( "-revcomp", meme.cmd[ seq.type ] ) ) ) ##addl.args[ i ] ) ) )
+      rm( tmp.seqs )
+    }
+  }
+
+  if ( is.na( bgo ) || is.null( bg.list ) ) { ## || ! file.exists( bg.fname ) ) {
+    cmd <- gsub( "-bfile $bgFname", "", cmd, fixed=T )
+    bg.list <- NULL
+  }
 
   ##if ( ( ! "psps" %in% names( list( ... ) ) || is.null( psps ) ) && exists( "get.sequence.psps" ) )
     psps <- NULL
-
-  ## Options: normal use: have either "-pal=non" or no pal option in meme.cmd
-  ##          force pal: have either "-pal=pal" or "-pal" option in meme.cmd
-  ##   Use best (e-value) of pal/non-pal: have "-pal=both" in meme.cmd
-  pal.opt <- "non"
-  if ( grepl( "-pal=non", cmd ) ) { ## Can have "-pal=non" or nothing for this case
-    cmd <- gsub( "-pal=non", "", cmd )
-  }
   
-  run.meme <- function( sgenes, seqs, cmd, seq.type, ... ) { ## "non", "pal", or "both" (try both and use one w/ best E-value)
+  ## "non", "pal", or "both" (try both and use one w/ best E-value)
+  run.meme <- function( sgenes, seqs, cmd, seq.type, ... ) { 
     if ( pal.opt == "non" ) {
       out <- runMeme( sgenes, seqs, cmd, seq.type=seq.type, ... )
     }
     out
   }
+<<<<<<< HEAD
 
   ##run.meme <- runMeme
   ## if ( pal.opt == "both" ) run.meme <- runMemePalNonPal
@@ -237,6 +304,14 @@ meme.one.cluster <- function( k, seq.type=names( mot.weights )[ 1 ], verbose=F, 
     meme.out <- try( run.meme( names( seqs ), seqs, cmd, ##nmotif=n.motifs[[ seq.type ]][ iter ],
                               verbose=verbose, bg.list=bg.list, bgfname=bg.fname, psps=psps,
                               seq.type=seq.type, ... ) )
+=======
+  
+  if ( verbose ) {
+    meme.out <- ##try(
+      run.meme( names( seqs ), seqs, cmd, ##nmotif=n.motifs[[ seq.type ]][ iter ],
+                              verbose=verbose, bg.list=bg.list, bgfname=bg.fname, psps=psps,
+                              seq.type=seq.type, ... ) ##)
+>>>>>>> 95ebf69154f46fab7b09fd3687841cb03a88c68c
   } else {
     capture.output( meme.out <- try( run.meme( names( seqs ), seqs, cmd, ##nmotif=n.motifs[[ seq.type ]][ iter ], 
                                               verbose=verbose, bg.list=bg.list, bgfname=bg.fname, psps=psps,
@@ -253,10 +328,18 @@ meme.one.cluster <- function( k, seq.type=names( mot.weights )[ 1 ], verbose=F, 
 
   if ( is.na( bgo ) || is.null( bg.list ) || ! file.exists( bg.fname ) ) bg.fname <- NULL
 
+<<<<<<< HEAD
   if ( verbose ) mast.out <- try( runMast( meme.out, names( all.seqs ), all.seqs, verbose=verbose,
                                           ##addl.args=mast.addl.args[ seq.type ],
                                           seq.type=seq.type, bg.list=bg.list, bgfname=bg.fname, ... ) ) 
   else capture.output( mast.out <- try( runMast( meme.out, names( all.seqs ), all.seqs,
+=======
+  if ( verbose ) mast.out <- try( runMast( meme.out, mast.cmd[ seq.type ], names( all.seqs ), all.seqs,
+                                          verbose=verbose,
+                                          ##addl.args=mast.addl.args[ seq.type ],
+                                          seq.type=seq.type, bg.list=bg.list, bgfname=bg.fname, ... ) ) 
+  else capture.output( mast.out <- try( runMast( meme.out, mast.cmd[ seq.type ], names( all.seqs ), all.seqs,
+>>>>>>> 95ebf69154f46fab7b09fd3687841cb03a88c68c
                                                 verbose=verbose, ##addl.args=mast.addl.args[ seq.type ],
                                                 seq.type=seq.type, bg.list=bg.list, bgfname=bg.fname, ... ) ) ) 
 
@@ -277,8 +360,14 @@ meme.one.cluster <- function( k, seq.type=names( mot.weights )[ 1 ], verbose=F, 
   ##     }
   ##   }
   ## }
+<<<<<<< HEAD
   if ( recalc.bg && file.exists( bg.fname ) ) unlink( bg.fname )
   prev.run = list( rows=rows, cmd=cmd, bg.order=bgo, m.u.scan=motif.upstream.scan[[ seq.type ]] )
+=======
+  if ( recalc.bg && ! is.null( bg.fname ) && file.exists( bg.fname ) && ! "unlink" %in% names( list( ... ) ) )
+    unlink( bg.fname )
+  prev.run <- list( rows=rows, cmd=cmd, bg.order=bgo, m.u.scan=motif.upstream.scan[[ seq.type ]] )
+>>>>>>> 95ebf69154f46fab7b09fd3687841cb03a88c68c
   invisible( list( k=k, last.run=FALSE, meme.out=meme.out2, pv.ev=pv.ev, prev.run=prev.run ) )
 }
 
@@ -415,13 +504,17 @@ runMeme <- function( sgenes, seqs, cmd=meme.cmd[ names( mot.weights )[ 1 ] ], bg
 ## This func is a generic "system" call that will force it to be killed after "tlimit" seconds.
 ## NOTE: probably only runs on UNIX-y systems. NOTE: doesnt work, so we now use pipe() which seems a bit more stable than system()
 system.time.limit <- function( cmd, tlimit=600 ) { ## default 10 minutes
-  out <- readLines( pipe( cmd, "rt" ) )
+  out <- readLines( pipe( cmd, open="rt" ) )
   ##closeAllConnections()
   out
 }
 
 ## memeOut can be direct text output of meme or parsed output containing pssms (which can be modified)
+<<<<<<< HEAD
 runMast <- function( memeOut, genes, seqs, bgseqs=NULL, bg.list=NULL, bgfname=NULL, ##e.value.cutoff=99999, p.value.cutoff=0.5, 
+=======
+runMast <- function( memeOut, mast.cmd, genes, seqs, bgseqs=NULL, bg.list=NULL, bgfname=NULL, ##e.value.cutoff=99999, p.value.cutoff=0.5, 
+>>>>>>> 95ebf69154f46fab7b09fd3687841cb03a88c68c
                     ##motif.e.value.cutoff=99999, seq.weights=NULL, psps=NULL, 
                     unlink=T, verbose=F, ... ) {
   fname <- my.tempfile( "mast.tmp", suf=".fst" ) 
@@ -621,8 +714,9 @@ mkBgFile <- function( bgseqs=NULL, order=0, bgfname=NULL, input.list=NULL, use.r
   if ( verbose ) cat( "Calculating", order, "th order background Markov model from", length( bgseqs ), "sequences\n" )
   if ( use.rev.comp && verbose ) cat( "Using reverse-complement too.\n" )
   
-  bgseqs <- unique( bgseqs )
-  if ( use.rev.comp ) bgseqs <- unique( c( bgseqs, rev.comp( bgseqs ) ) )
+  ##bgseqs <- bgseqs[ ! get.dup.seqs( bgseqs ) ] ##unique( bgseqs )
+  if ( use.rev.comp ) bgseqs <- c( bgseqs, rev.comp( bgseqs ) ) ##unique( 
+  bgseqs <- bgseqs[ ! get.dup.seqs( bgseqs ) ] ##unique( bgseqs )
   
   mc <- get.parallel( order + 1 )
   apply.func <- lapply
@@ -769,6 +863,8 @@ get.sequences <- function( k, seq.type=paste( c("upstream","upstream.noncod","up
                           distance=motif.upstream.search[[ seq.type ]], ... ) {
   if ( length( k ) <= 0 ) return( NULL )
   if ( is.numeric( k[ 1 ] ) ) rows <- get.rows( k )
+  else if ( ! is.null( genome.info$genome.seqs ) && k %in% names( genome.info$genome.seqs ) )
+    return( genome.info$genome.seqs[ k ] )
   else rows <- k
   if ( is.null( rows ) ) return( NULL )
   start.stops <- NULL
@@ -779,7 +875,19 @@ get.sequences <- function( k, seq.type=paste( c("upstream","upstream.noncod","up
     seqs <- read.fasta( fname=strsplit( n.seq.type, "=" )[[ 1 ]][ 2 ] )
     seqs <- seqs[ rows ]; names( seqs ) <- rows
   } else {
-    if ( is.null( genome.info$feature.tab ) ) stop( "Motif searching is on but no feature.tab!" )
+    if ( is.null( genome.info$feature.tab ) || ! "genome.seqs" %in% names( genome.info ) ||
+        is.null( genome.info$genome.seqs ) ) {
+      ##genome.info$all.upstream.seqs[[ seq.type ]]
+      if ( ! is.null( genome.info$all.upstream.seqs[[ seq.type ]] ) ) {
+        out.seqs <- genome.info$all.upstream.seqs[[ seq.type ]][ rows ]
+        out.seqs <- out.seqs[ ! is.na( out.seqs ) & out.seqs != "" ]
+        if ( filter ) out.seqs <- filter.sequences( out.seqs, NULL, seq.type, distance, verbose=verbose, ... )
+        return( invisible( out.seqs ) )
+      } else {
+        stop( "Motif searching is on but no ", seq.type, " sequences!" )
+      }
+    }
+    
     op.shift <- operon.shift[ seq.type ]
     
     coos <- get.gene.coords( rows, op.shift )
@@ -876,7 +984,11 @@ filter.sequences <- function( seqs, start.stops=NULL,
                              seq.type=paste( c("upstream","upstream.noncod","upstream.noncod.same.strand",
                                "downstream","gene")[ 1 ], "meme" ), distance=motif.upstream.search[[ seq.type ]],
                              uniquify=T, remove.repeats=T, remove.atgs=T, mask.overlapping.rgns=F,
+<<<<<<< HEAD
                              blast.overlapping.rgns=F, verbose=F, ... ) {
+=======
+                             verbose=F, ... ) {
+>>>>>>> 95ebf69154f46fab7b09fd3687841cb03a88c68c
 
   if ( uniquify ) seqs <- seqs[ ! get.dup.seqs( seqs ) ]
 

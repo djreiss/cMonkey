@@ -31,6 +31,8 @@ function (x, y, lambda, K = 10, cv.reps = 10, trace = FALSE,
             omit <- all.folds[[i]]
             fit <- my.glmnet(x[-omit, ], y[-omit], lambda = lambda, 
                 weights = weights[-omit], ...)
+            fit <- predict.elnet(fit, x[omit, , drop = FALSE], 
+                ...)
 	    fit <- predict(fit, x[omit, , drop = FALSE], ...)
             if (length(omit) == 1) {
                 fit <- matrix(fit, nrow = 1)
