@@ -144,9 +144,12 @@ getVarianceMeanSD <- function(ratios, n, tolerance = 0.01 ,maxTime=600, chunkSiz
 			curMeans[i] <- mean(rawScores[[curReg]],na.rm=T)
 			curSds[i] <- sd(rawScores[[curReg]],na.rm=T)
 		}
-
+		
 		#browser()
 		keepRunning <- (abs(curMeans-prevMeans) >= tolerance*abs(prevMeans)) | (abs(curSds-prevSds) >= tolerance*prevSds)
+		keepRunning[is.nan(keepRunning)] <- TRUE
+		keepRunning[is.na(keepRunning)] <- TRUE
+		
 		curRep <- curRep+1
 	}
 	if(verbose) {cat('\n')}
@@ -225,7 +228,7 @@ getVarianceMeanSD.DF <- function(ratios, n) {
     if (n == 1) {
         sds <- means <- rep(0,length(expNames))
     } else {
-       	means.sds<-sapply(ratios,function(x) {getVarianceMeanSD(refdata(x), n)})
+    	means.sds<-sapply(ratios,function(x) {getVarianceMeanSD(refdata(x), n)})
        	means<-unlist(means.sds['means',],use.names=F)
        	sds<-unlist(means.sds['sds',],use.names=F)
     }
