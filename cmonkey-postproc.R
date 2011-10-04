@@ -95,15 +95,6 @@ clusters.w.conds <- function( conds, ks=1:k.clust, p.val=F ) {
 ##   table( tmp )
 ## }
 
-#ifndef PACKAGE
-## Describes how separated the in genes are from the out genes
-## Doh! Always seems to be better (higher) for smaller clusters...
-cluster.loglik <- function( k ) {
-  l.in <- rr.scores[ get.rows( k ), k ]
-  l.out <- rr.scores[ ! rownames( rr.scores ) %in% get.rows( k ), k ]
-  sum( log( c( l.in, 1 - l.out ) + 1e-99 ), na.rm=T )
-}
-#endif
 
 cluster.summary <- function( e.cutoff=0.01, nrow.cutoff=5, seq.type=names( mot.weights )[ 1 ], plot=F,
                             sort=c("score.norm","score","resid","e.value1","e.value2","nrow") ) { ##"loglik",
@@ -120,9 +111,6 @@ cluster.summary <- function( e.cutoff=0.01, nrow.cutoff=5, seq.type=names( mot.w
   nrow <- sapply( 1:k.clust, function( k ) length( get.rows( k ) ) )
 
   out <- data.frame( k=1:k.clust, nrow=nrow, score=score, ##score.norm=score.norm,
-#ifndef PACKAGE
-                    ##loglik=sapply( 1:k.clust, cluster.loglik ),
-#endif
                     resid=sapply( 1:k.clust, cluster.resid, varNorm=F ), 
                     consensus1=sapply( 1:k.clust,
                       function( k ) if ( is.null( ms ) || is.null( ms[[ k ]]$meme.out ) || length( ms[[ k ]] ) <= 3 ) "" else
@@ -141,28 +129,6 @@ cluster.summary <- function( e.cutoff=0.01, nrow.cutoff=5, seq.type=names( mot.w
                     )
   if ( all( out$consensus2 == "" ) ) out$consensus2 <- out$e.value2 <- NULL
   if ( ! is.na( sort[ 1 ] ) && sort[ 1 ] %in% colnames( out ) ) out <- out[ order( out[[ sort[ 1 ] ]] ), ]
-#ifndef PACKAGE
-  if ( ! all( is.na( score ) ) ) {
-  ss <- smooth.spline( nrow[ ! is.na( score ) ], score[ ! is.na( score ) ], spar=0.6 ) ## Remove nrow dependency of score, this seems to work pretty well
-  score.norm <- score - predict( ss, nrow )$y + out$resid
-  ## if ( plot ) {
-  ##   plot( nrow, score, typ="n" )
-  ##   text( nrow, score, lab=out$k, cex=0.7, xpd=NA )
-  ##   lines( ss$x, ss$y, col="red" )
-  ## }
-  out <- cbind( out[ ,1:3 ], score.norm, out[ ,4:ncol( out ) ] )
-  if ( ! is.na( e.cutoff ) ) {
-    if ( "e.value2" %in% colnames( out ) ) out <- out[ out$e.value1 <= e.cutoff | out$e.value2 <= e.cutoff, ]
-    else out <- out[ out$e.value1 <= e.cutoff, ]
-  }
-  if ( ! is.na( nrow.cutoff ) ) out <- out[ out$nrow >= nrow.cutoff, ]
-  if ( plot ) {
-    plot( out$resid, log10( -log10( out$e.value1 ) ), typ="n" )
-    text( out$resid, log10( -log10( out$e.value1 ) ), lab=out$consensus1, cex=0.7, xpd=NA, pos=1 )
-    text( out$resid, log10( -log10( out$e.value1 ) ), lab=rownames( out ), cex=0.7, xpd=NA, col="red" )
-  }
-  }
-#endif
   out
 }
 
@@ -202,22 +168,5 @@ update.cmonkey.env <- function( object, ... ) { ## Update all funcs contained in
     if ( is.function( f ) ) assign( i, f, object )
   }
 
-#ifndef PACKAGE
-  ## If matrices were stored in ff's then ff "closes" them upon exit. This will "reopen" them as long
-  ##   as the file backing exists. An alternative is to use the save.cmonkey.env() function below which
-  ##   will slurp them into memory before saving them. But that won't work if they're TOO big.
-  if ( FALSE && ( env$big.memory == TRUE || env$big.memory > 0 ) ) {
-    for ( i in c( "row.scores", "mot.scores", "net.scores", "col.scores" ) )
-      if ( ! is.null( env[[ i ]] ) && require( bigmemory ) && is.big.matrix( env[[ i ]] ) )
-        attach.big.matrix( get( i, env ) )
-    for ( i in 1:length( env$ratios ) ) {
-      if ( ! is.null( env$ratios[[ i ]] ) && require( bigmemory ) && is.big.matrix( env$ratios[[ i ]] ) )
-        attach.big.matrix( env$ratios[[ i ]] )
-    ## for ( i in 1:length( env$meme.scores ) ) for ( j in c( "all.pv", "all.ev" ) ) {
-    ##   if ( ! is.null( env$meme.scores[[ i ]][[ j ]] ) && "ff" %in% class( env$meme.scores[[ i ]][[ j ]] ) )
-    ##     if ( require( ff, warn=F, quiet=T ) ) open.ff( env$meme.scores[[ i ]][[ j ]] )
-    }
-  }
-#endif
   ##invisible( env )
 }

@@ -70,42 +70,13 @@ update.all.clusters <- function( env, dont.update=F, ... ) {
 
   tmp <- get.updated.memberships( row.membership, col.membership, rr.scores, cc.scores )
   row.membership <- tmp$r; col.membership <- tmp$c; rm( tmp )
-#ifndef PACKAGE
-  tmp <- filter.updated.memberships( row.membership, col.membership, rr.scores, cc.scores )
-  if ( ! is.null( tmp ) ) { row.membership <- tmp$r; col.membership <- tmp$c; rm( tmp ) }
-#endif
     
-#ifndef PACKAGE
-  ##if ( ! dont.update ) {
-  if ( TRUE && iter %% 10 == sample( 0:9, 1 ) && iter < n.iter * 0.8 ) { ## Dont do this near the end of the run
-    ## Merge clusters that are dupes and then re-seed the newly-emptied ones
-    if ( merge.cutoffs[ "n" ] > 0 && merge.cutoffs[ "cor" ] < 1 ) {
-      tmp.m <- merge.cutoffs[ "n" ]; if ( tmp.m < 1 && runif( 1 ) <= tmp.m ) tmp.m <- 1
-      if ( tmp.m >= 1 ) {
-        tmp <- consolidate.duplicate.clusters( row.membership, col.membership, scores=r.scores,
-                                              cor.cutoff=merge.cutoffs[ "cor" ],
-                                              n.cutoff=tmp.m, motif=F )
-        row.membership <- tmp$r; env$meme.scores <- tmp$ms; rm( tmp )
-      }
-    }
-    
-    ## Re-seed that are too small (including those zero-ed out by the dupe-consolidation above)
-    tmp <- re.seed.empty.clusters( row.membership, col.membership, toosmall.r=cluster.rows.allowed[ 1 ],
-                                  toosmall.c=min(attr(ratios,"ncol")/10,50),
-                                  n.r=cluster.rows.allowed[ 1 ] * 2, n.c=attr(ratios,"ncol")/5 )
-    row.membership <- tmp$r; col.membership <- tmp$c; env$meme.scores <- tmp$ms; rm( tmp )
-  }
-  ## }
-#endif
 
   if ( env$post.adjust == TRUE && env$iter == env$n.iter ) { ## post-adjustment of all clusters???
     ##env$pre.adjusted.row.membership <- env$row.membership
     ##env2 <-
     env$adjust.all.clusters( env, expand.only=F )
     ##env <- env2; rm( env2 )
-#ifndef PACKAGE
-    if ( env$big.memory == TRUE || env$big.memory > 0 ) env$ffify.env( env )
-#endif
     gc()
 ##     row.membership.orig <- row.membership
 ##     adjust.all.clusters( expand=3 )
@@ -124,18 +95,6 @@ update.all.clusters <- function( env, dont.update=F, ... ) {
 get.combined.scores <- function( quantile.normalize=F ) {
   r.scores <- row.scores[,]
   r.scores <- matrix.reference( r.scores )
-#ifndef PACKAGE
-  if ( ! quantile.normalize ) {
-    row.memb <- sapply( 1:k.clust, function( k ) attr( ratios, "rnames" ) %in% get.rows( k ) )
-    rownames( row.memb ) <- attr( ratios, "rnames" )
-    tmp <- r.scores[,] < -20; r.scores[,][ tmp ] <- min( r.scores[,][ ! tmp ], na.rm=T )
-    rsm <- r.scores[,][ row.memb ]
-    tmp <- mad( rsm, na.rm=T )
-    if ( tmp != 0 ) r.scores[,] <- ( r.scores[,] - median( rsm, na.rm=T ) ) / tmp
-    else { tmp <- sd( rsm, na.rm=T ); if ( tmp != 0 ) r.scores[,] <- ( r.scores[,] - median( rsm, na.rm=T ) ) / tmp }
-    rm( tmp, rsm )
-  }
-#endif
   
   tmp <- r.scores[,] < -20; r.scores[,][ tmp ] <- min( r.scores[,][ ! tmp ], na.rm=T ); rm( tmp ) ## -220
   r.scores[,][ is.infinite( r.scores[,] ) ] <- NA
@@ -143,10 +102,6 @@ get.combined.scores <- function( quantile.normalize=F ) {
   ## }
   ##cat( "HERE: row", r.scores[1,1], "\n" )
   
-#ifndef PACKAGE
-  if ( ! quantile.normalize && ! is.null( mot.scores ) || ! is.null( net.scores ) )
-    rs.quant <- quantile( r.scores[,], 0.01, na.rm=T )
-#endif
 
   if ( ! is.null( mot.scores ) ) {
     m.scores <- mot.scores[,]
@@ -154,13 +109,7 @@ get.combined.scores <- function( quantile.normalize=F ) {
   } else m.scores <- NULL
   if ( ! is.null( mot.scores ) && ! is.null( m.scores ) ) {
     tmp <- m.scores[,] < -20; m.scores[,][ tmp ] <- min( m.scores[,][ ! tmp ], na.rm=T ); rm( tmp ) ## effective zero is 10^-20
-#ifndef PACKAGE
-    if ( ! quantile.normalize ) {
-      m.scores[,] <- m.scores[,] - quantile( m.scores[,], 0.99, na.rm=T ) ## Make it so no mot -> zero score -> no penalization
-      m.scores[,] <- m.scores[,] / abs( quantile( m.scores[,], 0.01, na.rm=T ) ) * abs( rs.quant ) ## Make it so min(mot.scores) == min(row.scores) so no mot.score is too dominant
-    }
-#endif
-  } ##else m.scores <- NULL
+  } ##!else m.scores <- NULL
   
   if ( ! is.null( net.scores ) ) {
     n.scores <- net.scores[,]
@@ -168,15 +117,6 @@ get.combined.scores <- function( quantile.normalize=F ) {
   } else n.scores <- NULL
   if ( ! is.null( net.scores ) && ! is.null( n.scores ) ) {
     n.scores[,] <- n.scores[,] - quantile( n.scores[,], 0.99, na.rm=T ) ## Make it so no edge -> zero score -> no penalization
-#ifndef PACKAGE
-    if ( ! quantile.normalize ) {
-      qqq <- abs( quantile( n.scores[,], 0.01, na.rm=T ) )
-      if ( qqq == 0 ) qqq <- sort( n.scores[,] )[ 10 ] ## For really sparse networks
-      if ( qqq == 0 ) qqq <- min( n.scores[,], na.rm=T ) ## For really sparse networks
-      if ( qqq != 0 ) n.scores[,] <- n.scores[,] / qqq * abs( rs.quant ) ## Make it so min(net.scores) == min(row.scores) so no net.score is too dominant
-      rm( qqq )
-    }
-#endif
   }
 
   if ( ! is.null( col.scores ) ) {
@@ -188,21 +128,6 @@ get.combined.scores <- function( quantile.normalize=F ) {
   } else c.scores <- NULL
 
   new.weights <- c( row=row.scaling[ iter ], mot=mot.scaling[ iter ], net=net.scaling[ iter ] ) ##numeric()
-#ifndef PACKAGE
-  if ( pareto.adjust.scalings && iter > 51 ) {
-    new.weights <- pareto.adjust.weights() ## iter ) ##, ... )
-    ## TODO: fix pareto.adjusting (use smooth spline?) or runmed (running median) - average over multiple scales
-    ## if ( FALSE ) { ## Make sure weights are never smaller than the input schedule provides.. (do we want this?)
-    ##   if ( new.weights[ "mot" ] < mot.scaling[ iter ] / row.scaling[ iter ] )
-    ##     new.weights[ "mot" ] <- mot.scaling[ iter ] / row.scaling[ iter ]
-    ##   else if ( new.weights[ "mot" ] > new.weights[ "row" ] ) new.weights[ "mot" ] <- new.weights[ "row" ]
-    ##   if ( new.weights[ "net" ] < net.scaling[ iter ] / row.scaling[ iter ] )
-    ##     new.weights[ "net" ] <- net.scaling[ iter ] / row.scaling[ iter ]
-    ##   else if ( new.weights[ "net" ] > new.weights[ "row" ] ) new.weights[ "net" ] <- new.weights[ "row" ]
-    ## }
-    if ( iter %in% stats.iters ) cat( "New weights:", new.weights, "\n" ) 
-  }
-#endif
   
   ## Hey, instead of just making each distrib. have the same mean and variance, let's make them have the same
   ##   exact distribution!
@@ -291,9 +216,6 @@ get.all.scores <- function( ks=1:k.clust, force.row=F, force.col=F, force.motif=
     for ( i in names( ratios ) ) { 
       if ( row.weights[ i ] == 0 || is.na( row.weights[ i ] ) ) next
       tmp.row <- do.call( cbind, mc$apply( ks, get.row.scores, ratios=ratios[[ i ]]
-#ifndef PACKAGE
-                                          , method=row.score.func
-#endif
                                           ) )
       tmp <- is.infinite( tmp.row ) | is.na( tmp.row )
       if ( any( tmp ) ) tmp.row[ tmp ] <-
@@ -322,9 +244,6 @@ get.all.scores <- function( ks=1:k.clust, force.row=F, force.col=F, force.motif=
     for ( i in names( row.weights ) ) { 
       if ( row.weights[ i ] == 0 || is.na( row.weights[ i ] ) ) next
       tmp.col <- do.call( cbind, mc$apply( ks, get.col.scores, ratios=ratios[[ i ]]
-#ifndef PACKAGE
-                                          , method=col.score.func
-#endif
                                           ) )
       tmp <- is.infinite( tmp.col ) | is.na( tmp.col )
       if ( any( tmp ) ) tmp.col[ tmp ] <-
@@ -343,9 +262,6 @@ get.all.scores <- function( ks=1:k.clust, force.row=F, force.col=F, force.motif=
       if ( mot.weights[ i ] == 0 || is.na( mot.weights[ i ] ) ) next
       tmp <- motif.all.clusters( ks, seq.type=i, verbose=T ) ##strsplit( i, " " )[[ 1 ]][ 1 ],
                                                ##algo=strsplit( i, " " )[[ 1 ]][ 2 ] )
-#ifndef PACKAGE
-      tmp <- list.reference( tmp, file=sprintf( "%s/meme.scores.%s", cmonkey.filename, i ), type="RDS" )
-#endif
       meme.scores[[ i ]] <- tmp
     }
   }
@@ -531,7 +447,7 @@ motif.all.clusters <- function( ks=1:k.clust, seq.type=names( mot.weights )[ 1 ]
             sapply( out$meme.out[ 1:min( 3, length( out$meme.out ) ) ], "[[", "e.value" ), mn,
             ##if ( ! is.null( out$pv.ev ) )
             ##mean( log10( out$pv.ev[[ 1 ]][ rownames( out$pv.ev[[ 1 ]] ) %in% get.rows( k ), "p.value" ] ), na.rm=T )
-            ##else 'Inf',
+            ##!else 'Inf',
             '\t', pssm.to.string( out$meme.out[[ 1 ]]$pssm ), "\n" )
       }
     }
@@ -638,7 +554,7 @@ get.updated.memberships <- function( row.membership, col.membership, rr.scores, 
   for ( i in 1:nrow( rm ) ) {
     if ( all( rm[ i, ] %in% row.membership[ i, ] ) ) next
     mc <- max.changes[ "rows" ] ## If 0<max.changes<1, it's a "prob of seeing a change" and choose whether to change randomly
-    if ( mc < 1 && mc > 0 && runif( 1 ) > mc ) next ##else mc <- 1
+    if ( mc < 1 && mc > 0 && runif( 1 ) > mc ) next ##!else mc <- 1
     for ( ii in 1:mc ) { 
     if ( sum( ! rm[ i, ] %in% row.membership[ i, ] ) >= mc ) {
       if ( any( row.membership[ i, ] == 0 ) ) {
@@ -672,7 +588,7 @@ get.updated.memberships <- function( row.membership, col.membership, rr.scores, 
 
   for ( i in 1:nrow( cm ) ) {
     mc <- max.changes[ "cols" ] ## If 0<max.changes<1, it's a "prob of seeing a change" and choose whether to change randomly
-    if ( mc < 1 && mc > 0 && runif( 1 ) > mc ) next ##else mc <- 1
+    if ( mc < 1 && mc > 0 && runif( 1 ) > mc ) next ##!else mc <- 1
     for ( ii in 1:mc ) {
     if ( sum( ! cm[ i, ] %in% col.membership[ i, ] ) >= mc ) {
       if ( any( col.membership[ i, ] == 0 ) ) {
@@ -702,35 +618,6 @@ get.updated.memberships <- function( row.membership, col.membership, rr.scores, 
   invisible( list( r=row.membership, c=col.membership ) )
 }
 
-#ifndef PACKAGE
-get.updated.memberships.NEWTRY <- function( rows=TRUE ) {
-  tmp2=which(r.scores<Inf,arr=T)
-  tmp2=cbind(tmp2,r.scores[tmp2])
-  tmp2=tmp2[order(tmp2[,3]),]
-  nr <- nrow( row.membership )
-  rm <- matrix( 0, nrow=nr, ncol=max( table( tmp2[ 1:(nr*n.clust.per.row),1] ) ) )
-  rownames( rm ) <- rownames( row.membership )
-  for ( i in 1:( attr( ratios, "nrow" ) * n.clust.per.row ) ) {
-    r <- rownames( tmp2 )[ i ]
-    rm[ r, min( which( rm[ r, ] == 0 ) ) ] <- tmp2[ i, 2 ]
-  }
-
-  tmp2=which(c.scores<Inf,arr=T)
-  tmp2=cbind(tmp2,c.scores[tmp2])
-  tmp2=tmp2[order(tmp2[,3]),]
-  nr <- nrow( col.membership )
-  cm <- matrix( 0, nrow=nr, ncol=max( table( tmp2[ 1:(nr*n.clust.per.col),1] ) ) )
-  rownames( cm ) <- rownames( col.membership )
-  for ( i in 1:( attr( ratios, "ncol" ) * n.clust.per.col ) ) {
-    r <- rownames( tmp2 )[ i ]
-    cm[ r, min( which( cm[ r, ] == 0 ) ) ] <- tmp2[ i, 2 ]
-  }
-  cm <- cbind( cm, col.membership )
-  cm <- apply( cm, 1, function( i ) c( unique( i ), rep( 0, ncol( cm ) - length( unique( i ) ) ) ) )
-  
-  invisible( list( r=rm, c=cm ) )
-}
-#endif
 
 ## Remove clusters (set their indexes in row/col.membership to zero) if they have too many rows
 ## remove.clusters.toobig <- function( toobig=cluster.rows.allowed[ 2 ] ) {
@@ -973,7 +860,7 @@ adjust.clust <- function( k, row.memb=get("row.membership"), expand.only=T, limi
   invisible( list( r=row.memb ) )
 }
 
-## #ifndef PACKAGE
+## #!ifndef 
 ## ## Now we either:
 ## ##   add outside genes that are better than in-genes with scores at the 66% quantile (of in-gene scores) level.
 ## ##       (quant.cutoff > 0) or add N best outside genes (quant.cutoff > 1)
@@ -1022,7 +909,7 @@ adjust.clust <- function( k, row.memb=get("row.membership"), expand.only=T, limi
 ##   colnames( rm ) <- NULL
 ##   invisible( list( r=rm ) )
 ## }
-## #endif
+## #!endif
 
 adjust.all.clusters <- function( env, ks=1:env$k.clust, force.motif=T, ... ) {
   old.stats <- env$stats
@@ -1061,7 +948,7 @@ adjust.all.clusters <- function( env, ks=1:env$k.clust, force.motif=T, ... ) {
 ##   tmp <- env$get.all.scores( force.row=T, force.col=T, force.motif=force.motif & ! no.genome.info, force.net=T )
 ##   env$row.scores <- tmp$r[,]; env$mot.scores <- tmp$m[,]; env$net.scores <- tmp$n[,]; env$col.scores <- tmp$c[,]
 ##   env$meme.scores <- tmp$ms
-## #ifndef PACKAGE
+## #!ifndef 
 ##   for ( i in names( env$meme.scores ) ) {
 ##     for ( j in c( "all.pv", "all.ev" ) ) {
 ##       if ( ! is.null( env$meme.scores[[ i ]][[ j ]] ) && "ff" %in% class( env$meme.scores[[ i ]][[ j ]] ) ) {
@@ -1071,7 +958,7 @@ adjust.all.clusters <- function( env, ks=1:env$k.clust, force.motif=T, ... ) {
 ##       }
 ##     }
 ##   }
-## #endif
+## #!endif
 ##   env$row.memb <- t( apply( env$row.membership, 1, function( i ) 1:k.clust %in% i ) )
 ##   env$col.memb <- t( apply( env$col.membership, 1, function( i ) 1:k.clust %in% i ) )
   

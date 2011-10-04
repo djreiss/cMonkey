@@ -15,31 +15,7 @@ motif.one.cluster <- function( k, seq.type=names( mot.weights )[ 1 ], verbose=F,
   out <- meme.scores[[ seq.type ]][[ k ]] ##NULL
   if ( st[ 2 ] == "meme" ) {
     out <- meme.one.cluster( k, seq.type=seq.type, verbose, force=force, ... )
-#ifndef PACKAGE
-  } else {
-    if ( is.numeric( k ) ) rows <- get.rows( k )
-    else rows <- k
-    if ( TRUE && ! force ) { ## this is done more specifically for meme so only do it here for other motif algos
-      if ( ! is.null( out ) && ! is.null( out$prev.run ) && length( out$prev.run$rows ) == length( rows ) &&
-          all( out$prev.run$rows %in% rows ) && all( rows %in% out$prev.run$rows ) &&
-          all( motif.upstream.scan[[ seq.type ]] == out$prev.run$m.u.scan ) ) {
-        message( "SKIPPING CLUSTER (UNCHANGED): ", k )
-        out$iter = iter
-        out$last.run = TRUE
-        return( out )
-      }
-    }
-    
-    if ( st[ 2 ] == "memepal" ) out <- meme.one.cluster( k, seq.type=seq.type, verbose, pal.opt="pal", force=force, ... )
-    else if ( st[ 2 ] == "memeboth" ) out <- meme.one.cluster( k, seq.type=seq.type, verbose, pal.opt="both", force=force, ... )
-    else if ( st[ 2 ] == "weeder" ) out <- weeder.one.cluster( k, seq.type=seq.type, verbose=verbose, n.motifs=5, ... )
-    else if ( st[ 2 ] %in% c( "spacer", "prism" ) ) out <- spacer.one.cluster( k, seq.type=seq.type, verbose=verbose, ... )
-    else if ( st[ 2 ] == "cosmo" ) out <- cosmo.one.cluster( k, seq.type=seq.type, verbose=verbose, n.motifs=1, ... )
-
-    prev.run <- list( rows=rows, m.u.scan=motif.upstream.scan[[ seq.type ]] )
-    out$prev.run <- prev.run
   }
-#endif
   invisible( out )
 }
 
@@ -64,7 +40,7 @@ meme.one.cluster <- function( k, seq.type=names( mot.weights )[ 1 ], verbose=F, 
 ##   if ( grepl( "-pal=non", cmd ) ) { ## Can have "-pal=non" or nothing for this case
 ##     cmd <- gsub( "-pal=non", "", cmd )
 ##   }
-## #ifndef PACKAGE
+## #!ifndef 
 ##   else if ( grepl( "-pal=pal", cmd ) ) { ## Can have "-pal=pal" or "-pal" for this case
 ##     cmd <- gsub( "-pal=pal", "", cmd ); pal.opt="pal"
 ##   } else if ( grepl( "-pal=both", cmd ) ) { ## Have to have "-pal=both" for this case
@@ -72,7 +48,7 @@ meme.one.cluster <- function( k, seq.type=names( mot.weights )[ 1 ], verbose=F, 
 ##   } else if ( grepl( "-pal", cmd ) ) { ## Can have "-pal=pal" or "-pal" for this case
 ##     cmd <- gsub( "-pal", "", cmd ); pal.opt="pal"
 ##   }
-## #endif
+## #!endif
 
   ## Better option - if pal.opt is passed to this function, use that.
   ## This will happen if motif finding command is 'memepal' or 'memeboth'
@@ -167,10 +143,6 @@ meme.one.cluster <- function( k, seq.type=names( mot.weights )[ 1 ], verbose=F, 
   }
 
   ##if ( ( ! "psps" %in% names( list( ... ) ) || is.null( psps ) ) && exists( "get.sequence.psps" ) )
-#ifndef PACKAGE
-  if ( exists( "get.sequence.psps" ) ) psps <- get.sequence.psps( seqs )
-  else
-#endif
     psps <- NULL
   
   ## "non", "pal", or "both" (try both and use one w/ best E-value)
@@ -178,15 +150,6 @@ meme.one.cluster <- function( k, seq.type=names( mot.weights )[ 1 ], verbose=F, 
     if ( pal.opt == "non" ) {
       out <- runMeme( sgenes, seqs, cmd, seq.type=seq.type, ... )
     }
-#ifndef PACKAGE
-    else if ( pal.opt == "pal" ) {
-      cmd <- paste( cmd, "-pal" )
-      out <- runMeme( sgenes, seqs, cmd, seq.type=seq.type, ... )
-    } else if ( pal.opt == "both" ) {
-      cmd2 <- paste( cmd, "-pal" )
-      out <- list( non=runMeme( sgenes, seqs, cmd, seq.type=seq.type, ... ), pal=runMeme( sgenes, seqs, cmd2, seq.type=seq.type, ... ) )
-    }
-#endif
     out
   }
   
@@ -201,44 +164,11 @@ meme.one.cluster <- function( k, seq.type=names( mot.weights )[ 1 ], verbose=F, 
                                               seq.type=seq.type, ... ) ) )
   }
 
-#ifndef PACKAGE
-  if ( pal.opt == "both" ) {
-    ## TODO: choose pal vs. non-pal for motif #1 independently of motif #2, etc.
-    meme.out2 <- lapply( meme.out, getMemeMotifInfo )
-##     mo1 <- mo2 <- list()
-##     for ( i in 1:n.motifs[ iter ] ) {
-##       e1 <- meme.out2$non[[ i ]]$e.value
-##       e2 <- meme.out2$pal[[ i ]]$e.value
-##       if ( e1 < e2 ) {
-##         if ( verbose ) cat( k, "Using non-pal motif", i, ":", e1, "\n" )
-##         mo1 <- meme.out$non##[[ i ]]
-##         mo2[[ i ]] <- meme.out2$non[[ i ]]; mo2[[ i ]]$is.pal <- FALSE
-##       } else {
-##         if ( verbose ) cat( k, "Using pal motif", i, ":", e2, "\n" )
-##         mo1 <- meme.out$pal##[[ i ]]
-##         mo2[[ i ]] <- meme.out2$pal[[ i ]]; mo2[[ i ]]$is.pal <- TRUE
-##       }
-##     }
-##     meme.out <- mo1; meme.out2 <- mo2; rm( mo1, mo2 )
-    e.vals <- sapply( lapply( meme.out2, sapply, "[[", "e.value" ), min, na.rm=T )
-    e.vals[ 1 ] <- sqrt( e.vals[ 1 ] ) ## has twice the deg. of freedom; e-value should be penalized
-    if ( verbose ) cat( k, "Using pal/non-pal motif:", e.vals, names( which.min( e.vals ) ), "\n" )
-    meme.out <- meme.out[[ which.min( e.vals ) ]] ## Note - should we give pal e.vals a "handicap" 
-    meme.out2 <- meme.out2[[ which.min( e.vals ) ]] ## since they are constrained?
-    ##meme.out2$is.pal <- names( which.min( e.vals ) ) == "pal"
-    attr( meme.out2, "is.pal" ) <- names( which.min( e.vals ) ) == "pal"
-    ##attr( meme.out2, "pal.nonpal.evals" ) <- e.vals
-    ##if ( ! verbose ) cat( k, "\t", names( which.min( e.vals ) ), "\n" )
-  } else {
-#endif
     meme.out2 <- getMemeMotifInfo( meme.out )
     attr( meme.out2, "meme.command.line" ) <- attr( meme.out, "meme.command.line" )
     ##meme.out2$is.pal <- FALSE
     attr( meme.out2, "is.pal" ) <- pal.opt == "pal" ##FALSE
     ##attr( meme.out2, "pal.nonpal.evals" ) <- NA
-#ifndef PACKAGE
-  }
-#endif
 
   if ( length( meme.out2 ) <= 0 ) return( list( k=k, last.run=FALSE ) ) ## No significant motif was found
 
@@ -296,9 +226,6 @@ get.pv.ev.single <- function( mast.out, rows ) {
   pv.ev
 }
 
-#ifndef PACKAGE
-get.sequence.psps <- function( seqs ) NULL
-#endif
 
 ## "seq.weights" is a named numeric vector that allows weighting of each *entire* input sequence.
 ##    They MUST be 0 < p <= 1.
@@ -328,17 +255,6 @@ mkTempMemeFiles <- function( sgenes, seqs, fname="meme.tmp.fst", bgseqs=NULL, bg
       cat( paste( ">", sgenes, "\n", seqs, sep="" ), file=fname, sep="\n" )
     }
 
-#ifndef PACKAGE
-    if ( ! is.null( psps ) ) {
-      psps <- psps[ sgenes ]
-      for ( i in names( psps ) ) {
-        psps[[ i ]][ is.na( psps[[ i ]] ) | is.infinite( psps[[ i ]] ) ] <- 0
-        psps[[ i ]] <- psps[[ i ]] / ( sum( psps[[ i ]], na.rm=T ) + 0.01 )
-      }
-      psps <- sapply( psps[ sgenes ], function( i ) paste( sprintf( "%.5f", i ), collapse=" " ) )
-      cat( paste( ">", sgenes, "\n", psps, sep="" ), file=paste( fname, ".psp", sep="" ), sep="\n" )
-    }
-#endif    
   }
   
   if ( force.overwrite || ( ! is.null( bgfname ) && ( ! file.exists( bgfname ) || file.info( bgfname )$size <= 0 ) ) ) {
@@ -715,7 +631,7 @@ remove.low.complexity <- function( seqs, length=8, entropy.cutoff=0.6, repl="N",
   if ( use.dust ) { ## Use "dust" on seqs - output to fasta file, run dust,
     ##if ( ! exists( "dust.cmd" ) ) dust.cmd <- "./progs/dust"
     ##if ( ! file.exists( dust.cmd ) ) warning( paste( "For best results, install", dust.cmd ), call.=F )
-    ##else {
+    ##!else {
     seqs <- seqs[ ! is.null( seqs ) & ! is.na( seqs ) ]
     max.width <- as.integer( strsplit( meme.cmd[ seq.type ], " " )[[ 1 ]][ which( strsplit( meme.cmd[ seq.type ],
                                                                                 " " )[[ 1 ]] == "-maxw" ) + 1 ] )
@@ -734,47 +650,6 @@ remove.low.complexity <- function( seqs, length=8, entropy.cutoff=0.6, repl="N",
     ##}
   }
 
-#ifndef PACKAGE
-  ## Remove low-complexity subseqs in "seqs" by replacing them with "N"s.
-  ##col.let <- c( "A", "C", "G", "T" )
-  ##shannon.entropy <- function( string, alph=col.let ) {
-  ##  ni <- table( strsplit( string, NULL )[[ 1 ]] ) / nchar( string ) + 1e-10
-  ##  -sum( ni * log2( ni ) )
-  ##}
-  shannon.entropy <- function( string ) { 
-    ni <- table( string ) / length + 1e-10
-    -sum( ni * log2( ni ) )
-  }
-
-  all.dna.seqs <- function( l, lett=c( "G", "A", "T", "C" ), as.matrix=F ) {
-    n.lett <- length( lett )
-    out <- sapply( 1:l, function( ll ) rep( as.vector( sapply( lett, function( i ) rep( i, n.lett^( ll - 1 ) ) ) ),
-                                           n.lett^( l - ll ) ) )
-    if ( as.matrix ) return( out )
-    apply( out, 1, paste, collapse="" )
-  }
-  
-  ##all.substrings <- sapply( seqs, function( seq ) unique( sapply( 1:( nchar( seq ) - length ),
-  ##                                                            function( i ) substr( seq, i, i + length - 1 ) ) ) )
-  ##substrings <- unique( as.vector( all.substrings ) )
-  ##substrings <- all.dna.seqs( l=length )
-  substrings <- all.dna.seqs( l=length )
-  mc <- get.parallel( length( substrings ) )
-
-  bad.substrings <- substrings[ unlist( mc$apply( strsplit( substrings, NULL ), shannon.entropy ) ) <=
-                               entropy.cutoff ]
-  ##else bad.substrings <- substrings[ sapply( strsplit( substrings, NULL ), shannon.entropy ) <= entropy.cutoff ]
-  repl <- paste( rep( repl, length ), sep="", collapse="" )
-  in.seqs <- seqs
-  ##if ( mc$mc ) seqs <- unlist( mclapply( seqs, function( seq ) { ## Slow for big genomes? (transfering seqs
-  ##  for ( s in bad.substrings ) seq <- gsub( s, repl, seq ); seq } ) ) ## to other cores takes a long time) - make it global
-  mc <- get.parallel( length( seqs ) )
-  seqs <- unlist( mc$apply( 1:length( seqs ), function( i ) { 
-    seq <- seqs[ i ]; for ( s in bad.substrings ) seq <- gsub( s, repl, seq ); seq } ) )
-  ##else for ( s in bad.substrings ) seqs <- gsub( s, repl, seqs )
-  names( seqs ) <- names( in.seqs )
-  return( seqs )
-#endif
 }
 
 rev.comp <- function( seqs ) { ## Fast reverse-complement
@@ -923,9 +798,6 @@ filter.sequences <- function( seqs, start.stops=NULL,
                              seq.type=paste( c("upstream","upstream.noncod","upstream.noncod.same.strand",
                                "downstream","gene")[ 1 ], "meme" ), distance=motif.upstream.search[[ seq.type ]],
                              uniquify=T, remove.repeats=T, remove.atgs=T, mask.overlapping.rgns=F,
-#ifndef PACKAGE
-                             blast.overlapping.rgns=F,
-#endif
                              verbose=F, ... ) {
 
   if ( uniquify ) seqs <- seqs[ ! get.dup.seqs( seqs ) ]
@@ -994,44 +866,6 @@ filter.sequences <- function( seqs, start.stops=NULL,
     }
   }
 
-#ifndef PACKAGE
-  if ( blast.overlapping.rgns && exists( "blast.match.seqs" ) &&
-      file.exists( sprintf( "%s/blastall", progs.dir ) ) ) { ## blast.match.seqs() is in cmonkey-motif-other.R
-    out <- blast.match.seqs( seqs )
-    while ( nrow( out ) > 0 ) {
-      ##out <- out[ seq( 1, nrow( out ), by=2 ), ] ## Remove dupes (reverse)
-      out <- subset( out, alignment.length > 30 & X..identity > 80 )
-      if ( nrow( out ) <= 0 ) break
-      for ( i in 1:nrow( out ) ) {
-        seq1 <- strsplit( seqs[ as.character( out$Query.id[ i ] ) ], "" )[[ 1 ]]
-        seq2 <- strsplit( seqs[ as.character( out$Subject.id[ i ] ) ], "" )[[ 1 ]]
-        st.st.1 <- c( out$q..start[ i ], out$q..end[ i ] )
-        st.st.2 <- c( out$s..start[ i ], out$s..end[ i ] )
-        n.n.1 <- sum( seq1[ st.st.1[ 1 ]:st.st.1[ 2 ] ] == "N" )
-        if ( n.n.1 >= max( st.st.1 ) - min( st.st.1 ) + 1 ) next ##st.st.1[ 2 ] - st.st.1[ 1 ] + 1 ) next
-        n.n.2 <- sum( seq2[ st.st.2[ 1 ]:st.st.2[ 2 ] ] == "N" )
-        if ( n.n.2 >= max( st.st.2 ) - min( st.st.2 ) + 1 ) next ##st.st.2[ 2 ] - st.st.2[ 1 ] + 1 ) next
-        if ( n.n.1 == 0 && n.n.2 == 0 ) {
-          if ( verbose ) cat( sprintf( "Masking (BLAST) region %d-%d of sequence %s (%s)\n",
-                                      st.st.2[ 1 ], st.st.2[ 2 ], out$Subject.id[ i ], out$Query.id[ i ] ) )
-          seq2[ st.st.2[ 1 ]:st.st.2[ 2 ] ] <- "N"
-          seqs[ as.character( out$Subject.id[ i ] ) ] <- paste( seq2, collapse="" )
-        } else if ( n.n.1 > n.n.2 ) {
-          if ( verbose ) cat( sprintf( "Masking region %d-%d of sequence %s (%s)\n",
-                                      st.st.1[ 1 ], st.st.1[ 2 ], out$Query.id[ i ], out$Target.id[ i ] ) )
-          seq1[ st.st.1[ 1 ]:st.st.1[ 2 ] ] <- "N"
-          seqs[ as.character( out$Query.id[ i ] ) ] <- paste( seq1, collapse="" )
-        } else if ( n.n.2 >= n.n.1 ) {
-          if ( verbose ) cat( sprintf( "Masking (BLAST) region %d-%d of sequence %s (%s)\n",
-                                      st.st.2[ 1 ], st.st.2[ 2 ], out$Subject.id[ i ], out$Query.id[ i ] ) )
-          seq2[ st.st.2[ 1 ]:st.st.2[ 2 ] ] <- "N"
-          seqs[ as.character( out$Subject.id[ i ] ) ] <- paste( seq2, collapse="" )
-        } 
-      }
-      out <- blast.match.seqs( seqs )
-    }
-  }
-#endif
   
   if ( ! is.null( start.stops ) ) attr( seqs, "start.stops" ) <- start.stops[ names( seqs ), ,drop=F ]
   seqs

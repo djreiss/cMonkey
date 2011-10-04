@@ -850,7 +850,7 @@ motif.similarities.tomtom <- function( query=1:k.clust, target=1:k.clust, query.
   rm( tout )
   
   if ( desymmetrize ) tout2 <- desymmetrize.tomtom.results( tout2 )
-  ##else tout <- tout2
+  ##!else tout <- tout2
   tout2
 }
 
@@ -979,7 +979,7 @@ cluster.tomtom.results <- function( tt.out, seq.type=names(mot.weights)[1],
     b1 <- paste( tt$biclust1, abs( tt$motif1 ), sep="_" )
     b2 <- paste( tt$biclust2, abs( tt$motif2 ), sep="_" )
     ##if ( "e.value1" %in% names( tt ) ) tt <- tt[ order( tt$e.value1, tt$e.value2 ), ]
-    ##else tt <- tt[ order( tt$p.value ), ]
+    ##!else tt <- tt[ order( tt$p.value ), ]
     if ( make.pssms ) {
       tto <- tt
       mot.names <- unique( c( b1, b2 ) )

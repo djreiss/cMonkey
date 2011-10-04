@@ -63,10 +63,6 @@ cmonkey.one.iter <- function( env, dont.update=F, ... ) {
   }
   ##}
 
-#ifndef PACKAGE
-  ##if ( big.memory == TRUE || big.memory > 0 )
-  ##ffify.env( env ) ## Big matrices and lists go to filebacked version
-#endif
   
   ## Note: with the above code, when the env is saved via save.image(), all ff obj's are "closed" but their
   ##   filestores still exist, so you can "open.ff(x)" each of them after the env is re-loaded,
@@ -189,9 +185,6 @@ foreach.register.backend <- function( par ) { ##, force.snow=is.windows.system()
 
 get.parallel <- function( X=k.clust, verbose=F, para.cores=get( "parallel.cores" ) ) {
   if (
-#ifndef PACKAGE
-      ( exists( "DEBUG" ) && ! is.function( DEBUG ) && DEBUG == TRUE ) ||
-#endif
       is.na( para.cores ) || ( is.logical( para.cores ) && para.cores == FALSE ) ||
       ( is.numeric( para.cores ) && para.cores <= 1 ) ) {
     out <- list( mc=FALSE, par=para.cores, apply=lapply )
@@ -247,10 +240,6 @@ get.clusterStack <- function( ks=1:k.clust, force=F, ... ) {
     return( clusterStack )
   mc <- get.parallel( length( ks ) )
   clusterStack <- mc$apply( ks, get.clust, ... ) ###, mc.cores=mc$par )
-#ifndef PACKAGE
-  tmp <- list.reference( clusterStack, file=sprintf( "%s/clusterStack", cmonkey.filename ), type="RDS" )
-  clusterStack <- tmp
-#endif
   attr( clusterStack, "iter" ) <- iter
   clusterStack
 }
@@ -298,18 +287,8 @@ cluster.resid <- function( k, rats.inds="COMBINED", varNorm=F, in.cols=T, ... ) 
   if ( rats.inds[ 1 ] == "COMBINED" ) inds <- names( get( "row.weights" ) )
   rows <- get.rows( k ); cols <- get.cols( k )
   resids <- sapply( ratios[ inds ], function( rn ) {
-#ifndef PACKAGE
-    if ( row.score.func == "orig" ) { ## Original FLOC resid score works for co-expressed genes
-#endif
       if ( in.cols ) residual.submatrix( rn, rows, cols, varNorm=varNorm )
       else residual.submatrix( rn, get.rows( k ), colnames( rn )[ ! colnames( rn ) %in% cols ], varNorm=varNorm )
-#ifndef PACKAGE
-    }
-    else { ## using cor2 or mi will results in pos- and neg- correlated genes, FLOC score wont work!
-      if ( in.cols ) mean( get.row.scores( k, for.rows=rows, ratios=rn, method=row.score.func ) )
-      else mean( get.row.scores( k, cols=cols, for.rows=rows, ratios=rn, method=row.score.func ) )
-    }
-#endif
   } )
   if ( rats.inds[ 1 ] == "COMBINED" ) resids <- weighted.mean( resids, row.weights[ inds ], na.rm=T )
   if ( rats.inds[ 1 ] != "COMBINED" && length( resids ) < length( inds ) && all( is.na( resids ) ) ) {
@@ -400,9 +379,6 @@ get.col.weights <- function( rows, cols, ratios ) {
 get.row.weights <- function( rows, cols, ratios ) NA
 
 get.row.scores <- function( k, cols=get.cols( k ), for.rows="all", ratios=ratios[[ 1 ]],
-#ifndef PACKAGE
-                           method=c("cor2","abscor","cor","dist","orig")[1],
-#endif
                            ... ) {
   ## Compute scores for ALL rows (over just the cols IN the cluster)
   if ( length( k ) <= 0 ) return( NULL )
@@ -413,10 +389,6 @@ get.row.scores <- function( k, cols=get.cols( k ), for.rows="all", ratios=ratios
   cols <- cols[ cols %in% colnames( ratios ) ]
   if ( length( rows ) < 1 || length( cols ) < 1 ) return( rep( NA, length( for.rows ) ) )
 
-#ifndef PACKAGE
-  if ( method == "orig" ) { ## ORIGINAL, GOOD, FAST SCORE FUNCTION: mean-squared deviation from mean profile
-    ## (note this is practically the same as new method "dist". but it is a lot faster. go figure.)
-#endif
     rats <- ratios[ for.rows, cols, drop=F ]
     rats.mn <- colMeans( rats[ rows, , drop=F ], na.rm=T )
     ##rats.mn <- matrix( rats.mn, nrow=nrow( rats ), ncol=ncol( rats ), byrow=T )
@@ -426,50 +398,9 @@ get.row.scores <- function( k, cols=get.cols( k ), for.rows="all", ratios=ratios
     if ( is.na( col.weights[ 1 ] ) ) rats <- rowMeans( rats, na.rm=T )
     else rats <- apply( rats, 1, weighted.mean, w=col.weights[ cols ], na.rm=T )
     rats <- log( rats + 1e-99 )
-#ifndef PACKAGE
-  }
-  else if ( method == "pval" ) rats <- get.row.scores.pVals( k, cols, rows, ratios, method, ... ) ## Sam's new func.
-  else if ( exists( "get.row.scores.NEW" ) ) rats <- get.row.scores.NEW( k, cols, rows, ratios, method, ... )
-#endif
   return( rats )
 }
 
-#ifndef PACKAGE
-## See minet and infotheo packages for information-based distances and implementations like ARACNE
-## TODO: how do we include row.weights with the new scores?
-get.row.scores.NEW <- function( k, cols=get.cols( k ), rows, ratios=ratios[[ 1 ]],
-                           method=c("cor2","abscor","cor","dist")[1], ... ) {
-  rats <- ratios[ ,cols, drop=F ]
-  if ( method == "dist" || substr( method, 1, 5 ) == "dist." ) { ## Try a more flexible dist() based function -- mean of distances (slower)
-    ## if ( method == "dist" ) method <- "dist.euc" ## Default - euclidean
-    ## d <- as.matrix( dist( rats, method=substring( method, 6 ) ) ); diag( d ) <- NA
-    ## rats <- log( apply( d[ ,rows, drop=F ], 1, mean, na.rm=T, ... ) + 1e-99 )
-    require( proxy ) ## Better, faster!!! (10x)
-    if ( method == "dist" ) method <- "dist.Euclidean" ## Default - euclidean    
-    d <- proxy::dist( rats, rats[ rows, ,drop=F ], method=substring( method, 6 ) ); d[ cbind( rows, rows ) ] <- NA
-    rats <- log( apply( d, 1, mean, na.rm=T, ... ) + 1e-99 )
-  }
-  else if ( method %in% c( "cor", "cor2", "abscor" ) ) { ## Try a cor^2 (allow anticorr) function -- median of cor^2 's
-    rats <- t( rats )
-    ##d <- cor( rats, use="pairwise", ... ); diag( d ) <- NA
-    ##rats <- apply( log( 1 - d[ ,rows, drop=F ] + 1e-99 ), 1, mean, na.rm=T, ... ) ## + 1 + 1e-99 )
-    d <- t( cor( rats[ ,rows, drop=F ], rats, use="pairwise", ... ) ); d[ cbind( rows, rows ) ] <- NA ## faster! (10x)
-    if ( method == "cor2" ) d <- d^2
-    else if ( method == "abscor" ) d <- abs( d )
-    rats <- apply( log( 1 - d + 1e-99 ), 1, mean, na.rm=T, ... ) ## + 1 + 1e-99 )
-  }
-  ## Try mutual information!!! Options: estimator="mi.empirical", "mi.mm", "mi.shrink", "mi.sg" need a non-default
-  ##    'discretizer': disc="none", "equalfreq", "equalwidth" or "globalequalwidth" (see infotheo:::discretize)
-  ##    estimator="pearson","spearman","kendall" is not discretized (but use "cor2" option instead - same but faster)
-  else if ( method == "mi" || substr( method, 1, 3 ) == "mi." ) { 
-    require( minet )
-    if ( method == "mi" ) method <- "mi.spearman" ## The default estimator
-    d <- build.mim( t( rats ), estimator=substring( method, 4 ), disc="equalwidth" ); diag( d ) <- NA ## slow!!!
-    rats <- -apply( d[ ,rows, drop=F ], 1, mean, na.rm=T, ... )
-  }
-  return( rats )
-}
-#endif
 
 ## get.row.scores.cpp <- function( rats, rats.mn ) { ##, rank=rank.ties ) {
 ##   if ( TRUE && ! is.loaded( "get_row_scores" ) ) {
@@ -526,9 +457,6 @@ get.row.scores.NEW <- function( k, cols=get.cols( k ), rows, ratios=ratios[[ 1 ]
 ## Default is to normalize (diff)^2 by mean expression level, similar to "index of dispersion"
 ##    http://en.wikipedia.org/wiki/Index_of_dispersion
 get.col.scores <- function( k, for.cols="all", ratios=ratios[[ 1 ]], 
-#ifndef PACKAGE
-                           method=c("new","orig","ent")[1],                            
-#endif
                            norm.method=c("mean","all.colVars","none")[1], ... ) {
   ## Compute scores for ALL cols (over just the rows IN the cluster)
   if ( length( k ) <= 0 ) return( NULL )
@@ -541,9 +469,6 @@ get.col.scores <- function( k, for.cols="all", ratios=ratios[[ 1 ]],
   rats <- ratios[ rows, for.cols, drop=F ]
   row.weights <- if ( exists( "get.row.weights" ) ) get.row.weights( rows, cols, ratios ) else NA
 
-#ifndef PACKAGE
-  if ( method == "orig" ) { ## OLD, GOOD EUCLIDEAN DISTANCE METRIC
-#endif
     if ( is.na( row.weights[ 1 ] ) ) { ## Default
       rats.mn <- ##matrix(
         colMeans( rats, na.rm=T )##, nrow=nrow( rats ), ncol=ncol( rats ), byrow=T )
@@ -554,63 +479,19 @@ get.col.scores <- function( k, for.cols="all", ratios=ratios[[ 1 ]],
     
     rats[,] <- t( t( rats ) - rats.mn )^2 ## abs( Multiplying is faster than squaring
     rats <- colMeans( rats, na.rm=T )
-#ifndef PACKAGE
-  }
-
-  ## else if ( method == "ent" ) {  ## ENTROPY BASED METHOD (do it on abs(rats) to allow for repression too
-  ##   require( infotheo )
-  ##   rats <- apply( discretize( rats, disc="globalequalwidth", nbins=ncol( ratios ) / 2 ), 2, entropy )
-  ## }
-  
-  else if ( method == "new" ) { ## TRY -- score columns on amount by which they contribute to avg in-row score,
-    ###  however that score is calculated! Note - this shouldn't have to worry about the varNorm anymore (???)
-    mn <- mean( get.row.scores( k, ratios=ratios, method=row.score.func, ... ), na.rm=T )
-    rows <- get.rows( k )
-    cols <- get.cols( k )
-    rats <- -sapply( for.cols, function( cc ) {
-      ##if(row.score.func!="orig")cat(k,cc,"\n")
-      if ( is.na( row.weights[ 1 ] ) ) {
-        if ( cc %in% cols ) mn / mean( get.row.scores( rows, cols=cols[ cols != cc ], ratios=ratios,
-                                                      method=row.score.func, ... ), na.rm=T ) ## - mn
-        ##else mean( mn -
-        else mean( get.row.scores( k, cols=c( cols, cc ), ratios=ratios, method=row.score.func, ... ), na.rm=T ) / mn
-      } else {
-        if ( cc %in% cols ) mn / weighted.mean( get.row.scores( rows, cols=cols[ cols != cc ], ratios=ratios,
-                                                  method=row.score.func, ... ), w=row.weights, na.rm=T ) ## - mn
-        ##else weighted.mean( mn -
-        else weighted.mean( get.row.scores( rows, cols=c( cols, cc ), ratios=ratios, method=row.score.func, ... ),
-                           w=row.weights, na.rm=T ) / mn
-      }
-    } )
-    return( rats )
-  }
-#endif
   
   var.norm <- 0.99
   if ( norm.method == "all.colVars" ) {
     all.colVars <- attr( ratios, "all.colVars" )
     if ( ! is.null( all.colVars ) ) var.norm <- all.colVars[ for.cols ]
   } else if ( norm.method == "mean" ) {
-#ifndef PACKAGE
-    if ( ! exists( "rats.mn" ) ) {
-      row.weights <- if ( exists( "get.row.weights" ) ) get.row.weights( rows, cols, ratios ) else NA
-      rats.tmp <- ratios[ rows, for.cols, drop=F ]
-      if ( is.na( row.weights[ 1 ] ) ) { ## Default
-        rats.mn <- ##matrix(
-          colMeans( rats.tmp, na.rm=T )##, nrow=nrow( rats.tmp ), ncol=ncol( rats.tmp ), byrow=T )
-      } else { ## Custom row weights
-        rats.mn <- ##matrix(
-          apply( rats.tmp, 2, weighted.mean, w=row.weights[ rows ], na.rm=T )##, ncol=ncol( rats.tmp ), byrow=T )
-      }
-    }
-#endif
     var.norm <- abs( rats.mn ) ##[ 1, ] ) ##0.99 ## Use the mean expr. level (higher expressed expected to have higher noise)
   }
   
   ##col.weights <- get.col.weights( rows, cols )
   ##if ( is.na( col.weights ) )
   rats <- rats / ( var.norm + 0.01 ) ## default
-  ##else rats <- colMeans( rats, na.rm=T ) / ( var.norm * col.weights[ cols ] + 0.01 ) ## customized col. weights
+  ##!else rats <- colMeans( rats, na.rm=T ) / ( var.norm * col.weights[ cols ] + 0.01 ) ## customized col. weights
 
   ##return( log( rats + 1e-99 ) )
   rats
@@ -739,119 +620,11 @@ seed.clusters <- function( k.clust, seed.method="rnd", col.method="rnd" ) {
     tmp.rat[ is.na( tmp.rat ) ] <- 0
     ##cat(dim(tmp.rat),k.clust,"\n")
     km <- kmeans
-#ifndef PACKAGE
-    if ( ! is.na( parallel.cores ) && ( parallel.cores == TRUE || parallel.cores > 1 ) ) {
-        ##&& require( biganalytics ) && require( doMC ) )
-        get.parallel(); if ( require( biganalytics ) ) km <- bigkmeans }
-#endif
     rm <- km( tmp.rat, centers=k.clust, iter.max=20, nstart=2 )$cluster
     names( rm ) <- attr( ratios, "rnames" )
     if ( n.clust.per.row[ 1 ] > 1 ) rm <-
       cbind( rm, matrix( rep( 0, attr( ratios, "nrow" ) * ( n.clust.per.row[ 1 ] - 1 ) ),
                                          ncol=n.clust.per.row[ 1 ] - 1 ) )
-#ifndef PACKAGE
-  } else if ( substr( seed.method, 1, 11 ) == "trimkmeans=" ) { ## Trimmed k-means seeded
-    if ( ! exists( "ratios" ) ) stop( "trimkmeans seed method but no ratios" )
-    require( trimcluster )
-    trim <- as.numeric( strsplit( seed.method, "=" )[[ 1 ]][ 2 ] )
-    tmp.rat <- get.cluster.matrix() ##ratios;
-    tmp.rat[ is.na( tmp.rat ) ] <- 0
-    rm <- trimkmeans( tmp.rat, k.clust, trim=trim, maxit=20, runs=2 )$classification
-    if ( n.clust.per.row[ 1 ] > 1 ) rm <-
-      cbind( rm, matrix( rep( 0, attr( ratios, "nrow" ) * ( n.clust.per.row[ 1 ] - 1 ),
-                                         ncol=n.clust.per.row[ 1 ] - 1 ) ) )
-  } else if ( substr( seed.method, 1, 4 ) == "cor=" ) { ## RANDOM GENES AND THEIR N CORRELATED GENES
-    if ( ! exists( "ratios" ) ) stop( "cor seed method but no ratios" )
-    n.cor <- as.integer( strsplit( seed.method, "=" )[[ 1 ]][ 2 ] )
-    rats <- get.cluster.matrix()
-    cors <- if ( attr( ratios, "nrow" ) < 6000 ) cor( t( rats ), use="pairwise" ) else NULL
-    rm <- rep( 0, attr( ratios, "nrow" ) ); names( rm ) <- attr( ratios, "rnames" )
-    sampled <- rep( FALSE, attr( ratios, "nrow" ) ); names( sampled ) <- attr( ratios, "rnames" )
-    mc <- get.parallel( n.clust.per.row )
-    tmp <- mc$apply( 1:n.clust.per.row, function( i ) {
-      for ( k in 1:k.clust ) {
-        if ( sum( ! sampled ) < n.cor ) sampled[ sample( 1:length( sampled ) ) ] <- FALSE
-        rnames <- attr( ratios, "rnames" )[ ! sampled ]
-        g <- sample( rnames, 1 )
-        if ( ! is.null( cors ) ) g <- rnames[ order( cors[ g, ! sampled ], decreasing=T )[ 1:n.cor ] ]
-        else g <- rnames[ order( apply( rats[ ! sampled, ], 1, cor, rats[ g, ] ), decreasing=T )[ 1:n.cor ] ]
-        rm[ g ] <- k
-        if ( length( g ) == 1 ) { ## if option was cor=1, try to spread the wealth by preventing genes correlated 
-          if ( ! is.null( cors ) ) tmp <- rnames[ order( cors[ g, ! sampled ], decreasing=T )[ 1:10 ] ] ## with this one from getting
-          else tmp <- rnames[ order( apply( rats[ ! sampled, ], 1, cor, rats[ g, ] ), decreasing=T )[ 1:10 ] ]
-          sampled[ tmp ] <- TRUE ## added to other clusters
-        }
-        sampled[ g ] <- TRUE
-      }
-      rm[ attr( ratios, "rnames" ) ]
-    } ) 
-    rm <- do.call( cbind, tmp )
-  } else if ( substr( seed.method, 1, 4 ) == "net=" ) { ## Network seeded; e.g. 'net=string:5'
-    if ( ! exists( "networks" ) || length( networks ) <= 0 ) stop( "net seed method but no networks" )
-    seed.method <- strsplit( seed.method, "=" )[[ 1 ]][ 2 ] ## Name of network to use and # of seed nodes
-    net.name <- strsplit( seed.method, ":" )[[ 1 ]][ 1 ]
-    net <- networks[[ net.name ]]
-    n.seed <- as.integer( strsplit( seed.method, ":" )[[ 1 ]][ 2 ] )
-    rm <- rep( 0, attr( ratios, "nrow" ) ); names( rm ) <- attr( ratios, "rnames" )
-    sampled <- rep( FALSE, length( unique( as.character( net$protein1 ) ) ) )
-    names( sampled ) <- unique( as.character( net$protein1 ) )
-    mc <- get.parallel( n.clust.per.row )
-    tmp <- mc$apply( 1:n.clust.per.row, function( i ) {
-      for ( k in 1:k.clust ) {
-        if ( sum( ! sampled ) <= 0 ) sampled[ 1:length( sampled ) ] <- FALSE
-        rnames <- names( which( ! sampled ) )
-        gs <- sample( rnames, 1 )
-        qiter <- 0
-        while( length( gs ) < n.seed && qiter < 20 ) {
-          ns <- as.character( net$protein2[ as.character( net$protein1 ) %in% gs ] )
-          if ( length( ns ) + length( gs ) >= n.seed ) ns <- sample( ns, size=n.seed-length( gs ),
-                                      prob=net$combined_score[ as.character( net$protein1 ) %in% gs ] )
-          gs <- unique( c( gs, ns ) )
-          qiter <- qiter + 1
-        }
-        rm[ gs ] <- k
-        sampled[ gs ] <- TRUE  ## try to spread the wealth by preventing genes connected to these from being added 
-        if ( n.seed <= 2 ) sampled[ as.character( net$protein2[ as.character( net$protein1 ) %in% gs ] ) ] <- TRUE ## to other clusts
-      }
-      rm[ attr( ratios, "rnames" ) ]
-    } ) 
-    rm <- do.call( cbind, tmp )
-  } else if ( substr( seed.method, 1, 7 ) == "netcor=" ) { ## Correld net-weighted seeds, e.g. 'netcor=string:5'
-    if ( ! exists( "ratios" ) ) stop( "netcor seed method but no ratios" )
-    if ( ! exists( "networks" ) || length( networks ) <= 0 ) stop( "netcor seed method but no networks" )
-    seed.method <- strsplit( seed.method, "=" )[[ 1 ]][ 2 ] ## Name of network to use and # of seed nodes
-    net.name <- strsplit( seed.method, ":" )[[ 1 ]][ 1 ]
-    net <- networks[[ net.name ]]
-    n.seed <- as.integer( strsplit( seed.method, ":" )[[ 1 ]][ 2 ] )
-    rats <- get.cluster.matrix()
-    cors <- cor( t( rats ), use="pairwise" )
-    tmp.mat <- matrix( 0, nrow=nrow( cors ), ncol=ncol( cors ) ); dimnames( tmp.mat ) <- dimnames( cors )
-    tmp.lookup <- 1:attr( ratios, "nrow" ); names( tmp.lookup ) <- attr( ratios, "rnames" )
-    net <- net[ as.character( net$protein1 ) %in% attr( ratios, "rnames" ) &
-               as.character( net$protein2 ) %in% attr( ratios, "rnames" ), ]
-    tmp.mat[ cbind( tmp.lookup[ as.character( net$protein1 ) ], tmp.lookup[ as.character( net$protein2 ) ] ) ] <-
-      net$combined_score / 1000
-    cors <- cors + tmp.mat; rm( tmp.mat )
-    rm <- rep( 0, attr( ratios, "nrow" ) ); names( rm ) <- attr( ratios, "rnames" )
-    sampled <- rep( FALSE, attr( ratios, "nrow" ) ); names( sampled ) <- attr( ratios, "rnames" )
-    mc <- get.parallel( n.clust.per.row )
-    tmp <- mc$apply( 1:n.clust.per.row, function( i ) {
-      for ( k in 1:k.clust ) {
-        if ( sum( ! sampled ) < n.seed ) sampled[ sample( 1:length( sampled ) ) ] <- FALSE
-        rnames <- attr( ratios, "rnames" )[ ! sampled ]
-        g <- sample( rnames, 1 )
-        g <- rnames[ order( cors[ g, ! sampled ], decreasing=T )[ 1:n.seed ] ]
-        rm[ g ] <- k
-        if ( length( g ) == 1 ) { ## if option was cor=1, try to spread the wealth by preventing genes correlated 
-          tmp <- rnames[ order( cors[ g, ! sampled ], decreasing=T )[ 1:10 ] ] ## with this one from getting 
-          sampled[ tmp ] <- TRUE ## added to other clusters
-        }
-        sampled[ g ] <- TRUE
-      }
-      rm[ attr( ratios, "rnames" ) ]
-    } ) 
-    rm <- do.call( cbind, tmp )
-#endif
   }
   
   if ( is.vector( rm ) ) rm <- t( rm ) ## probably n.clust.per.row == 1
@@ -1083,17 +856,3 @@ get.long.names <- function( k, shorter=F ) {
 extend.vec <- function( v, n=n.iter ) {
   if ( length( v ) < n ) v <- c( v, rep( v[ length( v ) ], n.iter - length( v ) ) ); v }
 
-#ifndef PACKAGE
-if ( file.exists( "cmonkey-init.R" ) ) {
-  ##source( "cmonkey.R", local=T )
-  source( "cmonkey-init.R", local=T )
-  source( "cmonkey-data-load.R", local=T ) ## Functions for loading the data
-  ##source( "cmonkey-optim1.R", local=T ) ## Pre-v5.0.0 optimization functions
-  source( "cmonkey-optim2.R", local=T ) ## Post-v5.0.0 optimization functions
-  source( "cmonkey-motif.R", local=T ) ## Functions for motif finding/scoring
-  source( "cmonkey-plotting.R", local=T ) ## Functions for all cmonkey plotting
-  source( "cmonkey-postproc.R", local=T ) ## Functions for all post-processing and analysis of cmonkey clusters
-  source( "cmonkey-motif-other.R", local=T ) ## Functions for motif finding with other algorithms and blasting
-  source( "cmonkey-bigmem.R", local=T ) ## Functions for using on-disk list and matrix storage for big organisms
-}
-#endif

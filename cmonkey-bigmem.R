@@ -9,35 +9,13 @@ save.cmonkey.env <- function( env=NULL, file=NULL, verbose=T ) { ##restore=T,
   }
 
   if ( is.null( file ) ) file <- paste( env$cmonkey.filename, ".RData", sep="" )
-#ifndef PACKAGE
-  un.ffify.env( env )
-#endif
   if ( verbose ) message( "Saving environment to ", file )
   save( env, file=file ) ## WARNING: assumes env exists in global environment!
   invisible( env )
 }
 
 matrix.reference <- function( m, ... ) {
-#ifndef PACKAGE
-  if ( ! big.memory ) {
-    ##if ( ! require( ref ) || "refdata" %in% class( m ) ) return( m )
-    ##else return( refdata( m ) )
-#else
     return( m ) ## This is for official package - don't deal with ref's yet (too slow)
-#endif
-#ifndef PACKAGE
-  }
-  if ( ! require( bigmemory ) || is.big.matrix( m ) ) return( m )
-  options( bigmemory.allow.dimnames=TRUE )
-  if ( ! file.exists( cmonkey.filename ) ) dir.create( cmonkey.filename, recursive=T, show=F )
-  if ( ! "backingfile" %in% names( list( ... ) ) ) backingfile <- as.character( substitute( m ) )
-  else backingfile <- list( ... )$backingfile
-  if ( ! "backingpath" %in% names( list( ... ) ) ) backingpath <- cmonkey.filename
-  else backingpath <- list( ... )$backingpath
-  if ( big.memory.verbose ) message( "Filebacking: ", backingpath, "/", backingfile )
-  m <- as.big.matrix( m, backingfile=backingfile, backingpath=backingpath )
-  m
-#endif
 }
 
 list.reference <- function( l, file, ... ) {

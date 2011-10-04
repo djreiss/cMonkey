@@ -126,7 +126,7 @@ cmonkey.ensemble <- function( rdata.glob, filter=NULL ) {
 
 cmonkey.ensemble.analysis <- function( e, cluster.motifs=F, ... ) { ## e from cmonkey.ensemble()
   ##if ( force.single ) mclapply <- lapply ## even 2 cores is too much for my mac
-  ##else
+  ##!else
   require( multicore )
   ## Get a matrix of the # of times (total) that each pair of genes is in the same cluster
   ##all.rm <- lapply( 1:nrow( e$row.membership ), function( i ) { i <- e$row.membership[ i, ]; i[ i != 0 ] } )

@@ -20,16 +20,7 @@ cmonkey.init <- function( env=NULL, ... ) {
     cmonkey.params <- new.env( hash=T ) ##, parent=globalenv() )
     ##if ( ! is.null( env ) && is.environment( env ) ) cmonkey.params <- new.env( hash=T, parent=env )
   }
-#ifndef PACKAGE  
-  if ( file.exists( "cmonkey-funcs.R" ) ) {
-    tmp.e <- new.env( hash=T )
-    sys.source( "cmonkey-funcs.R", envir=tmp.e )
-  } else {
-#endif    
     tmp.e <- environment( cMonkey:::cmonkey ) ## Packaged - get the env. that the "cmonkey" function is stored in
-#ifndef PACKAGE
-  }
-#endif
   
   if ( ! is.null( env ) && ( is.list( env ) || is.environment( env ) ) ) { ## if env is an input data list or env (e.g. "halo") copy its items here.
     ## Allow override of variables in "env" by ones that came in by commandline.
@@ -144,10 +135,6 @@ cmonkey.init <- function( env=NULL, ... ) {
   set.param( "net.iters", seq( 1, n.iter, by=7 ) ) ## Which iters to re-calculate network scores?
   set.param( "row.scaling", 6 )  ## Seems to work best for Mpn, works good for Halo
   set.param( "row.weights", c( ratios=1 ) ) ## Optionally load multiple ratios files and set relative weights
-#ifndef PACKAGE
-  set.param( "row.score.func", "orig" ) ##"cor2" ) ## method=c("mi","cor2","abscor","dist","pval","orig")
-  set.param( "col.score.func", "orig" ) ## method=c("new","orig") -- orig for both cases is old (pre v4.7.0) version
-#endif
   set.param( "mot.scaling", seq( 0, 1, length=n.iter*3/4 ) ) ##* 0.5
   set.param( "mot.weights", c( `upstream meme`=1 ) ) ##, `upstream weeder`=0.5, `upstream spacer`=1, `upstream memepal`=1 ) ) ## Sequence and algorithm for for motif search: Optionally use different automatically computed sequences (e.g. `downstream meme`=1) or an input file (e.g. `fstfile=zzz.fst meme`=1) (csvfile too!) and motif algos (e.g. weeder, spacer, prism, meme, memepal)
   set.param( "net.scaling", seq( 0, 0.5, length=n.iter*3/4 ) ) ##0.1 0.25
@@ -195,11 +182,6 @@ cmonkey.init <- function( env=NULL, ... ) {
   ##   "-pal=non" -- if this is changed to "-pal=pal" then force palindrome search; "-pal=both": try both pal and non-pal and use the result with the lowest E-value. THIS IS DEFUNCT... now use memepal and memeboth motifing option instead
   set.param( "meme.cmd", paste( progs.dir, "meme $fname -bfile $bgFname -psp $pspFname -time 600 -dna -revcomp -maxsize 9999999 -nmotifs %1$d -evt 1e9 -minw 6 -maxw 24 -mod zoops -nostatus -text -cons $none", sep="/" ) ) ##-allw -pal=non
   set.param( "mast.cmd", sprintf( "%s/mast $memeOutFname -d $fname -bfile $bgFname -nostatus -stdout -text -brief -ev 99999 -mev 99999 -mt 0.99 -seqp -remcorr", progs.dir ) )
-#ifndef PACKAGE
-  set.param( "weeder.cmd", "./weederlauncher.out %s %s %s S T%d" ) ## Executed from within progs directory
-  set.param( "spacer.cmd", c( "java -Xmx1000M -jar SPACER.jar -b %s -o %s %s", ## same here.
-                             "java -Xmx1000M -jar SPACER.jar -l %s -o %s %s" ) )
-#endif
   set.param( "dust.cmd", sprintf( "%s/dust $fname", progs.dir ) )
   ##set.param( "meme.addl.args", "-time 600 -dna -revcomp -maxsize 9999999 -nmotifs %1$d -evt 1e9 -minw %2$d -maxw %3$d -mod zoops" ) ## -nomatrim -prior addone -spfuzz 1" )
   ##set.param( "mast.addl.args", "" ) ##-ev 99999 -mev 99999 -mt 0.99 -seqp -remcorr" ) ##"-ev 10 -mev 10 -mt 0.1
@@ -217,10 +199,6 @@ cmonkey.init <- function( env=NULL, ... ) {
 ##  if ( any( mot.scaling > 0 ) && ( ! file.exists( meme.cmd ) || ! file.exists( mast.cmd ) ) )
 ##    stop( paste( "Motif finding is requested but", meme.cmd, "and/or", mast.cmd, "is not installed!" ) )
 
-#ifndef PACKAGE
-  set.param( "discard.genome", TRUE )
-  set.param( "pareto.adjust.scalings", FALSE ) ## Automatic adjust 3 scalings to try to decrease all 3 scores
-#endif
   set.param( "rsat.urls", c( "http://rsat.ccb.sickkids.ca/", "http://rsat.ulb.ac.be/rsat/", 
                             "http://embnet.ccg.unam.mx/rsa-tools" ) ) ## Right now only first one is used
   set.param( "stats.iters", c( 1, seq( 5, n.iter, by=5 ) ) )
@@ -246,11 +224,6 @@ cmonkey.init <- function( env=NULL, ... ) {
   set.seed( rnd.seed )
   set.param( "big.memory", FALSE ) ##50 * 2^20 ) ## Matrices that are > 50 MB are stored as file-backed big.memory
   set.param( "big.memory.verbose", FALSE )
-#ifndef PACKAGE
-  if ( big.memory ) for ( n in names( ratios ) ) {
-    ratios[[ n ]] <- matrix.reference( ratios[[ n ]], backingfile=paste( "ratios.", n, sep="" ) )
-  }
-#endif
 
   if ( organism == "hsa" ) rsat.urls[ 1 ] <- rsat.urls[ 2 ] ## Special case for hsa - not hosted on mirrors.
   
@@ -271,7 +244,7 @@ cmonkey.init <- function( env=NULL, ... ) {
       require( RCurl )
       tmp <- strsplit( getURL( paste( rsat.urls[ 1 ], "/data/genomes/", sep="" ) ), "\n" )[[ 1 ]]
       writeLines( tmp, con="data/RSAT_genomes_listing.txt" ) ## Cache the listing -- it takes some time to dld
-    } ##else { ##if ( ! require( RCurl ) ) {
+    } ##!else { ##if ( ! require( RCurl ) ) {
       ##stop( "Please install 'RCurl' package.\n" )
     ##}
 
@@ -388,7 +361,7 @@ cmonkey.init <- function( env=NULL, ... ) {
     v <- get( i )
     if ( all( names( mot.weights ) %in% names( v ) ) ) next
     if ( is.vector( v ) && length( v ) > 1 ) v <- list( `1`=v ) ##`upstream meme`=v )
-    ##else names( v )[ 1 ] <- "upstream meme"
+    ##!else names( v )[ 1 ] <- "upstream meme"
     names( v ) <- names( mot.weights )[ 1 ] 
     for ( n in names( mot.weights )[ ! names( mot.weights ) %in% names( v ) ] ) {
       if ( is.list( v ) ) v[[ n ]] <- v[[ 1 ]]
@@ -505,18 +478,11 @@ cmonkey.init <- function( env=NULL, ... ) {
         }
         if ( ! is.null( env ) ) assign( "genome.info", genome.info, envir=env )
       }
-#ifndef PACKAGE
-      if ( discard.genome ) {
-        cat( "Clearing genome sequences from memory.\n" )
-        genome.info$genome.seqs <- NULL
-        gc()
-      }
-#endif
       ##}
-##ifndef PACKAGE
+##!ifndef 
 ##      if ( big.memory ) genome.info$all.upstream.seqs <-
 ##        list.reference( genome.info$all.upstream.seqs, sprintf( "%s/all.genome.seqs", cmonkey.filename ) )
-##endif
+##!endif
     }
     
     networks <- list()
@@ -534,7 +500,7 @@ cmonkey.init <- function( env=NULL, ... ) {
             string <- string.links
           } else {
             ##if ( exists( "get.STRING.links.NEW" ) ) string <- get.STRING.links.NEW( genome.info$org.id$V1[ 1 ] )
-            ##else
+            ##!else
             cat( "Loading STRING network.\n" )
             string <- get.STRING.links( genome.info$org.id$V1[ 1 ] ) ##, detailed=F )
             ##string <- subset( string, combined_score >= 500 )
@@ -591,29 +557,6 @@ cmonkey.init <- function( env=NULL, ... ) {
       if ( ! is.null( env ) ) assign( "networks", networks, envir=env )
       
       ## Read in prolinks interactions from the web (including operon prediction edges)
-#ifndef PACKAGE
-      if ( length( grep( "prolinks", names( net.weights ) ) ) > 0 ) {
-        prolinks.links <- get.prolinks.links( org.id=genome.info$org.id$V2[ 1 ] ) ##id )
-        for ( i in names( prolinks.links ) ) {
-          networks[[ paste( "prolinks", i, sep="." ) ]] <- prolinks.links[[ i ]]
-          cat( "Read in", nrow( prolinks.links[[ i ]] ), i, "Prolinks edges; weight =", net.weights[ "prolinks" ], "\n" )
-        }
-        rm( prolinks.links, i )
-      }
-      if ( ! is.null( env ) ) assign( "networks", networks, envir=env )
-
-      ## Read in predictome interactions from the web
-      if ( length( grep( "predictome", names( net.weights ) ) ) > 0 ) {
-        cat( "Reading in predictome links from http://predictome.bu.edu/data/\n" )
-        pred.links <- get.predictome.links( org.id=organism )
-        for ( i in names( pred.links ) ) {
-          networks[[ paste( "pred", i, sep="." ) ]] <- pred.links[[ i ]]
-          cat( "Read in", nrow( pred.links[[ i ]] ), i, "Predictome edges; weight =", net.weights[ "prolinks" ], "\n" )
-        }
-        rm( pred.links, i )
-      }
-      if ( ! is.null( env ) ) assign( "networks", networks, envir=env )
-#endif
       
       ## Read in additional networks from sifs (3-column file: p1, s, p2). If s is a string
       ##   (e.g. "pp") then edge weight is assumed to be 1; otherwise s can be numeric and
@@ -814,9 +757,6 @@ cmonkey.init <- function( env=NULL, ... ) {
       ##}
     }    
 
-#ifndef PACKAGE
-    if ( big.memory ) networks <- list.reference( networks, file=sprintf( "%s/networks", cmonkey.filename ), type="RDS" )
-#endif    
     
     if ( ! no.genome.info && cog.org != '' && cog.org != '?' && ! is.null( cog.org ) ) {
       ## COG code from NCBI whog file
@@ -837,9 +777,6 @@ cmonkey.init <- function( env=NULL, ... ) {
         if ( is.null( genome.info$cog.code ) ) attr( ratios, "nrow" ) else sum( is.na( genome.info$cog.code ) ),
         "do not)\n" )
 
-#ifndef PACKAGE
-    if ( big.memory ) genome.info <- list.reference( genome.info, file=sprintf( "%s/genome.info", cmonkey.filename ), type="RDS" )
-#endif
   }
 
   iter <- 0
@@ -895,9 +832,6 @@ cmonkey.init <- function( env=NULL, ... ) {
     try( env$cm.func.each.iter(), silent=T ) ## User-defined func. to run each iteration (here, at end of initialization)
   }
 
-#ifndef PACKAGE
-  ##if ( big.memory == TRUE || big.memory > 0 ) ffify.env( env ) ## Matrices > 50MB go to filebacked version
-#endif
   
   cat( "INITIALIZATION IS COMPLETE.\n" )
   env$iter <- env$iter + 1
