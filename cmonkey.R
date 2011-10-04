@@ -6,8 +6,12 @@
 ## liable for anything that happens as a result of using this software
 ###################################################################################
 
-cm.version <- "4.8.7"
+cm.version <- "5.0.0"
 
+#ifndef PACKAGE
+##source( "cmonkey-init.R" )
+source( "cmonkey-funcs.R", local=T )
+#endif
 
 cmonkey <- function( env=NULL, ... ) {
   if ( ( ( is.null( list( ... )$dont.init ) || ! list( ... )$dont.init ) &&
@@ -25,10 +29,8 @@ cmonkey <- function( env=NULL, ... ) {
   ##    ALSO re-set the random seed if env$cmonkey.params$rnd.seed doesn't exist (e.g. for multiple runs on the
   ##       same pre-initialized env.) -- need to this via:
   ##       rm(list="rnd.seed",envir=env$cmonkey.params);rm(list="rnd.seed",envir=env)
-  if ( ( ! exists( "row.membership", envir=env ) || all( env$row.membership == 0 ) ||
-        nrow( env$row.membership ) != attr( env$ratios, "nrow" ) ||
-        nrow( env$col.membership ) != attr( env$ratios, "ncol" ) ) && exists( 'ratios', envir=env ) )
-    env$cmonkey.re.seed( env )
+  if ( ( ! exists( "clusterStack", envir=env ) || length( env$clusterStack ) < env$k.clust ) 
+        && exists( 'ratios', envir=env ) ) env$cmonkey.re.seed( env )
   
   ## iter <- env$iter
   ## while( iter <= env$n.iter ) {
@@ -53,16 +55,6 @@ cmonkey <- function( env=NULL, ... ) {
   env$iter <- iter <- env$iter - 1
   print( env$cluster.summary() ) ## Print out summary stats of each final cluster
 
-  if ( env$post.adjust == TRUE ) { ## post-adjustment of all clusters???
-    env$pre.adjusted.row.membership <- env$row.membership
-    ##env2 <-
-    env$adjust.all.clusters( env, expand.only=F )
-    ##env <- env2; rm( env2 )
-    gc()
-##     row.membership.orig <- row.membership
-##     adjust.all.clusters( expand=3 )
-  }
-
   ## Get rid of extraneous links to old environments that are lying around (not really necessary anymore but doesnt hurt)
   parent.env( env ) <- globalenv(); parent.env( env$cmonkey.params ) <- env
   
@@ -82,12 +74,15 @@ cmonkey <- function( env=NULL, ... ) {
 }
 
 DEBUG <- function( ... ) {
+#ifndef PACKAGE
+  message( ... )
+#endif
 }
 
 install.binaries <- function( meme.version="4.3.0",
                        url=sprintf( "http://meme.nbcr.net/downloads/old_versions/meme_%s.tar.gz", meme.version ),
-                             make='make -j 4' ) {
-  cwd <- setwd( system.file( package="cMonkey" ) ); on.exit( setwd( cwd ) )
+                             make='make -j 4', path=system.file( package="cMonkey" ) ) {
+  cwd <- setwd( path ); on.exit( setwd( cwd ) )
   if ( ! exists( "progs" ) ) dir.create( "progs" )
   setwd( "progs/" )
   cMonkey:::dlf( sprintf( "meme_%s.tar.gz", meme.version ), url )
@@ -99,6 +94,9 @@ install.binaries <- function( meme.version="4.3.0",
   system( sprintf( "ln -s meme_%s/local/bin/meme", meme.version ) )
   system( sprintf( "ln -s meme_%s/local/bin/mast", meme.version ) )
   system( sprintf( "ln -s meme_%s/local/bin/dust", meme.version ) )
+#ifndef PACKAGE
+  system( sprintf( "ln -s meme_%s/local/bin/tomtom", meme.version ) )
+#endif
   ## Download and install blast executables? From:
   ## ftp.ncbi.nih.gov/blast/executables/LATEST
   setwd( cwd )

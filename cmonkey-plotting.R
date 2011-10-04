@@ -45,7 +45,7 @@ plotCluster <- function( cluster, imag=F, cond.labels=F, o.genes=NULL, col.func=
   
   ##if ( renorm ) rats <- standardize.row( rats, NULL, 0 )
   ##if ( "ylim" %in% names( list( ... ) ) ) range.r <- ylim
-  ##!else
+  ##else
   if ( is.null( range.r ) ) ##range.r <- range( rats, na.rm=T )
     range.r <- range( rats[ rats != min( rats, na.rm=T ) & rats != max( rats, na.rm=T ) ], na.rm=T )
   if ( cond.labels && cluster$ncols < 100 ) range.r[ 1 ] <- range.r[ 1 ] * 1.5
@@ -79,7 +79,7 @@ plotCluster <- function( cluster, imag=F, cond.labels=F, o.genes=NULL, col.func=
     colmap <- col.func( cols.b )
   }
   ##colmap <- rug1[ cols.b, 2 ]
-  ##!else 
+  ##else 
   
   if ( box.plot ) {
     colMeans <- apply( rats[ cluster$rows, ,drop=F ], 2, mean, na.rm=T )
@@ -118,7 +118,8 @@ plotCluster <- function( cluster, imag=F, cond.labels=F, o.genes=NULL, col.func=
 
 ###############################
 plotCluster.all.conds <- function( cluster, imag=F, cond.labels=F, o.genes=NULL, rats.names=names( ratios ), 
-                                  range.r=NULL, sort=F, box.plot=F, col.func=if( imag ) topo.colors else rainbow, ... ) {
+                                  range.r=NULL, sort=F, box.plot=F, col.func=if( imag ) topo.colors else rainbow,
+                                  only.in.conds=F, ... ) {
   if ( length( cluster$rows ) <= 0 ) { warning( "Trying to plot a cluster with no rows!" ); return() }
   k <- cluster$k
   main <- paste( sprintf( "Cluster: %04d %s; resid: %s; r/c: %d/%d", k, organism,
@@ -128,6 +129,7 @@ plotCluster.all.conds <- function( cluster, imag=F, cond.labels=F, o.genes=NULL,
   rats <- get.cluster.matrix( unique( c( cluster$rows, o.genes ) ), NULL, matrices=rats.names ) ##sort( cluster$cols )
   cols.b <- c( colnames( rats )[ colnames( rats ) %in% cluster$cols ],
               colnames( rats )[ ! colnames( rats ) %in% cluster$cols ] )
+  if ( only.in.conds ) cols.b <- colnames( rats )[ colnames( rats ) %in% cluster$cols ]
   
   ##cols.b <- attr( ratios, "cnames" )[ attr( ratios, "cnames" ) %in% cluster$cols ]
   ##cols.b <- c( cols.b, attr( ratios, "cnames" )[ ! attr( ratios, "cnames" ) %in% cluster$cols ] )
@@ -139,6 +141,7 @@ plotCluster.all.conds <- function( cluster, imag=F, cond.labels=F, o.genes=NULL,
     outClust <- colnames( rats )[ ! colnames( rats ) %in% cluster$cols ]
     o2 <- order( apply( rats[ cluster$rows, outClust ,drop=F ], 2, mean, na.rm=T ) )
     cols.b <- c( inClust[ o1 ], outClust[ o2 ] )
+    if ( only.in.conds ) cols.b <- inClust[ o1 ]
   }
   
   len.b <- length( cols.b )
@@ -191,11 +194,11 @@ plotCluster.all.conds <- function( cluster, imag=F, cond.labels=F, o.genes=NULL,
     colmap <- col.func( cols.b )
   }
   ##colmap <- rug1[ cols.b, 2 ]
-  ##!else
+  ##else
   
   if ( box.plot ) {
     ##if ( exists( "rug1" ) ) colmap <- rug1[ cols.b, 2 ]
-    ##!else colmap <- rep( 'black', length( cols.b ) )
+    ##else colmap <- rep( 'black', length( cols.b ) )
 ##     if ( exists( "col.rug" ) ) colmap <- col.func( max( col.rug ) )[ col.rug[ cols.b ] ]
 ##     else if ( all( deparse( col.func ) == deparse( rainbow ) ) ) colmap <- col.func( len.b ) ##rep( 'black', length( cols.b ) )
 ##     else colmap <- col.func( cols.b )
@@ -215,7 +218,7 @@ plotCluster.all.conds <- function( cluster, imag=F, cond.labels=F, o.genes=NULL,
   
   ##lines( rep( cluster$ncols + 0.5, 2 ), range.r, col=2, lwd=3, lty=2 )
   cols.in <- colnames( rats )[ colnames( rats ) %in% cluster$cols ]
-  lines( rep( length( cols.in ) + 0.5, 2 ), range.r, col=2, lwd=3, lty=2 )
+  if ( ! only.in.conds ) lines( rep( length( cols.in ) + 0.5, 2 ), range.r, col=2, lwd=3, lty=2 )
 
   if ( ! is.null( o.genes ) ) {
     matlines( 1:len.b, t( rats[ o.genes, , drop=F ] ), lty=1, lwd=3, col=2:6 )
@@ -300,7 +303,7 @@ plotCluster.motif <- function( cluster, seqs=cluster$seqs, layout=NULL, colors=N
     tmp.lett <- 1:26
     names( tmp.lett ) <- LETTERS
     ##if ( exists( "gene.coords" ) && ! is.null( gene.coords$gene.code ) ) coo <- gene.coords$gene.code[ rows ]
-    ##!else
+    ##else
     if ( ! is.null( cluster$cog.code ) ) coo <- cluster$cog.code[ rows ]
     else coo <- 1:length( rows )
     tmp <- unique( tmp.lett[ coo ] )
@@ -407,7 +410,7 @@ plotCluster.network <- function( cluster, network="all", o.genes=NULL, colors=NU
       names( tmp.lett ) <- LETTERS
       ##if ( exists( "gene.coords" ) && ! is.vector( gene.coords ) && ! is.null( gene.coords$gene.code ) )
       ##  coo <- gene.coords$gene.code[ rows ]
-      ##!else
+      ##else
       if ( ! is.null( cluster$cog.code ) ) coo <- cluster$cog.code[ rows ]
       else coo <- 1:length( rows )
       tmp <- unique( tmp.lett[ coo ] )
@@ -610,7 +613,7 @@ plotClusterMotifPositions <- function( cluster, seqs=cluster$seqs, long.names=T,
     names( tmp.lett ) <- LETTERS
     ##if ( exists( "gene.coords" ) && ! is.vector( gene.coords ) && ! is.null( gene.coords$gene.code ) )
     ##  coo <- gene.coords$gene.code[ rows ]
-    ##!else
+    ##else
     if ( ! is.null( cluster$cog.code ) ) coo <- cluster$cog.code[ rows ]
     else coo <- 1:length( rows )
     tmp <- unique( tmp.lett[ coo ] )
@@ -656,7 +659,7 @@ plotClusterMotifPositions <- function( cluster, seqs=cluster$seqs, long.names=T,
   if ( sort.by == "gene.name" ) inds <- sort( rows, decreasing=T, index=T )$ix
   else if ( sort.by == "p.value" || sort.by == TRUE ) inds <- order( p.values[ rows ], decreasing=T, na.last=F )
   else if ( sort.by == "resid" ) inds <- order( row.scores[ rows, k ], decreasing=T )
-  else if ( sort.by == "total" ) inds <- order( rr.scores[ rows, k ], decreasing=T )
+  ##else if ( sort.by == "total" ) inds <- order( rr.scores[ rows, k ], decreasing=T )
   if ( length( inds ) < length( rows ) ) inds <- c( (1:length( rows ))[ ! 1:length( rows ) %in% inds ], inds )
   x.range <- c( -maxlen*0.08, maxlen*1.15 ) ##c( -maxlen*0.15, maxlen*1.08 )
   y.range <- c( 0.5, length( rows ) + 1 )
@@ -900,7 +903,7 @@ plotClust <- function( k, cluster=NULL, w.motifs=T, all.conds=T, title=NULL, o.g
       c[[ st ]]$motif.out$e.values <- c[[ st ]]$e.val
       if ( ! is.null( c[[ st ]]$motif.out$pv.ev ) ) { ##&& ! is.null( meme.scores[[ st ]]$all.pv ) ) { ## Replicate old pv.ev list of 2 data frames
         if ( "gene" %in% colnames( c[[ st ]]$motif.out$pv.ev[[ 1 ]] ) ) c[[ st ]]$motif.out$pv.ev[[ 2 ]] <- c[[ st ]]$motif.out$pv.ev[[ 1 ]]
-        ##!else if ( "gene" %in% colnames( c[[ st ]]$motif.out$pv.ev[[ 2 ]] ) ) c[[ st ]]$motif.out$pv.ev[[ 2 ]] <- c[[ st ]]$motif.out$pv.ev[[ 2 ]]
+        ##else if ( "gene" %in% colnames( c[[ st ]]$motif.out$pv.ev[[ 2 ]] ) ) c[[ st ]]$motif.out$pv.ev[[ 2 ]] <- c[[ st ]]$motif.out$pv.ev[[ 2 ]]
         if ( ! is.null( meme.scores[[ st ]]$all.pv ) ) {
           tmp <- cbind( p.value=meme.scores[[ st ]]$all.pv[ ,k ],
                  e.value=if ( "all.ev" %in% names( meme.scores[[ st ]] ) ) meme.scores[[ st ]]$all.ev[ ,k ] else NA )
@@ -946,18 +949,24 @@ plotClust <- function( k, cluster=NULL, w.motifs=T, all.conds=T, title=NULL, o.g
 }
 
 plotScores <- function( k, o.genes=NULL, b.genes=NULL, recompute=F ) { 
-  row.memb <- apply( row.membership == k, 1, any )
   opar <- par( no.readonly=T )
   rows <- get.rows( k ) 
 
-  if ( recompute ) {
-    tmp <- get.all.scores( k, force.row=T, force.col=T, force.motif=T, force.net=T )
-    rs <- tmp$r; ms <- tmp$m; ns <- tmp$n
+  if ( recompute || ! exists( "row.scores" ) || is.null( row.scores ) ) {
+    if ( attr( get.all.scores, "version" ) == 1 ) {
+      tmp <- get.all.scores( k, force.row=T, force.col=T, force.motif=T, force.net=T )
+      rs <- tmp$r; ms <- tmp$m; ns <- tmp$n; cs <- tmp$c
+    } else if ( attr( get.all.scores, "version" ) == 2 ) {
+      tmp <- get.old.scores.matrices( k )
+      rs <- tmp$r[ ,1 ]; ms <- tmp$m[ ,1 ]; ns <- tmp$n[ ,1 ]
+      if ( all( is.na( ms ) ) || all( ms == ms[ 1 ] ) ) rm( ms )
+      if ( all( is.na( ns ) ) || all( ns == ns[ 1 ] ) ) rm( ns )
+    }
   }
-  
+
   tmp.scale <- round( attr( ratios, "nrow" ) / length( rows ) / 4 )
   layout( matrix( c( 1, 2, 3, 4, 4, 5, 4, 4, 6 ), 3, 3, byrow=T ) )
-  if ( ! recompute ) rs <- row.scores[ ,k, drop=T ]
+  if ( ! exists( "rs" ) ) rs <- row.scores[ ,k, drop=T ]
   rs[ rs < -220 ] <- min( rs[ rs > -220 ], na.rm=T )
   h <- try( hist( rs, breaks=20, main=paste( "Cluster", k ), xlab="Ratios scores" ), silent=T )
   if ( class( h ) != "try-error" ) {
@@ -965,27 +974,26 @@ plotScores <- function( k, o.genes=NULL, b.genes=NULL, recompute=F ) {
     try( hist( rs, breaks=h$breaks, add=T ), silent=T )
   }
 
-  if ( ! recompute ) ms <- ns <- NULL
-  if ( ! is.null( mot.scores ) && ! all( is.na( mot.scores[ ,k ] ) ) && ! no.genome.info ) { 
-    if ( ! recompute ) ms <- mot.scores[ ,k, drop=T ]; ms[ ms < -20 ] <- min( ms[ ms > -20 ], na.rm=T )
+  if ( exists( "ms" ) || ( ! is.null( mot.scores ) && ! all( is.na( mot.scores[ ,k ] ) ) && ! no.genome.info ) ) { 
+    if ( ! exists( "ms" ) ) ms <- mot.scores[ ,k, drop=T ]; ms[ ms < -20 ] <- min( ms[ ms > -20 ], na.rm=T )
     h <- try( hist( ms, breaks=20, main=NULL, xlab="Motif scores" ), silent=T ) 
     if ( class( h ) != "try-error" ) {
       try( hist( rep( ms[ rows ], tmp.scale * 3 ), breaks=h$breaks, col="red", border="red", add=T ), silent=T )
       try( hist( ms, breaks=h$breaks, add=T ), silent=T )
     }
-      
-  } else plot( 1, 1, typ="n", axes=F, xaxt="n", yaxt="n", xlab="", ylab="" )
+  } else { ms <- NULL; plot( 1, 1, typ="n", axes=F, xaxt="n", yaxt="n", xlab="", ylab="" ) }
 
-  if ( ! is.null( net.scores ) && ! all( net.scores[ ,k ] == 0 ) ) { 
-    if ( ! recompute ) ns <- net.scores[ ,k, drop=T ]; ns[ ns < -20 ] <- min( ns[ ns > -20 ], na.rm=T ); ns <- -log10( -ns )
+  if ( exists( "ns" ) || ( ! is.null( net.scores ) && ! all( net.scores[ ,k ] == 0 ) ) ) { 
+    if ( ! exists( "ns" ) ) { ns <- net.scores[ ,k, drop=T ]; ns[ ns < -20 ] <- min( ns[ ns > -20 ], na.rm=T ); ns <- -log10( -ns ) }
     ns[ is.infinite( ns ) ] <- max( ns[ ! is.infinite( ns ) ], na.rm=T ) + 0.1
     h <- try( hist( ns, breaks=20, main=NULL, xlab="-log10(-Network scores)" ), silent=T ) 
     if ( class( h ) != "try-error" ) {
       try( hist( rep( ns[ rows ], tmp.scale / 3 ), breaks=h$breaks, col="red", border="red", add=T ), silent=T )
       try( hist( ns, breaks=h$breaks, add=T ), silent=T )
     }
-  } else plot( 1, 1, typ="n", axes=F, xaxt="n", yaxt="n", xlab="", ylab="" )
+  } else { ns <= NULL; plot( 1, 1, typ="n", axes=F, xaxt="n", yaxt="n", xlab="", ylab="" ) }
   
+  row.memb <- attr( ratios, "rnames" ) %in% rows
   if ( ! is.null( ms ) && ! all( is.na( ms ) ) && ! all( ns == 0 ) ) {
     plot( rs, ms, typ="n", main=paste( "Cluster", k ), xlab="Ratios scores", ylab="Mot scores" ) ##,log="xy")
     text( rs, ms, label=1:length(rs), col=row.memb+1, cex=0.5 )
@@ -1002,7 +1010,9 @@ plotScores <- function( k, o.genes=NULL, b.genes=NULL, recompute=F ) {
                                    label=which( attr( ratios, "rnames" ) %in% b.genes ), col="blue", cex=0.5 )
 
   try( {
-    rr <- get.density.scores( ks=k, plot="rows" )$r ##r.scores, col.scores=NULL, ks=k, plot=T )$r
+    tmp <- get.combined.scores( quant=T )
+    r.scores <- tmp$r; c.scores <- tmp$c ##; n.scores <- tmp$n; m.scores <- tmp$m
+    rr <- get.density.scores( ks=k, r.scores, c.scores, plot="rows" )$r ##ks=k, plot=T )$r
     rr <- rr[ ,k, drop=T ] ##; names( rr ) <- attr( ratios, "rnames" ) ## hack!
     h <- try( hist( log10( rr ), breaks=50, main=NULL, xlab="Density (membership) scores" ), silent=T ) 
     if ( class( h ) != "try-error" ) {
@@ -1015,10 +1025,27 @@ plotScores <- function( k, o.genes=NULL, b.genes=NULL, recompute=F ) {
 
 ## Note can do pdf("xxx.pdf");plotStats(new.dev=F,plot.clust=1);dev.off() to redirect all 3 plots to a single pdf.
 plotStats <- function( iter=stats$iter[ nrow( stats ) ], plot.clust=NA, new.dev=F, ... ) { ##new=F,
-  ##try( {
-  if ( ! exists( "row.memb" ) ) row.memb <- t( apply( row.membership[], 1, function( i ) 1:k.clust %in% i ) )
+  if ( ! exists( "row.memb" ) ) {
+    row.memb <- sapply( 1:k.clust, function( k ) attr( ratios, "rnames" ) %in% get.rows( k ) ); if ( is.vector( row.memb ) ) row.memb <- t( row.memb )
+    rownames( row.memb ) <- attr( ratios, "rnames" )    
+    col.memb <- sapply( 1:k.clust, function( k ) attr( ratios, "cnames" ) %in% get.cols( k ) ); if ( is.vector( col.memb ) ) col.memb <- t( col.memb )
+    rownames( col.memb ) <- attr( ratios, "cnames" )    
+  }
+
+  if ( ! exists( "row.scores" ) || is.null( row.scores ) ) {
+    if ( attr( get.all.scores, "version" ) == 1 ) {
+      tmp <- get.all.scores()
+      row.scores <- tmp$r; mot.scores <- tmp$m; net.scores <- tmp$n; col.scores <- tmp$c
+      tmp <- get.combined.scores( quant=T )
+      r.scores <- tmp$r; c.scores <- tmp$c ##; n.scores <- tmp$n; m.scores <- tmp$m
+    } else if ( attr( get.all.scores, "version" ) == 2 ) {
+      tmp <- get.old.scores.matrices()
+      row.scores <- tmp$r; mot.scores <- tmp$m; net.scores <- tmp$n; col.scores <- tmp$c
+    }
+  }  
+  
   opar <- par( no.readonly=T )
-  tmp.scale <- round( 1 / mean( row.memb[,], na.rm=T ) / 4 )
+  tmp.scale <- round( 1 / mean( row.memb, na.rm=T ) / 4 )
   if ( new.dev ) { if ( length( dev.list() ) < 1 ) dev.new(); dev.set( 2 ) } ##;
   layout( matrix( c( 1,2,3,
                      1,2,3,
@@ -1038,20 +1065,24 @@ plotStats <- function( iter=stats$iter[ nrow( stats ) ], plot.clust=NA, new.dev=
            col=1:nn, lty=1:nn, cex=0.5 )
   ##try( matplot( stats[ ,"iter", drop=F ], stats[ ,c("nrow","ncol"), drop=F ], typ="l", xlab="iter",
   ##             ylab="Mean nrow, ncol" ), silent=T ) ## This stat is pretty useless
-  rs <- row.scores[]; rs[ rs < -20 ] <- min( rs[ rs > -20 ], na.rm=T )
-  h <- try( hist( rs, breaks=50, main=NULL, xlab="Ratios scores" ), silent=T ) 
-  if ( class( h ) != "try-error" ) {
-    try( hist( rep( rs[ row.memb[,] == 1 ], tmp.scale ), breaks=h$breaks, col="red", border="red", add=T ), silent=T )
-    try( hist( rs, breaks=h$breaks, add=T ), silent=T )
+  if ( exists( "row.scores" ) && ! is.null( mot.scores ) && ! all( is.na( mot.scores[,] ) ) ) {
+    rs <- row.scores[]; rs[ rs < -20 ] <- min( rs[ rs > -20 ], na.rm=T )
+    h <- try( hist( rs, breaks=50, main=NULL, xlab="Ratios scores" ), silent=T ) 
+    if ( class( h ) != "try-error" ) {
+      try( hist( rep( rs[ row.memb == 1 ], tmp.scale ), breaks=h$breaks, col="red", border="red", add=T ), silent=T )
+      try( hist( rs, breaks=h$breaks, add=T ), silent=T )
+    }
   }
-  if ( ! is.null( mot.scores ) && ! all( is.na( mot.scores[,] ) ) ) {
+  if ( exists( "mot.scores" ) && ! is.null( mot.scores ) && ! all( is.na( mot.scores[,] ) ) ) {
     ms <- mot.scores[,]; ms[ ms < -20 ] <- min( ms[ ms > -20 ], na.rm=T ); ms[ ms >= 0 ] <- NA
     h <- try( hist( ms, breaks=50, main=NULL, xlab="Motif scores" ), silent=T )
     if ( class( h ) != "try-error" ) {
-      try( hist( rep( ms[ row.memb[,] == 1 ], tmp.scale * 3 ), breaks=h$breaks, col="red", border="red", add=T ), silent=T )
+      try( hist( rep( ms[ row.memb == 1 ], tmp.scale * 3 ), breaks=h$breaks, col="red", border="red", add=T ), silent=T )
       try( hist( ms, breaks=h$breaks, add=T ), silent=T ) ##main="Mot scores",
     }
-    tmp <- stats[ ,grep( "p.clust", colnames( stats ), val=T ), drop=F ]
+  }
+  tmp <- stats[ ,grep( "p.clust", colnames( stats ), val=T ), drop=F ]
+  if ( ! all( is.na( tmp ) ) ) {
     try( matplot( stats[ ,"iter" ], tmp, typ="l", xlab="iter", ylab="Mean motif p-value",
                  main=sprintf( "Motif scaling: %.3f", mot.scaling[ max( 1, iter - 1 ) ] ), lty=1 ), silent=T )
     sapply( c( 51, 101, 21 ), function( kwin ) try( matlines( stats[ ! is.na( tmp ), "iter" ],
@@ -1061,12 +1092,12 @@ plotStats <- function( iter=stats$iter[ nrow( stats ) ], plot.clust=NA, new.dev=
       legend( "bottomleft", legend=gsub( "p.clust.", "", grep( "p.clust", colnames( stats ), val=T ) ), lwd=1,
              bty="n", col=1:nn, lty=1:nn, cex=0.5 )
   }
-  if ( ! is.null( net.scores ) && ! all( net.scores[,] == 0 ) ) {
+  if ( exists( "net.scores" ) && ! is.null( net.scores ) && ! all( net.scores[,] == 0 ) ) {
     ns <- net.scores[,]; ns[ ns < -20 ] <- min( ns[ ns > -20 ], na.rm=T ); ns[ ns >= 0 ] <- NA; ns[,] <- -log10( -ns )
     tmp.scale <- ceiling( tmp.scale * mean( ! is.na( ns ), na.rm=T ) )
     h <- try( hist( ns, breaks=50, main=NULL, xlab="-log10(-Network scores)" ), silent=T ) 
     if ( class( h ) != "try-error" ) {
-      try( hist( rep( ns[ row.memb[,] == 1 ], tmp.scale ), breaks=h$breaks, col="red", border="red", add=T ), silent=T )
+      try( hist( rep( ns[ row.memb == 1 ], tmp.scale ), breaks=h$breaks, col="red", border="red", add=T ), silent=T )
       try( hist( ns, breaks=h$breaks, add=T ), silent=T ) 
     }
     tmp <- stats[ ,grep( "net.", colnames( stats ), val=T, fixed=T ), drop=F ]
@@ -1082,12 +1113,17 @@ plotStats <- function( iter=stats$iter[ nrow( stats ) ], plot.clust=NA, new.dev=
   
   clusterStack <- get.clusterStack( ks=1:k.clust )
   resids <- sapply( as.list( clusterStack ), "[[", "resid" )
-  
   try( hist( resids[ resids <= 1.5 ], main=NULL, xlab="Cluster Residuals",
-            xlim=if ( all( resids > 0 ) ) c( 0, 1.5 ) else range( resids, na.rm=T ), breaks=k.clust/4 ),
+            xlim=if ( all( resids > 0, na.rm=T ) ) c( 0, 1.5 ) else range( resids, na.rm=T ), breaks=k.clust/4 ),
       silent=T )
- 
-  if ( ! is.null( mot.scores ) && ! all( is.na( mot.scores[,] ) ) && ! all( mot.scores[,] == 0 ) ) {
+  if ( ! exists( "mot.scores" ) || is.null( mot.scores ) || all( is.na( mot.scores[,] ) ) ) {
+    pclusts <- sapply( as.list( clusterStack ), "[[", "p.clust" )
+    try( hist( pclusts[ pclusts <= 1 ], main=NULL, xlab="Cluster Motif P-values",
+              xlim=if ( all( pclusts > 0, na.rm=T ) ) c( 0, 1 ) else range( pclusts, na.rm=T ), breaks=k.clust/4 ),
+        silent=T )
+  }
+  
+  if ( mot.scaling[ iter ] > 0 ) { ##! is.null( mot.scores ) && ! all( is.na( mot.scores[,] ) ) && ! all( mot.scores[,] == 0 ) ) {
     plot.all.clusterMotifPositions <- function( ks=1:k.clust, mots=1, e.cutoff=1, p.cutoff=0.05,
                                                seq.type=names( mot.weights )[ 1 ], breaks=100, ... ) {
       if ( seq.type == "ALL" ) seq.type <- names( mot.weights )
@@ -1127,12 +1163,15 @@ plotStats <- function( iter=stats$iter[ nrow( stats ) ], plot.clust=NA, new.dev=
           silent=T )
   }
   
-  n.rows <- tabulate( unlist( apply( row.membership, 1, unique ) ) )
+  n.rows <- sapply( 1:k.clust, function( k ) length( get.rows( k ) ) )
   try( hist( n.rows, main=NULL, xlab="Cluster Nrows", breaks=k.clust/4,
             xlim=c( -5, max( n.rows, na.rm=T ) ) ), silent=T )
-  n.cols <- tabulate( unlist( apply( col.membership, 1, unique ) ) )
+  n.cols <- sapply( 1:k.clust, function( k ) length( get.cols( k ) ) )
   try( hist( n.cols, main=NULL, xlab="Cluster Ncols", breaks=k.clust/4,
             xlim=c( -5, attr( ratios, "ncol" ) ) ), silent=T )
+  nr <- table( unlist( sapply( clusterStack, "[[", "rows" ) ) )
+  if ( length( nr ) < attr( ratios, "nrow" ) ) nr <- c( nr, rep( 0, attr( ratios, "nrow" ) - length( nr ) + 1 ) )
+  try( hist( nr, breaks=seq(-0.5,max(nr,na.rm=T)+0.5,by=1), main=NULL, xlab="NClust per gene" ), silent=T )
   ##}, silent=T )
   
   if ( ! is.na( plot.clust ) ) { 
@@ -1162,6 +1201,9 @@ write.project <- function( ks=sapply( as.list( clusterStack ), "[[", "k" ), para
   ##ks <- sapply( clusterStack, "[[", "k" )
   clusterStack <- clusterStack[ ks ]
   mc <- get.parallel( length( ks ), para.cores=para.cores )
+#ifndef PACKAGE
+  has.pdftk <- length( system( "which pdftk", intern=T ) ) > 0 ## Use for compressing pdfs
+#endif
   
   if ( ! file.exists( paste( out.dir, "/svgs", sep="" ) ) )
     dir.create( paste( out.dir, "/svgs", sep="" ), showWarnings=F )
@@ -1212,7 +1254,13 @@ write.project <- function( ks=sapply( as.list( clusterStack ), "[[", "k" ), para
       ##k <- ks[ i ]
       if ( k %% 25 == 0 ) cat( k ) else cat( "." )
       if ( file.exists( sprintf( "%s/pdfs/cluster%04d.pdf", out.dir, k ) ) ) return( NULL )
+#ifndef PACKAGE
+      if ( has.pdftk )
+#endif
         pdf( sprintf( "%s/pdfs/cluster%04d.pdf", out.dir, k ) ) ## Will be compressed later
+#ifndef PACKAGE
+      else cairo_pdf( sprintf( "%s/pdfs/cluster%04d.pdf", out.dir, k ) ) ## Writes out smaller PDFs
+#endif
       try( plotClust( k, w.motifs=T, seq.type=seq.type, ... ), silent=T )
       dev.off()
     } )
@@ -1226,7 +1274,8 @@ write.project <- function( ks=sapply( as.list( clusterStack ), "[[", "k" ), para
     ##    see http://www.w3schools.com/svg/svg_inhtml.asp for other options.
     ##'%^%' <- function( a, b ) paste( a, b, sep="\n" )
     cat( "HTMLS: " )
-    mc$apply( ks, function( k, ... ) {
+    ##mc$
+    lapply( ks, function( k, ... ) {
       if ( k %% 25 == 0 ) cat( k ) else cat( "." )
       if ( file.exists( sprintf( "%s/htmls/cluster%04d.html", out.dir, k ) ) ) return()
       rows <- sort( get.rows( k ) )
@@ -1448,7 +1497,7 @@ write.project <- function( ks=sapply( as.list( clusterStack ), "[[", "k" ), para
 
       cat( htmltext, file=sprintf( "%s/htmls/cluster%04d.html", out.dir, k ), sep="\n" )
       rm( htmltext )
-    }, mc.preschedule=F )
+    } ) ##, mc.preschedule=F )
     cat( "\n" )
   }
 
@@ -1458,7 +1507,8 @@ write.project <- function( ks=sapply( as.list( clusterStack ), "[[", "k" ), para
     mc <- get.parallel( length( ks ), para=1 )
     cat( "PROFILES: " )
     ##for ( k in ks ) {
-    mc$apply( ks, function( k, ... ) {
+    ##mc$
+    lapply( ks, function( k, ... ) {
       if ( k %% 25 == 0 ) cat( k ) else cat( "." )
       if ( file.exists( sprintf( "%s/htmls/cluster%04d_profile.png", out.dir, k ) ) ) return() ##next
       try( {
@@ -1472,7 +1522,8 @@ write.project <- function( ks=sapply( as.list( clusterStack ), "[[", "k" ), para
     
     cat( "NETWORKS: " )
     require( igraph )
-    mc$apply( ks, function( k, ... ) {
+    ##mc$
+    lapply( ks, function( k, ... ) {
     ##for ( k in ks ) {
       if ( k %% 25 == 0 ) cat( k ) else cat( "." )
       if ( file.exists( sprintf( "%s/htmls/cluster%04d_network.png", out.dir, k ) ) ) return() ##next
@@ -1488,7 +1539,8 @@ write.project <- function( ks=sapply( as.list( clusterStack ), "[[", "k" ), para
     if ( ! is.null( seq.type ) ) {
       cat( "MOTIFS: " )
       ##for ( k in ks ) {
-      mc$apply( ks, function( k, ... ) {
+      ##mc$
+      lapply( ks, function( k, ... ) {
         if ( k %% 25 == 0 ) cat( k ) else cat( "." )
         e.vals <- lapply( meme.scores[[ seq.type ]][[ k ]]$meme.out, "[[", "e.value" )
         pssms <- lapply( meme.scores[[ seq.type ]][[ k ]]$meme.out, "[[", "pssm" )
@@ -1513,7 +1565,8 @@ write.project <- function( ks=sapply( as.list( clusterStack ), "[[", "k" ), para
       
       cat( "MOTIF POSITIONS: " )
       ##for ( k in ks ) {
-      mc$apply( ks, function( k, ... ) {
+      ##mc$
+      lapply( ks, function( k, ... ) {
         if ( k %% 25 == 0 ) cat( k ) else cat( "." )
         if ( file.exists( sprintf( "%s/htmls/cluster%04d_mot_posns.png", out.dir, k ) ) ) return() ##next
         try( {
@@ -1663,12 +1716,24 @@ write.project <- function( ks=sapply( as.list( clusterStack ), "[[", "k" ), para
       system( sprintf( "mv -v %s %s", f, sub( ".svg.gz", ".svgz", f, fixed=T ) ) )
     ##system( sprintf( "rpl .svg .svgz %s/*.html %s/htmls/*.html", out.dir, out.dir ) )
     ##for ( f in
-    mc$apply( c( list.files( sprintf( "%s/htmls", out.dir ), pattern=glob2rx( "*.html" ), full=T ),
+    ##mc$
+    lapply( c( list.files( sprintf( "%s/htmls", out.dir ), pattern=glob2rx( "*.html" ), full=T ),
                 list.files( out.dir, pattern=glob2rx( "*.html" ), full=T ) ), function( f ) {
                   cat( f, "\n" ); rpl( '.svg"', '.svgz"', f, fixed=T ) } )
     ##for ( f in list.files( out.dir, pattern=glob2rx( "*.html" ), full=T ) ) {
     ##  cat( f, "\n" ); rpl( '.svg"', '.svgz"', f, fixed=T ) }
     ##}
+#ifndef PACKAGE
+    if ( has.pdftk )
+      ##mc$
+      lapply( list.files( paste( out.dir, "/pdfs", sep="" ), full=T ), function( f )
+               if ( grepl( ".pdf", f, fixed=T ) ) {
+                 ##system( sprintf( "ls -al %s", f ) )
+                 system( sprintf( "pdftk %s output %s.tmp compress", f, f ) )
+                 system( sprintf( "/bin/mv -fv %s.tmp %s", f, f ) )
+                 ##system( sprintf( "ls -al %s", f ) )
+               } )
+#endif
   }
   if ( "rdata" %in% output ) save.cmonkey.env( file=paste( out.dir, "/cm_session.RData", sep="" ) )
   out.dir
@@ -1707,6 +1772,17 @@ write.bicluster.network <- function( out.dir=NULL, ks=1:k.clust, seq.type=names(
   if ( ! is.null( m.filter ) ) m.sif <- m.filter( m.sif )
   
   ## Run tomtom to get motif similarities, add edges between motif nodes; include eda's with stats of motif match
+#ifndef PACKAGE
+  if ( "tout" %in% names( list( ... ) ) ) tout <- list( ... )$tout
+  if ( ! exists( "tout" ) ) tout <- motif.similarities.tomtom( ks, ks, ... )
+  tout <- subset( tout, ! is.na( biclust1 ) )
+  tt.sif <- data.frame( sprintf( "motif_%04d_%d", as.integer( tout[ ,1 ] ), as.integer( tout[ ,2 ] ) ),
+                       sprintf( "motif_%04d_%d", as.integer( tout[ ,5 ] ), as.integer( tout[ ,6 ] ) ),
+                       tout[ ,9 ], tout[ ,10 ], tout[ ,11 ], tout[ ,12 ] )
+  tt.sif <- data.frame( tt.sif[ ,1 ], "motif_sim", tt.sif[ ,2:ncol( tt.sif ) ] )
+  colnames( tt.sif ) <- c( "node1", "int", "node2", "offset", "p.value", "q.value", "overlap" ) ## include eda's
+  if ( ! is.null( tt.filter ) ) tt.sif <- tt.filter( tt.sif )
+#endif
   
   ## Make r.sif, m.sif and tt.sif have same number of columns (eda's from m.sif and tt.sif) 
 ##   for ( i in 1:( ncol( m.sif ) + ncol( tt.sif ) - 6 ) ) r.sif <- cbind( r.sif, rep( NA, nrow( r.sif ) ) )
@@ -1722,6 +1798,10 @@ write.bicluster.network <- function( out.dir=NULL, ks=1:k.clust, seq.type=names(
   out.sif <- rbind( r.sif[ ,1:3 ], m.sif[ ,1:3 ], tt.sif[ ,1:3 ] )
   m.eda <- data.frame( edge=paste( m.sif[ ,1 ], " (", m.sif[ ,2 ], ") ", m.sif[ ,3 ], sep="" ),
                      m.sif[ ,4:ncol( m.sif ) ] )
+#ifndef PACKAGE
+  tt.eda <- data.frame( edge=paste( tt.sif[ ,1 ], " (", tt.sif[ ,2 ], ") ", tt.sif[ ,3 ], sep="" ),
+                     tt.sif[ ,4:ncol( tt.sif ) ] )
+#endif
 
   node.type <- as.data.frame( rbind( as.matrix( data.frame( attr( ratios, "rnames" ), "gene" ) ),
                                     as.matrix( data.frame( attr( ratios, "cnames" ), "condition" ) ),
