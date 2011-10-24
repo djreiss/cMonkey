@@ -327,6 +327,37 @@ get.operon.predictions <- function( fetch.predicted.operons="microbes.online", o
   operons
 }
 
+get.STRING.links <- function( org.id=genome.info$org.id$V1[ 1 ], detailed=T ) {
+  ## Original file fetched from http://string-db.org/newstring_download/protein.links.v9.0.txt.gz
+  ##   and parsed into individual organism and saved on bragi in ~cmonkey/data/STRING/
+  ## line format is something like this (85962 is Hpy Org.id):
+  ## 85962.HP0001 85962.HP0617 180
+  ## My parser removed the "85962." from each line.
+  ## Note old versions of string can be fetched from here: http://string.embl.de/server_versions.html
+  ##   e.g. v8.0 from http://string80.embl.de/newstring_download/protein.links.v8.0.txt.gz
+  
+  ##if ( exists( "get.STRING.links.NEW" ) ) return( invisible( get.STRING.links.NEW( org.id ) ) )
+  
+  url <- sprintf( "http://baliga.systemsbiology.net/cmonkey/data/STRING/%d_STRING.tsv.gz", org.id )
+  fname <- sprintf( "data/%s/string_links.tab.gz", rsat.species )
+  if ( ( ! file.exists( fname ) || file.info( fname )$size <= 10 ) ) {
+    err <- dlf( fname, url, paste( "Fetching STRING protein links file", url, "\n" ) )
+    ##if ( class( err ) == "try-error" || ! file.exists( fname ) || file.info( fname )$size < 10 ) 
+    ##  stop( paste( "Whoops, the file was not completely downloaded. Please try to download it yourself from",
+    ##              url, "and place it in", fname, "then restart cMonkey.\n" ) )
+  }
+  
+  if ( file.exists( fname ) && file.info( fname )$size > 10 ) {
+    cat( "Loading EMBL STRING interaction links from local file", fname, "\n" )
+    string.links <- read.delim( gzfile( fname ), sep="\t", head=F )
+    colnames( string.links ) <- c( "protein1", "protein2", "combined_score" )
+  } else {
+    string.links <- get.string.links.NEW( org.id )
+  }
+  closeAllConnections()
+  invisible( string.links )
+}
+
 ## NEW String links function: use organism ID from uniprot, can download full list from here:
 ## http://www.uniprot.org/taxonomy/?query=*&compress=yes&format=tab
 ## Can query it (this is an idea to try in future!), e.g. via:
@@ -340,7 +371,7 @@ get.operon.predictions <- function( fetch.predicted.operons="microbes.online", o
 ##      9544.ENSMMUP00000032511  but if it's e.g. Apo3, then leave out the orgid prefix.
 ##      (need to implement this!)
 ## TODO: download parsed organism-specific files from bragi instead. See proc_string.pl ...
-get.STRING.links <- function( org.id=genome.info$org.id$V1[ 1 ], all.genes=attr( ratios, "rnames" ),
+get.STRING.links.NEW <- function( org.id=genome.info$org.id$V1[ 1 ], all.genes=attr( ratios, "rnames" ),
                              score="score", min.score=02, string.url="http://string-db.org/" ) {
   if ( file.exists( paste( "data/", rsat.species, "/string_links_FALSE_", org.id, ".tab", sep="" ) ) ) {
     ## Has already-parsed (from original BIG BIG STRING flat file) 3-column space-delimited file
@@ -386,6 +417,7 @@ get.STRING.links <- function( org.id=genome.info$org.id$V1[ 1 ], all.genes=attr(
     for ( i in seq( 1, length( all.genes ), by=100 ) ) {
       ##ids <- paste( org.id, all.genes[ i:min( i + 99, length( all.genes ) ) ], sep="." )
       ids <- all.genes[ i:min( i + 99, length( all.genes ) ) ]
+      ids <- c( ids, paste( org.id, all.genes[ i:min( i + 99, length( all.genes ) ) ], sep="." ) )
       cat( i, "of", length( all.genes ), "\n" )
       if ( org.id == 3702 ) { ## Note can resolve gene names (e.g. needed for Ath) via:
         ##ids <- all.genes[ i:min( i + 99, length( all.genes ) ) ]

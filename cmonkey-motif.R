@@ -668,7 +668,6 @@ get.sequences <- function( k, seq.type=paste( c("upstream","upstream.noncod","up
   else rows <- k
   if ( is.null( rows ) ) return( NULL )
   start.stops <- NULL
-  if ( is.na( seq.type ) || strsplit( seq.type, " " )[[ 1 ]][ 1 ] == "gene" ) op.shift <- FALSE
   n.seq.type <- strsplit( seq.type, " " )[[ 1 ]][ 1 ]
 
   if ( substr( n.seq.type, 1, 8 ) == "fstfile=" ) { ## if seq.type is e.g. 'fstfile=asdfg.fst' then get seqs from fasta file
@@ -702,7 +701,9 @@ get.sequences <- function( k, seq.type=paste( c("upstream","upstream.noncod","up
       }
     }
     
-    op.shift <- operon.shift[ seq.type ]
+    if ( is.na( seq.type )  ) op.shift <- FALSE
+    else op.shift <- operon.shift[ seq.type ]
+    if ( n.seq.type %in% c( "gene", "upstream.noncod", "upstream.noncod.same.strand" ) ) op.shift <- FALSE
     
     coos <- get.gene.coords( rows, op.shift )
     if ( is.null( coos ) || nrow( coos ) <= 0 ) return( NULL )
@@ -712,7 +713,8 @@ get.sequences <- function( k, seq.type=paste( c("upstream","upstream.noncod","up
 
     if ( n.seq.type %in% c( "upstream.noncod", "upstream.noncod.same.strand" ) ) {
       all.coos <- genome.info$feature.tab[ ,c( "id", "name", "contig", "strand", "start_pos", "end_pos" ) ]
-      all.coos <- subset( all.coos, name %in% unlist( genome.info$synonyms ) )
+      ##all.coos <- subset( all.coos, name %in% c( rows, genome.info$all.gene.names, unlist( genome.info$synonyms ) ) )
+      all.coos <- subset( all.coos, grepl( "^NP_", id, perl=T ) )
     }
 
     ##len <- distance ##motif.upstream.search[[ n.seq.type ]]
@@ -729,7 +731,12 @@ get.sequences <- function( k, seq.type=paste( c("upstream","upstream.noncod","up
         st.st <- if ( coos$strand[ i ] == "D" ) ## "D" is forward, "R" is reverse (what does D stand for?)
           c( coos$end_pos[ i ] + 1 + distance[ 1 ], coos$end_pos[ i ] + 1 + distance[ 2 ] )
         else c( coos$start_pos[ i ] - 1 - distance[ 2 ], coos$start_pos[ i ] - 1 - distance[ 1 ] )
-      } else if ( n.seq.type %in% c( "upstream.noncod", "upstream.noncod.same.strand" ) ) { ## Get upstream seq. but only up to previous gene
+      } else if ( n.seq.type %in% c( "upstream.noncod", "upstream.noncod.same.strand" ) ) {
+        ## Get upstream seq. but only up to previous gene or max. distance
+        ## Note for this to be *only* noncoding, need to update these params to e.g.:
+        ## motif.upstream.scan=c(0,250), motif.upstream.search=c(0,150)
+        ## TODO: allow upstream.noncod for SEARCH but fixed distance (e.g. -250) for SCAN
+        ##    (right now if we use mot.weights=c( `upstream.noncod meme`=1 ) then BOTH are only noncoding.
         cc <- all.coos[ as.character( all.coos$contig ) == as.character( coos$contig[ i ] ) &
                        abs( all.coos$start_pos - coos$start_pos[ i ] ) <= 100000, ]
         if ( n.seq.type == "upstream.noncod.same.strand" )

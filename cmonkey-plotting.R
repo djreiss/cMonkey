@@ -1280,7 +1280,7 @@ write.project <- function( ks=sapply( as.list( clusterStack ), "[[", "k" ), para
       refseq.names <- unique( unlist( get.synonyms( rows ) ) )
       refseq.names <- grep( "^NP_", refseq.names, val=T )
       upstream.seqs <- try( get.sequences( k, filter=F, uniq=F ), silent=T ) ##uniquify=F, silent=T )
-      if ( class( upstream.seqs ) == "try-error" || is.null( upstream.seqs ) ) {
+      if ( class( upstream.seqs ) == "try-error" || is.null( upstream.seqs ) || length( upstream.seqs ) == 0 ) {
         upstream.seqs <- rep( "", length( rows ) ); names( upstream.seqs ) <- rows }
       upstream.seqs <- cbind( names( upstream.seqs ), upstream.seqs )
       rownames( upstream.seqs ) <- colnames( upstream.seqs ) <- NULL
@@ -1614,7 +1614,7 @@ write.project <- function( ks=sapply( as.list( clusterStack ), "[[", "k" ), para
                           table=F )
     if ( ! is.null( seq.type ) ) {
       e.val.1 <- lapply( meme.scores[[ seq.type ]][ as.integer( rownames( cluster.summ ) ) ],
-                      function( i ) i$meme.out[[ 1 ]]$e.value )
+                      function( i ) { mo <- i$meme.out; if ( length( mo ) >= 1 ) mo[[ 1 ]]$e.value else Inf } ) ##i$meme.out[[ 1 ]]$e.value )
       for ( i in 1:length( e.val.1 ) ) if ( is.null( e.val.1[[ i ]] ) ) e.val.1[[ i ]] <- NA
       himg1 <- hwriteImage( sprintf( "htmls/cluster%04d_pssm1.png", as.integer( rownames( cluster.summ ) ) ),
                            table=F, title=sprintf( "E-val = %.3g", unlist( e.val.1 ) ) )
@@ -1622,7 +1622,7 @@ write.project <- function( ks=sapply( as.list( clusterStack ), "[[", "k" ), para
       himg1 <- hwrite( paste( himg1, as.character( cluster.summ$consensus1 ), sep="<br>" ), center=TRUE, table=F )
       if ( ! is.null( seq.type ) )
         e.val.2 <- lapply( meme.scores[[ seq.type ]][ as.integer( rownames( cluster.summ ) ) ],
-                          function( i ) i$meme.out[[ 2 ]]$e.value )
+                          function( i ) { mo <- i$meme.out; if ( length( mo ) > 1 ) mo[[ 2 ]]$e.value else Inf } ) ##i$meme.out[[ 2 ]]$e.value )
       else e.val.2 <- as.list( rep( NA, k.clust ) )
       for ( i in 1:length( e.val.2 ) ) if ( is.null( e.val.2[[ i ]] ) ) e.val.2[[ i ]] <- NA
       himg2 <- hwriteImage( sprintf( "htmls/cluster%04d_pssm2.png", as.integer( rownames( cluster.summ ) ) ),

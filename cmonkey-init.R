@@ -392,26 +392,6 @@ cmonkey.init <- function( env=NULL, ... ) {
       set.param( "taxon.id", taxon.id, override=T )
       message( "Organism is ", organism, " ", cog.org, " ", rsat.species, " ", taxon.id )
     }
-
-    ## Get operon predictions; do this before getting sequences so we can op-shift if desired
-    genome.info$operons <- NULL
-    if ( ( operon.shift || "operons" %in% names( net.weights ) ) && ! no.genome.info ) {
-      tmp.operons <- try( get.operon.predictions( "microbes.online" ) )
-      if ( class( tmp.operons ) == "try-error" ) {
-        message( "Could not fetch operons file. Assuming it doesn't exist (eukaryote?)" )
-        set.param( "is.eukaryotic", TRUE, override=T )
-        set.param( "operon.shift", FALSE, override=T ); operon.shift[ 1:length( operon.shift ) ] <- FALSE
-        ##set.param( "remove.low.complexity.subseqs", TRUE, override=T )
-        if ( "operons" %in% names( net.weights ) ) {
-          net.weights <- net.weights[ names( net.weights ) != "operons" ]
-          set.param( "net.weights", net.weights, override=T )
-        }
-      } else {
-        genome.info$operons <- tmp.operons
-      }
-      rm( tmp.operons )
-      if ( ! is.null( env ) ) assign( "genome.info", genome.info, envir=env )
-    }
     
     ## Get common prefix from feature.names and use those genes (assume >40% of ORF names have this suffix)
     if ( exists( 'ratios' ) && ! is.null( ratios ) ) tmp <- toupper( attr( ratios, "rnames" ) )
@@ -433,7 +413,32 @@ cmonkey.init <- function( env=NULL, ... ) {
       message( "Could not find a common gene/probe identifier prefix. This only matters if there's no expression matrix." )
       prefix <- genome.info$gene.prefix <- NA
     }
+
+    genome.info$all.gene.names <- unique( as.character( subset( genome.info$feature.names,
+                                                               grepl( paste( "^", prefix, sep="" ), names,
+                                                                     ignore=T, perl=T ), select="names", drop=T ) ) )
+
     if ( ! is.null( env ) ) assign( "genome.info", genome.info, envir=env )
+
+    ## Get operon predictions; do this before getting sequences so we can op-shift if desired
+    genome.info$operons <- NULL
+    if ( ( operon.shift || "operons" %in% names( net.weights ) ) && ! no.genome.info ) {
+      tmp.operons <- try( get.operon.predictions( "microbes.online" ) )
+      if ( class( tmp.operons ) == "try-error" ) {
+        message( "Could not fetch operons file. Assuming it doesn't exist (eukaryote?)" )
+        set.param( "is.eukaryotic", TRUE, override=T )
+        set.param( "operon.shift", FALSE, override=T ); operon.shift[ 1:length( operon.shift ) ] <- FALSE
+        ##set.param( "remove.low.complexity.subseqs", TRUE, override=T )
+        if ( "operons" %in% names( net.weights ) ) {
+          net.weights <- net.weights[ names( net.weights ) != "operons" ]
+          set.param( "net.weights", net.weights, override=T )
+        }
+      } else {
+        genome.info$operons <- tmp.operons
+      }
+      rm( tmp.operons )
+      if ( ! is.null( env ) ) assign( "genome.info", genome.info, envir=env )
+    }
     
     if ( ! exists( 'ratios' ) || is.null( ratios ) ) {
       message( "WARNING: No ratios matrix -- will generate an 'empty' one with all annotated ORFs for 'probes'." )
@@ -459,7 +464,8 @@ cmonkey.init <- function( env=NULL, ... ) {
       for ( i in names( mot.weights ) ) {
         cat( "Pre-computing all '", i, "' seqs (", paste( motif.upstream.scan[[ i ]], collapse=", " ), ")...\n", sep="" )
         ## Note we don't filter all seqs (used for background) - even removing ATGs; is this okay?
-        genome.info$all.upstream.seqs[[ i ]] <- get.sequences( attr( ratios, "rnames" ), seq.type=i,
+        genome.info$all.upstream.seqs[[ i ]] <- get.sequences( ##attr( ratios, "rnames" ),
+                                                              genome.info$all.gene.names, seq.type=i,
                                                               distance=motif.upstream.scan[[ i ]], filter=F )
         if ( ! is.null( env ) ) assign( "genome.info", genome.info, envir=env )
         message( sum( ! attr( ratios, "rnames" ) %in% names( genome.info$all.upstream.seqs[[ i ]] ) ),
@@ -467,7 +473,8 @@ cmonkey.init <- function( env=NULL, ... ) {
         if ( ! is.na( bg.order[ i ] ) ) {
           cat( "Pre-computing '", i, "' residue bg distrib (order=", bg.order[ i ], ")...\n", sep="" )
           tmp.seqs <- if ( ! is.null( genome.info$all.upstream.seqs[[ i ]] ) ) genome.info$all.upstream.seqs[[ i ]]
-          else get.sequences( attr( ratios, "rnames" ), distance=motif.upstream.search[[ i ]], seq.type=i, filter=F )
+          else get.sequences( ##attr( ratios, "rnames" ),
+                             genome.info$all.gene.names, distance=motif.upstream.search[[ i ]], seq.type=i, filter=F )
           genome.info$bg.fname[ i ] <- my.tempfile( "meme.tmp", suf=".bg" ) 
           capture.output( genome.info$bg.list[[ i ]] <- mkBgFile( tmp.seqs, order=bg.order[ i ],
                                                                  bgfname=genome.info$bg.fname[ i ],
