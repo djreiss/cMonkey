@@ -399,7 +399,7 @@ plotCluster.network <- function( cluster, network="all", o.genes=NULL, colors=NU
     }
   }
   network <- cluster$network
-  nrows <- rows; if ( ! is.null( o.genes ) ) nrows <- c( nrows, o.genes )
+  nrows <- rows; if ( ! is.null( o.genes ) ) nrows <- unique( c( nrows, o.genes ) )
   if ( is.null( cluster$cog.code ) && "cog.code" %in% names( genome.info ) )
     cluster$cog.code <- genome.info$cog.code[ rows ]
   
@@ -590,7 +590,7 @@ plotClusterMotifPositions <- function( cluster, seqs=cluster$seqs, long.names=T,
   if ( length( cluster$rows ) <= 0 ) { warning( "Trying to plot a cluster with no rows!" ); return() }
   k <- cluster$k
   rows <- cluster$rows
-  if ( ! is.null( o.genes ) ) rows <- c( rows, o.genes )
+  if ( ! is.null( o.genes ) ) rows <- unique( c( rows, o.genes ) )
 
   motif.out <- NULL
   if ( ! is.null( seq.type ) && seq.type %in% names( cluster ) ) motif.out <- cluster[[ seq.type ]]$motif.out
@@ -886,7 +886,7 @@ plotClust <- function( k, cluster=NULL, w.motifs=T, all.conds=T, title=NULL, o.g
     return( invisible( cluster ) )
   }
   c <- get.clust( k, varNorm=F )
-  rows <- get.rows( k ); if ( ! is.null( o.genes ) ) rows <- c( rows, o.genes )
+  rows <- get.rows( k ); if ( ! is.null( o.genes ) ) rows <- unique( c( rows, o.genes ) )
   if ( length( rows ) <= 0 ) { warning( "Trying to plot a cluster with no rows!" ); return() }
   if ( ! w.motifs && ! dont.plot ) { 
     if ( all.conds ) plotCluster.all.conds( c, o.genes=o.genes, ... )

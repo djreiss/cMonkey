@@ -162,7 +162,7 @@ set.param <- function( name, val, env=cmonkey.params, override=F, quiet=F ) {
 
 ## Make sure all processes are killed via kill(children(),SIGKILL) ??
 ## Use "parallel.cores" param to determine if parallelization is desired - if it is FALSE or 0 or 1 or NA, then no.
-## If it is >1 or TRUE then yes. If TRUE, then determine # of cores via multicore:::detectCores()
+## If it is >1 or TRUE then yes. If TRUE, then determine # of cores via parallel:::detectCores()
 ## This should allow running on Windows boxes when there is no multicore package.
 ## Note that with the use of "foreach", this can now run on Windows if we use doSMP instead of doMC !!!
 ##    Set the "foreach.register.backend" function to a different backend if desired.
@@ -201,8 +201,8 @@ get.parallel <- function( X=k.clust, verbose=F, para.cores=get( "parallel.cores"
       par <- para.cores
       out.apply <- lapply 
       if ( mc ) {
-        if ( is.logical( par ) && par == TRUE ) par <- multicore:::detectCores() ## all.tests=TRUE )
-        par <- min( c( X, par, multicore:::detectCores() ) ) ## all.tests=TRUE ) ) )
+        if ( is.logical( par ) && par == TRUE ) par <- parallel::detectCores() ## all.tests=TRUE )
+        par <- min( c( X, par, parallel::detectCores() ) ) ## all.tests=TRUE ) ) )
         if ( verbose ) cat( "PARALLELIZING:", par, ": " )
         ## if ( ! exists( "foreach.register.backend" ) || is.null( foreach.register.backend ) ||
         ##     is.null( foreach.register.backend( par ) ) ) { ##use.foreach ) {
