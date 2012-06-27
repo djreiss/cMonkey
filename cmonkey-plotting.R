@@ -499,7 +499,8 @@ plotCluster.network <- function( cluster, network="all", o.genes=NULL, colors=NU
 
 col.let <- c( "A", "C", "G", "T" )
                    
-viewPssm <- function( pssm, e.val=NA, mot.ind=NA, use.char=T, main.title=NA, no.par=F, ... ) { 
+viewPssm <- function( pssm, e.val=NA, mot.ind=NA, use.char=T, main.title=NA, no.par=F, scale.e=NA, boxes=F, new=T,
+                     xoff=0, yoff=0, no.axis.labels=F, ... ) { 
   if ( is.null( pssm ) ) return()
   getEntropy <- function( pssm ) {
     pssm[ pssm == 0 ] <- 0.00001
@@ -512,13 +513,21 @@ viewPssm <- function( pssm, e.val=NA, mot.ind=NA, use.char=T, main.title=NA, no.
     C=list( x=c( 1, 1, 0.85, 0.55, 0.45, 0.15, 0, 0, 0.15, 0.45, 0.55, 0.85, 1.0, 1.0, 0.9, 0.9, 0.8, 0.55, 0.45, 0.2, 0.1, 0.1, 0.2, 0.45, 0.55, 0.8, 0.9, 0.9 ), y=c( 0.6, 0.7, 0.9, 1, 1, 0.9, 0.65, 0.35, 0.1, 0, 0, 0.1, 0.35, 0.4, 0.4, 0.35, 0.2, 0.1, 0.1, 0.2, 0.42, 0.58, 0.8, 0.9, 0.9, 0.8, 0.65, 0.6 ), color=4 ),
     G=list( x=c( 1, 1, 0.85, 0.55, 0.45, 0.15, 0, 0, 0.15, 0.45, 0.55, 0.85, 1.0, 1.0, 0.7, 0.7, 0.9, 0.8, 0.55, 0.45, 0.2, 0.1, 0.1, 0.2, 0.45, 0.55, 0.8, 0.9, 0.9 ), y=c( 0.6, 0.7, 0.9, 1, 1, 0.9, 0.65, 0.35, 0.1, 0, 0, 0.1, 0.35, 0.5, 0.5, 0.4, 0.4, 0.2, 0.1, 0.1, 0.2, 0.42, 0.58, 0.8, 0.9, 0.9, 0.8, 0.65, 0.6 ), color="orange" ) )##,
   
-  draw.char <- function( char=col.let, rect=c( 0, 0, 1, 1 ) ) {
+  draw.char <- function( char=col.let, rect=c( 0, 0, 1, 1 ), border=NULL, ... ) {
     ## rect is (x,y,width,height)
     if ( rect[ 4 ] <= 1e-5 ) return()
     x <- char.coords[[ char ]]$x * rect[ 3 ] + rect[ 1 ]
     y <- char.coords[[ char ]]$y * rect[ 4 ] + rect[ 2 ]
     color <- char.coords[[ char ]]$color
-    polygon( x, y, col=color, border=color )
+    if ( is.null( border ) ) border <- color
+    if ( ! boxes ) {
+      polygon( x + xoff, y + yoff, col=color, border=border, density=NA, ... )
+    } else {
+      rect[ 1 ] <- rect[ 1 ] + xoff
+      rect[ 2 ] <- rect[ 2 ] + yoff
+      rect( rect[ 1 ], rect[ 2 ], rect[ 1 ] + rect[ 3 ], rect[ 2 ] + rect[ 4 ], col=color, border=border,
+           density=NA, ... )
+    }
   }
 
   win.size <- nrow( pssm )
@@ -527,11 +536,11 @@ viewPssm <- function( pssm, e.val=NA, mot.ind=NA, use.char=T, main.title=NA, no.
   if ( any( pssm > 1 ) ) pssm <- t( apply( pssm, 1, function( i ) i / ( sum( i ) + 1e-10 ) ) )
 
   entr <- getEntropy( pssm )
-  scale.e <- (2 - entr) / 2
+  if ( is.na( scale.e ) ) scale.e <- (2 - entr) / 2
   ##scale.e[ scale.e < 0.05] <- 0.05
   x.range <- c(0.5, win.size + 0.5 )
-  y.range <- c(0,1)
-  plot( x.range, y.range, type="n", tck=0.01, cex.lab=0.2, cex.sub=0.2, cex.axis=0.2, axes=F )
+  y.range <- c(0,max(scale.e))
+  if ( new ) plot( x.range, y.range, type="n", tck=0.01, cex.lab=0.2, cex.sub=0.2, cex.axis=0.2, axes=F )
   if ( ! is.na( main.title[ 1 ] ) ) {
     if ( ! is.na( mot.ind ) ) title( main.title, col.main=mot.ind+1, xpd=NA, ... )
     else title( main.title, xpd=NA, ... )
@@ -552,7 +561,7 @@ viewPssm <- function( pssm, e.val=NA, mot.ind=NA, use.char=T, main.title=NA, no.
           rect( (j-0.5), 0, (j+0.5), pssm.sc[j,ind], col=colMap[ind])
           if (pssm[j,ind] > 0.05) text(j, 0 + pssm.sc[j,ind]/2, colLet[ind])
         } else {
-          draw.char( col.let[ ind ], c( (j-0.4), 0, 0.9, pssm.sc[j,ind]-0.01 ) )
+          draw.char( col.let[ ind ], c( (j-0.4), 0, 0.9, pssm.sc[j,ind]-0.01 ), ... )
         }
         prev.h <-  pssm.sc[j,ind]
       } else {
@@ -563,18 +572,23 @@ viewPssm <- function( pssm, e.val=NA, mot.ind=NA, use.char=T, main.title=NA, no.
             else text(j,  prev.h + 0.5 * pssm.sc[j,ind], colLet[ind])
           }
         } else {
-          draw.char( col.let[ ind ], c( (j-0.4), prev.h, 0.9, pssm.sc[j,ind]-0.01 ) )
+          draw.char( col.let[ ind ], c( (j-0.4), prev.h, 0.9, pssm.sc[j,ind]-0.01 ), ... )
         }
         prev.h <- prev.h + pssm.sc[j,ind]
       }
     }
+  }
+  if ( ! no.axis.labels ) {
     if ( win.size < 10 )
       text( 1:win.size, rep( -0.01, win.size ), as.character( 1:win.size ), cex=0.7, adj=c(0.5,1), xpd=NA )
     else if ( win.size < 20 ) text( seq( 1, win.size, 2 ), rep( -0.01, win.size ),
-              as.character( seq( 1, win.size, 2 ) ), cex=0.7, adj=c(0.5,1), xpd=NA )
-    else text( seq( 1, win.size, 5 ), rep( -0.01, win.size ),
-              as.character( seq( 1, win.size, 5 ) ), cex=0.7, adj=c(0.5,1), xpd=NA )
+                                   as.character( seq( 1, win.size, 2 ) ), cex=0.7, adj=c(0.5,1), xpd=NA )
+    else if ( win.size < 50 ) text( seq( 1, win.size, 5 ), rep( -0.01, win.size ),
+                                   as.character( seq( 1, win.size, 5 ) ), cex=0.7, adj=c(0.5,1), xpd=NA )
+    else text( seq( 1, win.size, 25 ), rep( -0.01, win.size ),
+              as.character( seq( 1, win.size, 25 ) ), cex=0.7, adj=c(0.5,1), xpd=NA )
   }
+  invisible( y.range )
 }
 
 ## Note: to get list of all positions of motif #1 in SEARCHED sequences, this now works:
@@ -708,7 +722,7 @@ plotClusterMotifPositions <- function( cluster, seqs=cluster$seqs, long.names=T,
       if ( ! is.null( colors ) ) rect( maxlen+5, j-0.18, maxlen*1.195, j+0.18, col=colors[ label ],
                                       border=colors[ label ], lwd=3 )
     }
-    
+
     if ( ! no.motif ) {
       rects <- NULL
       mot.info <- subset( tmp.mot.info, gene == cur.gene ) ##motif.out$mast.info[[ cur.gene ]]

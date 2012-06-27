@@ -162,7 +162,7 @@ set.param <- function( name, val, env=cmonkey.params, override=F, quiet=F ) {
 
 ## Make sure all processes are killed via kill(children(),SIGKILL) ??
 ## Use "parallel.cores" param to determine if parallelization is desired - if it is FALSE or 0 or 1 or NA, then no.
-## If it is >1 or TRUE then yes. If TRUE, then determine # of cores via parallel:::detectCores()
+## If it is >1 or TRUE then yes. If TRUE, then determine # of cores via parallel::detectCores()
 ## This should allow running on Windows boxes when there is no multicore package.
 ## Note that with the use of "foreach", this can now run on Windows if we use doSMP instead of doMC !!!
 ##    Set the "foreach.register.backend" function to a different backend if desired.
@@ -201,8 +201,8 @@ get.parallel <- function( X=k.clust, verbose=F, para.cores=get( "parallel.cores"
       par <- para.cores
       out.apply <- lapply 
       if ( mc ) {
-        if ( is.logical( par ) && par == TRUE ) par <- parallel::detectCores() ## all.tests=TRUE )
-        par <- min( c( X, par, parallel::detectCores() ) ) ## all.tests=TRUE ) ) )
+        if ( is.logical( par ) && par == TRUE ) par <- multicore:::detectCores() ## all.tests=TRUE )
+        par <- min( c( X, par, multicore:::detectCores() ) ) ## all.tests=TRUE ) ) )
         if ( verbose ) cat( "PARALLELIZING:", par, ": " )
         ## if ( ! exists( "foreach.register.backend" ) || is.null( foreach.register.backend ) ||
         ##     is.null( foreach.register.backend( par ) ) ) { ##use.foreach ) {
@@ -304,8 +304,13 @@ cluster.pclust <- function( k, mot.inds="COMBINED" ) { ## actually returns a lis
   rows <- get.rows( k )
   p.clusts <- sapply( inds, function( n ) {
     ms <- meme.scores[[ n ]][[ k ]]
-    if ( length( rows ) > 0 && ! is.null( ms$pv.ev ) && ! is.null( ms$pv.ev[[ 1 ]] ) )
-      mean( log10( ms$pv.ev[[ 1 ]][ rownames( ms$pv.ev[[ 1 ]] ) %in% rows, "p.value" ] ), na.rm=T ) else NA
+    out <- NA
+    if ( length( rows ) > 0 && ! is.null( ms$pv.ev ) && ! is.null( ms$pv.ev[[ 1 ]] ) ) {
+      if ( 'p.value' %in% colnames( ms$pv.ev[[ 1 ]] ) )
+        out <- mean( log10( ms$pv.ev[[ 1 ]][ rownames( ms$pv.ev[[ 1 ]] ) %in% rows, "p.value" ] ), na.rm=T )
+      else if ( 'pvals' %in% colnames( ms$pv.ev[[ 1 ]] ) )
+        out <- mean( log10( ms$pv.ev[[ 1 ]][ rownames( ms$pv.ev[[ 1 ]] ) %in% rows, "pvals" ] ), na.rm=T )
+    }
     ## pvs <- meme.scores[[ n ]]$all.pv
     ## if ( is.null( pvs ) ) return( NA )
     ## rows <- rows[ rows %in% rownames( pvs ) ]
@@ -764,6 +769,10 @@ get.synonyms <- function( gns, ft=genome.info$feature.names, ignore.case=T, verb
 ## }
 
 get.gene.coords <- function( rows, op.shift=T, op.table=genome.info$operons, ... ) { ##, override=F ) {
+  if ( is.null( rows ) ) {
+    if ( organism != 'hal' ) rows <- grep( "^NP_", as.character( genome.info$feature.tab$id ), perl=T, val=T )
+    else rows <- grep( "^VNG", as.character( genome.info$feature.tab$canonical_Name ), perl=T, val=T )
+  }
   rows <- unique( rows )
   syns <- get.synonyms( rows, ... )
   tab <- genome.info$feature.tab
@@ -853,6 +862,65 @@ get.long.names <- function( k, shorter=F ) {
   out
 }
 
+get.gene.regex <- function( names=NULL ) {
+  if ( ! is.null( names ) ) tmp <- names
+  else { ## Get common prefix from feature.names and use those genes (assume >40% of ORF names have this suffix)
+    if ( exists( 'ratios' ) && ! is.null( ratios ) ) tmp <- toupper( attr( ratios, "rnames" ) )
+    else if ( exists( 'genome.info' ) && ! is.null( genome.info$feature.names ) ) {
+      tmp <- toupper( subset( genome.info$feature.names, type == "primary", select="names", drop=T ) )
+      if ( exists( 'ratios' ) && ! is.null( ratios ) )
+        tmp <- tmp[ toupper( tmp ) %in% toupper( attr( ratios, "rnames" ) ) ]
+    }
+  }
+  
+  qqq <- sapply( 1:4, function( nch ) max( table( substr( tmp, 1, nch ) ) ) / length( tmp ) ); nch <- 0
+  if ( any( qqq > 0.9 ) ) { nch <- which( qqq > 0.9 ); nch <- nch[ length( nch ) ] } ## Longest prefix in >60% of names
+  else if ( any( qqq > 0.6 ) ) { nch <- which( qqq > 0.6 ); nch <- nch[ length( nch ) ] } ## Longest prefix in >60% of names
+  else if ( any( qqq > 0.4 ) ) { nch <- which( qqq > 0.4 ); nch <- nch[ length( nch ) ] } ## Longest prefix in >40% of names
+  ##nch <- 0; while( max( table( substr( tmp, 1, nch + 1 ) ) ) / length( tmp ) > 0.4 ) nch <- nch + 1
+  prefix <- NA
+  if ( nch > 0 ) {
+    prefix <- names( which.max( table( substr( tmp, 1, nch ) ) ) )
+    message( "Assuming gene/probe names have common prefix '", prefix, "'." )
+    genome.info$gene.prefix <- prefix
+  } else {
+    message( "Could not find a common gene/probe identifier prefix. This only matters if there's no expression matrix." )
+    prefix <- genome.info$gene.prefix <- NA
+  }
+
+  tmp2 <- tmp
+  if ( length( unique( nchar( tmp2 ) ) ) > 1 ) {
+    nc <- max( nchar( tmp2 ) )
+    for ( i in 1:length( tmp2 ) )
+      tmp2[ i ] <- paste( tmp2[ i ], rep( ' ', nc - nchar( tmp2[ i ] ) ), sep='', collapse='' )
+  }
+  tmp2 <- do.call( rbind, strsplit( tmp2, '' ) )
+  regex <- apply( tmp2, 2, function( i ) sort( unique( i ) ) )
+  for ( i in 1:length( regex ) ) {
+    ii <- as.integer( regex[[ i ]] )
+    if ( ! any( is.na( ii ) ) ) {
+      if ( length( ii ) == length( ii[ 1 ]:ii[ length( ii ) ] ) && all( ii ) == ii[1]:ii[length(i)] )
+        regex[[ i ]] <- paste( '[', paste( ii[ 1 ], ii[ length( ii ) ], sep='-' ), ']', sep='' )
+    }
+    if ( length( regex[[ i ]][ regex[[ i ]] != ' ' ] ) > 1 ) regex[[ i ]] <- c( '[', regex[[ i ]], ']' )
+    if ( any( regex[[ i ]] == '' | regex[[ i ]] == ' ' | is.na( regex[[ i ]] ) ) )
+      regex[[ i ]] <- c( regex[[ i ]][ regex[[ i ]] != ' ' ], '?' )
+  }
+  regex <- paste( unlist( lapply( regex, paste, sep='', collapse='' ) ), sep='', collapse='' )
+  message( "Assuming gene/probe names have regex '", regex, "'." )
+  c( prefix, regex )
+}
+
 extend.vec <- function( v, n=n.iter ) {
   if ( length( v ) < n ) v <- c( v, rep( v[ length( v ) ], n.iter - length( v ) ) ); v }
+
+operon.list <- function() { ## convert operon table to list of operons
+  out <- list()
+  ops <- as.matrix( genome.info$operons )
+  for ( i in 1:nrow( ops ) ) {
+    if ( ! ops[ i, 1 ] %in% names( out ) ) out[[ ops[ i, 1 ] ]] <- ops[ i, 2 ]
+    else out[[ ops[ i, 1 ] ]] <- c( out[[ ops[ i, 1 ] ]], ops[ i, 2 ] )
+  }
+  out
+}
 

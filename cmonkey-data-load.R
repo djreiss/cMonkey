@@ -270,9 +270,17 @@ get.operon.predictions <- function( fetch.predicted.operons="microbes.online", o
     }
     if ( file.exists( fname ) ) cat( "Succesfully fetched operon predictions. Parsing...\n" )
     ops <- read.delim( gzfile( fname ) )
-    ops2 <- subset( ops, bOp == "TRUE" & SysName1 != "" & SysName2 != "" )
-    gns <- sort( unique( c( as.character( ops2$SysName1 ), as.character( ops2$SysName2 ) ) ) )
-    gns <- gns[ gns != "" ]
+    ops2 <- ops ##subset( ops, bOp == "TRUE" & SysName1 != "" & SysName2 != "" )
+    on <- as.character( ops2$SysName1 )[ -1 ]
+    bOp <- ops2$bOp[ -1 ]
+    on[ which( on == '' ) ] <- on[ which( on == '' ) - 1 ]
+    ops2$SysName1 <- c( as.character( ops2$SysName1 )[ 1 ], on )
+    on <- as.character( ops2$SysName2 )[ -1 ]
+    on[ which( on == '' ) ] <- on[ which( on == '' ) - 1 ]
+    ops2$SysName2 <- c( as.character( ops2$SysName2 )[ 1 ], on )
+    ops2 <- subset( ops2, bOp == "TRUE" ) ##& SysName1 != "" & SysName2 != "" )    
+    ##gns <- sort( unique( c( as.character( ops2$SysName1 ), as.character( ops2$SysName2 ) ) ) )
+    ##gns <- gns[ gns != "" ]
 
     sn1 <- as.character( ops2$SysName1 )
     sn1[ sn1 == "" | is.na( sn1 ) ] <- as.character( ops2$Name1 )[ sn1 == "" | is.na( sn1 ) ]
@@ -281,12 +289,17 @@ get.operon.predictions <- function( fetch.predicted.operons="microbes.online", o
     operons <- list( 0 )
     for ( i in 1:length( sn1 ) ) {
       sn1i <- sn1[ i ]
+      if ( sn1i == '' ) next
       found <- which( sapply( operons, function( j ) sn1i %in% j ) )
       if ( length( found ) > 0 ) operons[[ found[ 1 ] ]] <- c( operons[[ found[ 1 ] ]], sn2[ i ] )
       else operons[[ length( operons ) + 1 ]] <- c( sn1i, sn2[ i ] )
     }
     operons <- operons[ -1 ]
+    operons <- lapply( operons, unique )
+    operons <- lapply( operons, function( i ) i[ i != '' ] )
+    operons <- operons[ sapply( operons, length ) > 1 ]
 
+    gns <- unlist( operons )
     search.names <- c( gns, as.character( genome.info$feature.names$id ) )
     if ( exists( "ratios" ) ) search.names <- c( attr( ratios, "rnames" ), search.names )
     mc <- get.parallel( length( operons ) )
@@ -382,8 +395,8 @@ get.STRING.links.NEW <- function( org.id=genome.info$org.id$V1[ 1 ], all.genes=a
     return( string.links )
   }
 
-  ## if ( ! is.na( genome.info$gene.prefix ) )
-  ##   all.genes <- unique( grep( paste( "^", genome.info$gene.prefix, sep="" ), genome.info$feature.names$names,
+  ## if ( ! is.na( genome.info$gene.regex ) )
+  ##   all.genes <- unique( grep( paste( "^", genome.info$gene.regex, sep="" ), genome.info$feature.names$names,
   ##                             val=T ) )
   ## else
   

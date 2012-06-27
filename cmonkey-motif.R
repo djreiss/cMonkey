@@ -660,7 +660,7 @@ rev.comp <- function( seqs ) { ## Fast reverse-complement
 ## seq.type can be any of those listed or e.g. 'file=asdfg.fst' then get seqs from fasta file asdfg.fst
 get.sequences <- function( k, seq.type=paste( c("upstream","upstream.noncod","upstream.noncod.same.strand",
                                 "downstream","gene")[ 1 ], "meme" ), verbose=F, filter=T,
-                          distance=motif.upstream.search[[ seq.type ]], ... ) {
+                          distance=motif.upstream.search[[ seq.type ]], op.shift, ... ) {
   if ( length( k ) <= 0 ) return( NULL )
   if ( is.numeric( k[ 1 ] ) ) rows <- get.rows( k )
   else if ( ! is.null( genome.info$genome.seqs ) && k %in% names( genome.info$genome.seqs ) )
@@ -669,7 +669,7 @@ get.sequences <- function( k, seq.type=paste( c("upstream","upstream.noncod","up
   if ( is.null( rows ) ) return( NULL )
   start.stops <- NULL
   n.seq.type <- strsplit( seq.type, " " )[[ 1 ]][ 1 ]
-
+  
   if ( substr( n.seq.type, 1, 8 ) == "fstfile=" ) { ## if seq.type is e.g. 'fstfile=asdfg.fst' then get seqs from fasta file
     if ( ! is.null( genome.info$all.upstream.seqs[[ seq.type ]] ) &&
         length( genome.info$all.upstream.seqs[[ seq.type ]] ) > 0 ) { ## use cached values
@@ -700,12 +700,15 @@ get.sequences <- function( k, seq.type=paste( c("upstream","upstream.noncod","up
         stop( "Motif searching is on but no ", seq.type, " sequences!" )
       }
     }
+
+    if ( missing( op.shift ) ) {
+      if ( is.na( seq.type ) || seq.type == 'gene' ) op.shift <- FALSE
+      else op.shift <- operon.shift[ seq.type ]
+      if ( is.na( op.shift ) ) op.shift <- operon.shift[ 1 ]
+      if ( n.seq.type %in% c( "gene", "upstream.noncod", "upstream.noncod.same.strand" ) ) op.shift <- FALSE
+    }
     
-    if ( is.na( seq.type )  ) op.shift <- FALSE
-    else op.shift <- operon.shift[ seq.type ]
-    if ( n.seq.type %in% c( "gene", "upstream.noncod", "upstream.noncod.same.strand" ) ) op.shift <- FALSE
-    
-    coos <- get.gene.coords( rows, op.shift )
+    coos <- get.gene.coords( rows, op.shift=op.shift )
     if ( is.null( coos ) || nrow( coos ) <= 0 ) return( NULL )
     coos <- subset( coos, ! is.na( start_pos ) & ! is.na( end_pos ) )
     if ( is.null( coos ) || nrow( coos ) <= 0 ) return( NULL )
@@ -751,7 +754,7 @@ get.sequences <- function( k, seq.type=paste( c("upstream","upstream.noncod","up
       }
       seq <- substr( genome.info$genome.seqs[[ as.character( coos$contig[ i ] ) ]], st.st[ 1 ], st.st[ 2 ] )
       if ( coos$strand[ i ] == "R" ) seq <- rev.comp( seq )
-      if ( nchar( seq ) > abs( diff( distance ) ) ) {
+      if ( seq.type != 'gene' && nchar( seq ) > abs( diff( distance ) ) ) {
         if ( coos$strand[ i ] == "D" ) seq <- substr( seq, 1, abs( diff( distance ) ) )
         else seq <- rev.comp( substr( rev.comp( seq ), 1, abs( diff( distance ) ) ) )
       }

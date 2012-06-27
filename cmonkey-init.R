@@ -94,7 +94,7 @@ cmonkey.init <- function( env=NULL, ... ) {
     attr( ratios, "ncol" ) <- length( attr( ratios, "cnames" ) ) ## Summary attributes (for multiple ratios matrices)
     if ( is.null( names( ratios ) ) ) {
       names( ratios ) <- paste( "ratios", 1:length( ratios ), sep='.' )
-      if ( ! all( names( ratios ) %in% names( row.weights ) ) )
+      if ( exists( 'row.weights' ) && ! all( names( ratios ) %in% names( row.weights ) ) )
         for ( i in names( ratios ) ) row.weights[ i ] <- row.weights[ 1 ]
     }
     for ( n in names( ratios ) ) {
@@ -133,7 +133,7 @@ cmonkey.init <- function( env=NULL, ... ) {
   ##set.param( "mot.iters", seq( 100, n.iter, by=10 ) ) ## Which iters to use results of most recent meme run in scores
   set.param( "mot.iters", seq( 601, max( n.iter, 605 ), by=3 ) ) ## Which iters to use results of most recent meme run in scores
   set.param( "net.iters", seq( 1, n.iter, by=7 ) ) ## Which iters to re-calculate network scores?
-  set.param( "row.scaling", 6 )  ## Seems to work best for Mpn, works good for Halo
+  set.param( "row.scaling", 1 ) ##6 )  ## Seems to work best for Mpn, works good for Halo (6 is with quantile.normalize turned on)
   set.param( "row.weights", c( ratios=1 ) ) ## Optionally load multiple ratios files and set relative weights
   set.param( "mot.scaling", seq( 0, 1, length=n.iter*3/4 ) ) ##* 0.5
   set.param( "mot.weights", c( `upstream meme`=1 ) ) ##, `upstream weeder`=0.5, `upstream spacer`=1, `upstream memepal`=1 ) ) ## Sequence and algorithm for for motif search: Optionally use different automatically computed sequences (e.g. `downstream meme`=1) or an input file (e.g. `fstfile=zzz.fst meme`=1) (csvfile too!) and motif algos (e.g. weeder, spacer, prism, meme, memepal)
@@ -153,8 +153,8 @@ cmonkey.init <- function( env=NULL, ... ) {
   set.param( "cluster.rows.allowed", c( 3, 70 ) ) ##200 ) ) ## Min/max number of rows to allow in a bicluster
   set.param( "merge.cutoffs", c( n=0.3, cor=0.975 ) ) ## n=0.3 => merge 1 pair of clusters every 3 iters; if n>1 then merge that number of pairs of clusters every iter; cor is correlation cutoff
   ## Note: to use seeded clusters use the "list=" row seeding method and set "fuzzy.index" to close to 0... seems to work (note setting it to 0 is probably a bad idea).
-  ##set.param( "fuzzy.index", 0.75 * exp( -( 1:n.iter ) / (n.iter/4) ) ) ## (n.iter/6) ## hack to add stochasticity
-  set.param( "fuzzy.index", 0.7 * exp( -( 1:n.iter ) / (n.iter/3) ) + 0.05 ) ## (n.iter/6) ## hack to add stochasticity
+  set.param( "fuzzy.index", 0.75 * exp( -( 1:n.iter ) / (n.iter/4) ) ) ## (n.iter/6) ## hack to add stochasticity
+  ##set.param( "fuzzy.index", 0.7 * exp( -( 1:n.iter ) / (n.iter/3) ) + 0.05 ) ## (n.iter/6) ## hack to add stochasticity
   set.param( "translation.tab", NULL ) ## custom 2-column translation table to be used for additional synonyms
   set.param( "seed.method", c( rows="kmeans", cols="best" ) ) ## "net=string:5" "rnd" "kmeans" "trimkmeans=TRIM" "rnd" "list=FILENAME" "rnd=NG" "cor=NG" "net=netname:NG" "netcor=netname:NG" "custom" -- NG is # of genes per seeded cluster; "best" or "rnd" is option for cols
   set.param( "maintain.seed", NULL ) ## List of lists of vectors of rows to maintain for each k: force seeded rows or cols in each cluster to STAY there! e.g. maintain.seed=list(rows=list(`3`=c(gene1,gene2,gene3))) ; This should be used in conjunection with seed.method["rows"]=="custom" or "list=..."
@@ -392,7 +392,7 @@ cmonkey.init <- function( env=NULL, ... ) {
       set.param( "taxon.id", taxon.id, override=T )
       message( "Organism is ", organism, " ", cog.org, " ", rsat.species, " ", taxon.id )
     }
-    
+
     ## Get common prefix from feature.names and use those genes (assume >40% of ORF names have this suffix)
     if ( exists( 'ratios' ) && ! is.null( ratios ) ) tmp <- toupper( attr( ratios, "rnames" ) )
     else if ( exists( 'genome.info' ) && ! is.null( genome.info$feature.names ) ) {
@@ -401,7 +401,8 @@ cmonkey.init <- function( env=NULL, ... ) {
         tmp <- tmp[ toupper( tmp ) %in% toupper( attr( ratios, "rnames" ) ) ]
     }
     qqq <- sapply( 1:4, function( nch ) max( table( substr( tmp, 1, nch ) ) ) / length( tmp ) ); nch <- 0
-    if ( any( qqq > 0.6 ) ) { nch <- which( qqq > 0.6 ); nch <- nch[ length( nch ) ] } ## Longest prefix in >60% of names
+    if ( any( qqq > 0.9 ) ) { nch <- which( qqq > 0.9 ); nch <- nch[ length( nch ) ] } ## Longest prefix in >60% of names
+    else if ( any( qqq > 0.6 ) ) { nch <- which( qqq > 0.6 ); nch <- nch[ length( nch ) ] } ## Longest prefix in >60% of names
     else if ( any( qqq > 0.4 ) ) { nch <- which( qqq > 0.4 ); nch <- nch[ length( nch ) ] } ## Longest prefix in >40% of names
     ##nch <- 0; while( max( table( substr( tmp, 1, nch + 1 ) ) ) / length( tmp ) > 0.4 ) nch <- nch + 1
     prefix <- NA
@@ -414,9 +415,40 @@ cmonkey.init <- function( env=NULL, ... ) {
       prefix <- genome.info$gene.prefix <- NA
     }
 
+    if ( TRUE ) {
+      tmp2 <- tmp
+      if ( length( unique( nchar( tmp2 ) ) ) > 1 ) {
+        nc <- max( nchar( tmp2 ) )
+        for ( i in 1:length( tmp2 ) ) {
+          tmp2[ i ] <- paste( tmp2[ i ], paste( rep( ' ', nc - nchar( tmp2[ i ] ) ), sep='', collapse='' ), sep='' )
+        }
+      }
+      tmp2 <- do.call( rbind, strsplit( tmp2, '' ) )
+      regex <- apply( tmp2, 2, function( i ) sort( unique( i ) ) )
+      for ( i in 1:length( regex ) ) {
+        ii <- as.integer( regex[[ i ]] )
+        if ( ! any( is.na( ii ) ) ) {
+          if ( length( ii ) == length( ii[ 1 ]:ii[ length( ii ) ] ) && all( sort( ii ) == ii[1]:ii[length(i)] ) )
+            regex[[ i ]] <- paste( '[', paste( ii[ 1 ], ii[ length( ii ) ], sep='-' ), ']', sep='' )
+        }
+        if ( length( regex[[ i ]][ regex[[ i ]] != ' ' ] ) > 1 ) regex[[ i ]] <- c( '[', regex[[ i ]], ']' )
+        if ( any( regex[[ i ]] == '' | regex[[ i ]] == ' ' | is.na( regex[[ i ]] ) ) )
+          regex[[ i ]] <- c( regex[[ i ]][ regex[[ i ]] != ' ' ], '?' )
+      }
+      regex <- paste( unlist( lapply( regex, paste, sep='', collapse='' ) ), sep='', collapse='' )
+      regex <- gsub( '.', '\\.', regex, fixed=T )
+      message( "Assuming gene/probe names have regex '", regex, "'." )
+      genome.info$gene.regex <- regex
+    }    
+
     genome.info$all.gene.names <- unique( as.character( subset( genome.info$feature.names,
-                                                               grepl( paste( "^", prefix, sep="" ), names,
+                                                        grepl( paste( "^", genome.info$gene.regex, sep="" ), names,
                                                                      ignore=T, perl=T ), select="names", drop=T ) ) )
+    if ( length( genome.info$all.gene.names ) ) { ## regex is still in testing phase!
+      genome.info$all.gene.names <- unique( as.character( subset( genome.info$feature.names,
+                                                        grepl( paste( "^", genome.info$gene.prefix, sep="" ), names,
+                                                                     ignore=T, perl=T ), select="names", drop=T ) ) )
+    }
 
     if ( ! is.null( env ) ) assign( "genome.info", genome.info, envir=env )
 
@@ -442,8 +474,8 @@ cmonkey.init <- function( env=NULL, ... ) {
     
     if ( ! exists( 'ratios' ) || is.null( ratios ) ) {
       message( "WARNING: No ratios matrix -- will generate an 'empty' one with all annotated ORFs for 'probes'." )
-      if ( ! is.na( prefix ) ) rows <- unique( as.character( subset( genome.info$feature.names,
-                                                                    grepl( paste( "^", prefix, sep="" ), names,
+      if ( ! is.null( genome.info$gene.regex ) ) rows <- unique( as.character( subset( genome.info$feature.names,
+                                                                    grepl( paste( "^", genome.info$gene.regex, sep="" ), names,
                                                                     ignore=T, perl=T ), select="names", drop=T ) ) )
       else rows <- unique( as.character( subset( genome.info$feature.names, type=="primary", select="names", drop=T ) ) )
 
@@ -453,7 +485,7 @@ cmonkey.init <- function( env=NULL, ... ) {
       attr( ratios, "ncol" ) <- 1
       cat( "Ratios: ", attr( ratios, "nrow" ), "x", 1, "\n" )
     }
-    rm( nch, prefix, tmp, qqq )
+    rm( nch, prefix, regex, tmp, qqq )
 
     ## Get upstream/downstream seqs, compute bg model, optionally discard genome seqs (for memory)
     if ( ! no.genome.info && length( mot.weights ) > 0 ) { ##is.null( genome.info$genome.seqs ) ) {
@@ -476,7 +508,8 @@ cmonkey.init <- function( env=NULL, ... ) {
           else get.sequences( ##attr( ratios, "rnames" ),
                              genome.info$all.gene.names, distance=motif.upstream.search[[ i ]], seq.type=i, filter=F )
           genome.info$bg.fname[ i ] <- my.tempfile( "meme.tmp", suf=".bg" ) 
-          capture.output( genome.info$bg.list[[ i ]] <- mkBgFile( tmp.seqs, order=bg.order[ i ],
+          capture.output(
+                         genome.info$bg.list[[ i ]] <- mkBgFile( tmp.seqs, order=bg.order[ i ], verbose=T,
                                                                  bgfname=genome.info$bg.fname[ i ],
                                                                  use.rev.comp=grepl( "-revcomp", meme.cmd[ i ] ) ) )
           rm( tmp.seqs )

@@ -22,7 +22,7 @@ update.all.clusters <- function( env, dont.update=F, ... ) {
   env$meme.scores <- tmp$ms
   if ( ! is.null( tmp$cns ) ) env$cluster.net.scores <- tmp$cns
 
-  tmp <- get.combined.scores( quant=T )
+  tmp <- get.combined.scores( quant=F ) ## quant=T )
   r.scores <- tmp$r; c.scores <- tmp$c ##; n.scores <- tmp$n; m.scores <- tmp$m
 
   if ( length( tmp$scalings ) > 0 ) {
@@ -38,7 +38,7 @@ update.all.clusters <- function( env, dont.update=F, ... ) {
   rownames( col.memb ) <- attr( ratios, "cnames" )    
   
   ## Fuzzify scores a bit for stochasticity! (fuzz should be between 0.2 and 0 (decreasing with iter)
-  if ( fuzzy.index[ iter ] > 1e-5 ) {
+  if ( row.scaling[ iter ] > 0 && fuzzy.index[ iter ] > 1e-5 ) {
     r.scores[,] <- r.scores[,] +
       rnorm( length( r.scores[,] ), sd=sd( r.scores[,][ row.memb[,] == 1 ], na.rm=T ) * fuzzy.index[ iter ] )
     if ( ! is.null( c.scores ) ) c.scores[,] <- c.scores[,] +
@@ -95,6 +95,18 @@ update.all.clusters <- function( env, dont.update=F, ... ) {
 get.combined.scores <- function( quantile.normalize=F ) {
   r.scores <- row.scores[,]
   r.scores <- matrix.reference( r.scores )
+## qqqifndef 
+  if ( ! quantile.normalize ) {
+    row.memb <- sapply( 1:k.clust, function( k ) attr( ratios, "rnames" ) %in% get.rows( k ) )
+    rownames( row.memb ) <- attr( ratios, "rnames" )
+    tmp <- r.scores[,] < -20; r.scores[,][ tmp ] <- min( r.scores[,][ ! tmp ], na.rm=T )
+    rsm <- r.scores[,][ row.memb ]
+    tmp <- mad( rsm, na.rm=T )
+    if ( tmp != 0 ) r.scores[,] <- ( r.scores[,] - median( rsm, na.rm=T ) ) / tmp
+    else { tmp <- sd( rsm, na.rm=T ); if ( tmp != 0 ) r.scores[,] <- ( r.scores[,] - median( rsm, na.rm=T ) ) / tmp }
+    rm( tmp, rsm )
+  }
+## qqqendif
   
   tmp <- r.scores[,] < -20; r.scores[,][ tmp ] <- min( r.scores[,][ ! tmp ], na.rm=T ); rm( tmp ) ## -220
   r.scores[,][ is.infinite( r.scores[,] ) ] <- NA
@@ -102,6 +114,10 @@ get.combined.scores <- function( quantile.normalize=F ) {
   ## }
   ##cat( "HERE: row", r.scores[1,1], "\n" )
   
+##qqq ifndef 
+  if ( ! quantile.normalize && ! is.null( mot.scores ) || ! is.null( net.scores ) )
+    rs.quant <- quantile( r.scores[,], 0.01, na.rm=T )
+##qqq endif
 
   if ( ! is.null( mot.scores ) ) {
     m.scores <- mot.scores[,]
@@ -109,6 +125,12 @@ get.combined.scores <- function( quantile.normalize=F ) {
   } else m.scores <- NULL
   if ( ! is.null( mot.scores ) && ! is.null( m.scores ) ) {
     tmp <- m.scores[,] < -20; m.scores[,][ tmp ] <- min( m.scores[,][ ! tmp ], na.rm=T ); rm( tmp ) ## effective zero is 10^-20
+##qqq ifndef 
+    if ( ! quantile.normalize ) {
+      m.scores[,] <- m.scores[,] - quantile( m.scores[,], 0.99, na.rm=T ) ## Make it so no mot -> zero score -> no penalization
+      m.scores[,] <- m.scores[,] / abs( quantile( m.scores[,], 0.01, na.rm=T ) ) * abs( rs.quant ) ## Make it so min(mot.scores) == min(row.scores) so no mot.score is too dominant
+    }
+##qqq endif
   } ##!else m.scores <- NULL
   
   if ( ! is.null( net.scores ) ) {
@@ -117,6 +139,15 @@ get.combined.scores <- function( quantile.normalize=F ) {
   } else n.scores <- NULL
   if ( ! is.null( net.scores ) && ! is.null( n.scores ) ) {
     n.scores[,] <- n.scores[,] - quantile( n.scores[,], 0.99, na.rm=T ) ## Make it so no edge -> zero score -> no penalization
+##qqq ifndef 
+    if ( ! quantile.normalize ) {
+      qqq <- abs( quantile( n.scores[,], 0.01, na.rm=T ) )
+      if ( qqq == 0 ) qqq <- sort( n.scores[,] )[ 10 ] ## For really sparse networks
+      if ( qqq == 0 ) qqq <- min( n.scores[,], na.rm=T ) ## For really sparse networks
+      if ( qqq != 0 ) n.scores[,] <- n.scores[,] / qqq * abs( rs.quant ) ## Make it so min(net.scores) == min(row.scores) so no net.score is too dominant
+      rm( qqq )
+    }
+##qqq endif
   }
 
   if ( ! is.null( col.scores ) ) {
@@ -146,10 +177,12 @@ get.combined.scores <- function( quantile.normalize=F ) {
   if ( new.weights[ "row" ] != 1 ) r.scores[,] <- r.scores[,] * new.weights[ "row" ] 
   if ( ! is.null( m.scores ) ) {
     tmp <- ! is.na( m.scores[,] )
+    if ( is.null( r.scores ) ) r.scores <- m.scores[,] * 0
     r.scores[,][ tmp ] <- r.scores[,][ tmp ] + m.scores[,][ tmp ] * new.weights[ "mot" ]
   }
   if ( ! is.null( n.scores ) ) {
     tmp <- ! is.na( n.scores[,] )
+    if ( is.null( r.scores ) ) r.scores <- n.scores[,] * 0
     r.scores[,][ tmp ] <- r.scores[,][ tmp ] + n.scores[,][ tmp ] * new.weights[ "net" ]
   }
   r.scores <- matrix.reference( r.scores )
@@ -199,6 +232,12 @@ get.all.scores <- function( ks=1:k.clust, force.row=F, force.col=F, force.motif=
                            quantile.normalize=F ) {
   mc <- get.parallel( length( ks ) )
 
+  if ( is.null( row.scores ) ) {
+    row.scores <- matrix( 0, nrow=attr( ratios, "nrow" ), ncol=max( ks ) )
+    rownames( row.scores ) <- attr( ratios, "rnames" )
+    row.scores <- matrix.reference( row.scores )
+  }
+  
   ## Compute row.scores (microarray data)
   if ( force.row || ( row.scaling[ iter ] > 0 && ! is.na( row.iters[ 1 ] ) && iter %in% row.iters ) ) {
     ##if ( ! exists( "row.scores" ) || is.null( row.scores ) || nrow( row.scores ) != attr( ratios, "nrow" ) ||
@@ -360,13 +399,16 @@ get.density.scores <- function( ks=1:k.clust, r.scores, c.scores, plot="none",
     return( p / sum( p, na.rm=T ) ) ##* length( rows )
   }
 
-  rr.scores <- row.scores[,] * 0
-  rr.scores <- matrix.reference( rr.scores )
-  
+  rr.scores <- NULL
   mc <- get.parallel( length( ks ) )
-  rr.scores[,] <- do.call( cbind, mc$apply( ks, get.rr.scores ) )
-  rr.scores[,][ is.infinite( rr.scores[,] ) ] <- NA
-  ##rownames( rr.scores ) <- attr( ratios, "rnames" )
+
+  if ( ! is.null( row.scores ) ) {
+    rr.scores <- row.scores[,] * 0
+    rr.scores <- matrix.reference( rr.scores )
+    rr.scores[,] <- do.call( cbind, mc$apply( ks, get.rr.scores ) )
+    rr.scores[,][ is.infinite( rr.scores[,] ) ] <- NA
+    ##rownames( rr.scores ) <- attr( ratios, "rnames" )
+  }
   
   cc.scores <- NULL ## this is required for n.clust.per.col == k.clust !!! dont delete it!
   if ( ! is.null( col.scores ) ) {
