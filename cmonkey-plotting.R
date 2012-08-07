@@ -387,7 +387,7 @@ plotCluster.motif <- function( cluster, seqs=cluster$seqs, layout=NULL, colors=N
 
 plotCluster.network <- function( cluster, network="all", o.genes=NULL, colors=NULL, cex=0.7, no.legend=F, ... ) {
   if ( length( cluster$rows ) <= 0 ) { warning( "Trying to plot a cluster with no rows!" ); return() }
-  require( igraph )
+  require( igraph0 )
   rows <- cluster$rows
   if ( is.null( cluster$network ) ) {
     if ( network == "all" ) network <- names( networks )
@@ -1237,7 +1237,7 @@ write.project <- function( ks=sapply( as.list( clusterStack ), "[[", "k" ), para
       dev.off()
     }
 
-    require( igraph )
+    require( igraph0 )
     cat( "SVGS: " )
     for ( qqq in 1:3 ) {
     ##mc$
@@ -1258,7 +1258,7 @@ write.project <- function( ks=sapply( as.list( clusterStack ), "[[", "k" ), para
   
   ##if ( pdfs ) {
   if ( "pdf" %in% output ) {
-    require( igraph ) ## load it here
+    require( igraph0 ) ## load it here
     cat( "PDFS: " )
     ##mc$
     lapply( ks, function( k ) { ## will this work in parallel? seems to.
@@ -1526,7 +1526,7 @@ write.project <- function( ks=sapply( as.list( clusterStack ), "[[", "k" ), para
     cat( "\n" )
     
     cat( "NETWORKS: " )
-    require( igraph )
+    require( igraph0 )
     ##mc$
     lapply( ks, function( k, ... ) {
     ##for ( k in ks ) {

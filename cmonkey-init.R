@@ -128,10 +128,12 @@ cmonkey.init <- function( env=NULL, ... ) {
   set.param( "row.iters", seq( 1, n.iter, by=2 ) )
   set.param( "col.iters", seq( 1, n.iter, by=5 ) )
   ##set.param( "meme.iters", seq( 399, n.iter, by=100 ) ) ## Which iters to re-run meme?
-  set.param( "meme.iters", c( seq( 600, 1200, by=100 ), seq( 1250, 1500, by=50 ), seq( 1525, 1800, by=25 ),
-                             seq( 1810, max( n.iter, 1820 ), by=10 ) ) )
+  ##set.param( "meme.iters", c( seq( 600, 1200, by=100 ), seq( 1250, 1500, by=50 ), seq( 1525, 1800, by=25 ),
+  ##                           seq( 1810, max( n.iter, 1820 ), by=10 ) ) )
+  set.param( "meme.iters", seq( 100, n.iter, by=100 ) )
   ##set.param( "mot.iters", seq( 100, n.iter, by=10 ) ) ## Which iters to use results of most recent meme run in scores
-  set.param( "mot.iters", seq( 601, max( n.iter, 605 ), by=3 ) ) ## Which iters to use results of most recent meme run in scores
+  ##set.param( "mot.iters", seq( 601, max( n.iter, 605 ), by=3 ) ) ## Which iters to use results of most recent meme run in scores
+  set.param( "mot.iters", seq( 100, n.iter, by=10 ) ) ## Which iters to use results of most recent meme run in scores
   set.param( "net.iters", seq( 1, n.iter, by=7 ) ) ## Which iters to re-calculate network scores?
   set.param( "row.scaling", 1 ) ##6 )  ## Seems to work best for Mpn, works good for Halo (6 is with quantile.normalize turned on)
   set.param( "row.weights", c( ratios=1 ) ) ## Optionally load multiple ratios files and set relative weights
@@ -160,7 +162,8 @@ cmonkey.init <- function( env=NULL, ... ) {
   set.param( "maintain.seed", NULL ) ## List of lists of vectors of rows to maintain for each k: force seeded rows or cols in each cluster to STAY there! e.g. maintain.seed=list(rows=list(`3`=c(gene1,gene2,gene3))) ; This should be used in conjunection with seed.method["rows"]=="custom" or "list=..."
   ##set.param( "string.links.url", "http://string82.embl.de/newstring_download/protein.links.v8.2.txt.gz" ) ## Need to update this when they update their version number
 
-  set.param( "n.motifs", c( rep( 1, n.iter/2 ), rep( 2, n.iter/4 ), 3 ) ) ##rep( 2, n.iter/3 ) ) ) ##, rep( 2, n.iter/4 + 50 ) ) )
+  ##set.param( "n.motifs", c( rep( 1, n.iter/2 ), rep( 2, n.iter/4 ), 3 ) ) ##rep( 2, n.iter/3 ) ) ) ##, rep( 2, n.iter/4 + 50 ) ) )
+  set.param( "n.motifs", c( rep( 1, n.iter/3 ), rep( 2, n.iter/3 ) ) ) ##rep( 2, n.iter/3 ) ) ) ##, rep( 2, n.iter/4 + 50 ) ) )
   ##set.param( "motif.width.range", c( 6, 24 ) ) ## Can be an iter-based param
   if ( file.exists( "./progs" ) && file.exists( "./progs/meme" ) ) {
     set.param( "progs.dir", "./progs/" )
@@ -180,7 +183,7 @@ cmonkey.init <- function( env=NULL, ... ) {
   ##   "-psp $pspFname" -- if this is omitted, no position-specific prior is used (default)
   ##   "-cons $none" -- if this is changed to "-cons $compute" then the consensus from previous meme run on this cluster is used as seed for this meme run (if the previous motif had a good E-value)
   ##   "-pal=non" -- if this is changed to "-pal=pal" then force palindrome search; "-pal=both": try both pal and non-pal and use the result with the lowest E-value. THIS IS DEFUNCT... now use memepal and memeboth motifing option instead
-  set.param( "meme.cmd", paste( progs.dir, "meme $fname -bfile $bgFname -psp $pspFname -time 600 -dna -revcomp -maxsize 9999999 -nmotifs %1$d -evt 1e9 -minw 6 -maxw 24 -mod zoops -nostatus -text -cons $none", sep="/" ) ) ##-allw -pal=non
+  set.param( "meme.cmd", paste( progs.dir, "meme $fname -bfile $bgFname -psp $pspFname -time 600 -dna -revcomp -maxsize 9999999 -nmotifs %1$d -evt 1e9 -minw 6 -maxw 24 -mod zoops -nostatus -text -cons $compute", sep="/" ) ) ##-allw -pal=non -cons $none
   set.param( "mast.cmd", sprintf( "%s/mast $memeOutFname -d $fname -bfile $bgFname -nostatus -stdout -text -brief -ev 99999 -mev 99999 -mt 0.99 -seqp -remcorr", progs.dir ) )
   set.param( "dust.cmd", sprintf( "%s/dust $fname", progs.dir ) )
   ##set.param( "meme.addl.args", "-time 600 -dna -revcomp -maxsize 9999999 -nmotifs %1$d -evt 1e9 -minw %2$d -maxw %3$d -mod zoops" ) ## -nomatrim -prior addone -spfuzz 1" )
@@ -798,7 +801,7 @@ cmonkey.init <- function( env=NULL, ... ) {
     }    
 
     
-    if ( ! no.genome.info && cog.org != '' && cog.org != '?' && ! is.null( cog.org ) ) {
+    if ( ! no.genome.info && cog.org != '' && cog.org != '?' && ! is.null( cog.org ) && all(is.na(plot.iters) | plot.iters==0) ) {
       ## COG code from NCBI whog file
       cat( "Loading COG functional codes (for plotting), org. code", cog.org, ": trying NCBI whog file...\n" )
       genome.info$cog.code <- get.COG.code( cog.org ) ##, genome.info$feature.names ) ##genome.info$transl.table,
@@ -812,10 +815,10 @@ cmonkey.init <- function( env=NULL, ... ) {
       ##         genome.info$cog.code <- get.COG.code.from.KEGG( organism ) ##, genome.info$feature.names ) ##genome.info$transl.table,
       ##       }
       ##     }
+      cat( sum( ! is.na( genome.info$cog.code ) ), "genes have a COG code (",
+          if ( is.null( genome.info$cog.code ) ) attr( ratios, "nrow" ) else sum( is.na( genome.info$cog.code ) ),
+          "do not)\n" )
     }
-    cat( sum( ! is.na( genome.info$cog.code ) ), "genes have a COG code (",
-        if ( is.null( genome.info$cog.code ) ) attr( ratios, "nrow" ) else sum( is.na( genome.info$cog.code ) ),
-        "do not)\n" )
 
   }
 

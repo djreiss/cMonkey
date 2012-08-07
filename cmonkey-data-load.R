@@ -1,4 +1,4 @@
-###################################################################################
+##################################################################################
 ## cMonkey - version 4, Copyright (C) David J Reiss, Institute for Systems Biology
 ##                      dreiss@systemsbiology.org
 ## This software is provided AS IS with no warranty expressed or implied. Neither 
@@ -41,6 +41,7 @@ load.ratios <- function( ratios ) {
     ratios <- preprocess.ratios( ratios )
     attr( ratios, "isPreProcessed" ) <- TRUE
   }
+  cat( "Processed ratios matrix is", paste( dim( ratios ), collapse="x" ), "\n" )
 
   closeAllConnections()
   ratios
@@ -116,7 +117,7 @@ dlf <- function( f, url, msg=NULL, mode="wb", quiet=F, ... ) {
 #' @param fetch.predicted.operons  (DEFAULT: "rsat")
 #' @export
 #' @usage err <- get.genome.info( fetch.upstream=F, fetch.predicted.operons="rsat" )
-get.genome.info <- function( fetch.upstream=F, fetch.predicted.operons="rsat" ) { 
+get.genome.info <- function( fetch.upstream=F ) { ##, fetch.predicted.operons="rsat" ) { 
   rsat.url <- rsat.urls[ 1 ]
   feature.tab <- feature.names <- genome.seqs <- operons <- org.id <- synonyms <- NULL 
   genome.loc <- paste( rsat.url, "/data/genomes/", rsat.species, "/genome/", sep="" )

@@ -108,6 +108,7 @@ get.stats <- function( mean.func=mean ) { ##median
   if ( is.matrix( resids ) ) resids <- apply( resids, 1, function( r ) mean.func( r[ r != 1.0 ], na.rm=T ) )
   else resids <- mean.func( resids[ resids != 1.0 ], na.rm=T )
   p.clusts <- sapply( cs, "[[", "p.clust" )
+  if ( is.list( p.clusts ) ) p.clusts <- sapply( cs[ ! sapply( p.clusts, is.null ) ], "[[", "p.clust" )
   if ( is.matrix( p.clusts ) ) p.clusts <- apply( p.clusts, 1, mean.func, na.rm=T ) 
   else p.clusts <- mean.func( p.clusts, na.rm=T )
   out <- data.frame( iter=iter, changed=changed,
@@ -734,7 +735,7 @@ get.synonyms <- function( gns, ft=genome.info$feature.names, ignore.case=T, verb
     ft <- rbind( ft, data.frame( id=as.character( translation.tab$V1 ), names=as.character( translation.tab$V2 ) ) )
   ft <- subset( ft, names != "" )
 
-  if ( verbose ) ggggg <- gns[ seq( 100, length( gns ), by=100 ) ]
+  if ( verbose ) ggggg <- gns[ seq( 1, length( gns ), by=min(length(gns),100) ) ]
 
   mc <- get.parallel( length( gns ), verbose=F )
   tmp <- mc$apply( gns, function( g ) {
