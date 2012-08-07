@@ -28,3 +28,5 @@ e <- cMonkey.init(...); cmonkey( e, ..., dont.init=T )
 
 will work as well.
 
+Visit http://cmonkey.systemsbiology.net/ for more useful instructions on actually using the code for
+your organism.
