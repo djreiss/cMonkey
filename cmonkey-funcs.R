@@ -328,7 +328,7 @@ cluster.pclust <- function( k, mot.inds="COMBINED" ) { ## actually returns a lis
 
   if ( mot.inds[ 1 ] == "COMBINED" ) {
     p.clusts <- weighted.mean( p.clusts, mot.weights[ inds ], na.rm=T )
-    e.vals <- apply( e.vals, 2, weighted.mean, mot.weights[ inds ], na.rm=T )
+    e.vals <- apply( e.vals, 1, weighted.mean, mot.weights[ inds ], na.rm=T )
   } else if ( mot.inds[ 1 ] != "COMBINED" ) {
     if ( length( p.clusts ) < length( inds ) && all( is.na( p.clusts ) ) ) p.clusts <- rep( NA, length( inds ) )
     e.vals <- apply( e.vals, 1, function( i ) if ( length( i ) < length( inds ) && all( is.na( i ) ) )
@@ -771,8 +771,9 @@ get.synonyms <- function( gns, ft=genome.info$feature.names, ignore.case=T, verb
 
 get.gene.coords <- function( rows, op.shift=T, op.table=genome.info$operons, ... ) { ##, override=F ) {
   if ( is.null( rows ) ) {
-    if ( organism != 'hal' ) rows <- grep( "^NP_", as.character( genome.info$feature.tab$id ), perl=T, val=T )
-    else rows <- grep( "^VNG", as.character( genome.info$feature.tab$canonical_Name ), perl=T, val=T )
+    if ( organism == 'hal' ) rows <- grep( "^VNG", as.character( genome.info$feature.tab$canonical_Name ), perl=T, val=T )
+    else if ( organism == 'sce' ) rows <- grep( e$genome.info$gene.regex, as.character( genome.info$feature.tab$id ), perl=T, val=T )
+    else rows <- grep( "^NP_", as.character( genome.info$feature.tab$id ), perl=T, val=T )
   }
   rows <- unique( rows )
   syns <- get.synonyms( rows, ... )

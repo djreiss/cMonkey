@@ -6,7 +6,7 @@
 ## liable for anything that happens as a result of using this software
 ###################################################################################
 
-cm.version <- "4.9.1"
+cm.version <- "4.9.5"
 
 
 cmonkey <- function( env=NULL, ... ) {
@@ -73,7 +73,8 @@ DEBUG <- function( ... ) {
 }
 
 install.binaries <- function( meme.version="4.3.0",
-                       url=sprintf( "http://meme.nbcr.net/downloads/old_versions/meme_%s.tar.gz", meme.version ),
+                       url=#sprintf( "http://meme.nbcr.net/downloads/old_versions/meme_%s.tar.gz", meme.version ),
+                             'ftp://ftp.ebi.edu.au/pub/software/MEME/4.3.0/meme_4.3.0.tar.gz',
                              make='make -j 4', path=system.file( package="cMonkey" ) ) {
   cwd <- setwd( path ); on.exit( setwd( cwd ) )
   if ( ! exists( "progs" ) ) dir.create( "progs" )

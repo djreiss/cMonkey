@@ -23,7 +23,7 @@ load.ratios <- function( ratios ) {
 
   if ( is.character( ratios ) && file.exists( ratios ) ) {
     cat( "Loading ratios file", ratios, "\n" )
-    ratios <- read.delim( file=gzfile( ratios ), sep="\t", as.is=T, header=T )
+    ratios <- read.delim( file=gzfile( ratios ), sep="\t", as.is=T, header=T, check.names=F )
   }
 
   if ( is.matrix( ratios ) || is.data.frame( ratios ) ) {

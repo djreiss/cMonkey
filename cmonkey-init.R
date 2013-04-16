@@ -130,16 +130,16 @@ cmonkey.init <- function( env=NULL, ... ) {
   ##set.param( "meme.iters", seq( 399, n.iter, by=100 ) ) ## Which iters to re-run meme?
   ##set.param( "meme.iters", c( seq( 600, 1200, by=100 ), seq( 1250, 1500, by=50 ), seq( 1525, 1800, by=25 ),
   ##                           seq( 1810, max( n.iter, 1820 ), by=10 ) ) )
-  set.param( "meme.iters", seq( 100, n.iter, by=100 ) )
+  set.param( "meme.iters", c( 1, seq( 100, n.iter, by=100 ) ) )
   ##set.param( "mot.iters", seq( 100, n.iter, by=10 ) ) ## Which iters to use results of most recent meme run in scores
   ##set.param( "mot.iters", seq( 601, max( n.iter, 605 ), by=3 ) ) ## Which iters to use results of most recent meme run in scores
-  set.param( "mot.iters", seq( 100, n.iter, by=10 ) ) ## Which iters to use results of most recent meme run in scores
+  set.param( "mot.iters", seq( 1, n.iter, by=10 ) ) ## Which iters to use results of most recent meme run in scores
   set.param( "net.iters", seq( 1, n.iter, by=7 ) ) ## Which iters to re-calculate network scores?
   set.param( "row.scaling", 1 ) ##6 )  ## Seems to work best for Mpn, works good for Halo (6 is with quantile.normalize turned on)
   set.param( "row.weights", c( ratios=1 ) ) ## Optionally load multiple ratios files and set relative weights
-  set.param( "mot.scaling", seq( 0, 1, length=n.iter*3/4 ) ) ##* 0.5
+  set.param( "mot.scaling", c( rep( 1e-5, 100 ), seq( 0, 1, length=n.iter*3/4 ) ) ) ##* 0.5
   set.param( "mot.weights", c( `upstream meme`=1 ) ) ##, `upstream weeder`=0.5, `upstream spacer`=1, `upstream memepal`=1 ) ) ## Sequence and algorithm for for motif search: Optionally use different automatically computed sequences (e.g. `downstream meme`=1) or an input file (e.g. `fstfile=zzz.fst meme`=1) (csvfile too!) and motif algos (e.g. weeder, spacer, prism, meme, memepal)
-  set.param( "net.scaling", seq( 0, 0.5, length=n.iter*3/4 ) ) ##0.1 0.25
+  set.param( "net.scaling", seq( 1e-5, 0.5, length=n.iter*3/4 ) ) ##0.1 0.25
   ## Net weights and grouping weights - names must correspond to full file paths (sifs) that are to be read in.
   set.param( "net.weights", c( string=0.5, operons=0.5 ) ) ## prolinks=0.5 Relative scaling(s) of each network
   ## Can use pre-set nets: "operons"; "prolinks.(GN/GC/PP/RS)"; "predictome.(chromo/comp/fusion/phylogenetic)";
@@ -184,7 +184,7 @@ cmonkey.init <- function( env=NULL, ... ) {
   ##   "-cons $none" -- if this is changed to "-cons $compute" then the consensus from previous meme run on this cluster is used as seed for this meme run (if the previous motif had a good E-value)
   ##   "-pal=non" -- if this is changed to "-pal=pal" then force palindrome search; "-pal=both": try both pal and non-pal and use the result with the lowest E-value. THIS IS DEFUNCT... now use memepal and memeboth motifing option instead
   set.param( "meme.cmd", paste( progs.dir, "meme $fname -bfile $bgFname -psp $pspFname -time 600 -dna -revcomp -maxsize 9999999 -nmotifs %1$d -evt 1e9 -minw 6 -maxw 24 -mod zoops -nostatus -text -cons $compute", sep="/" ) ) ##-allw -pal=non -cons $none
-  set.param( "mast.cmd", sprintf( "%s/mast $memeOutFname -d $fname -bfile $bgFname -nostatus -stdout -text -brief -ev 99999 -mev 99999 -mt 0.99 -seqp -remcorr", progs.dir ) )
+  set.param( "mast.cmd", sprintf( "%s/mast $memeOutFname -d $fname -bfile $bgFname -nostatus -stdout -text -brief -ev 999999 -mev 9999999 -mt 0.99 -seqp -remcorr", progs.dir ) )
   set.param( "dust.cmd", sprintf( "%s/dust $fname", progs.dir ) )
   ##set.param( "meme.addl.args", "-time 600 -dna -revcomp -maxsize 9999999 -nmotifs %1$d -evt 1e9 -minw %2$d -maxw %3$d -mod zoops" ) ## -nomatrim -prior addone -spfuzz 1" )
   ##set.param( "mast.addl.args", "" ) ##-ev 99999 -mev 99999 -mt 0.99 -seqp -remcorr" ) ##"-ev 10 -mev 10 -mt 0.1
@@ -196,7 +196,7 @@ cmonkey.init <- function( env=NULL, ... ) {
   set.param( "operon.shift", TRUE )
   ##set.param( "meme.seqs.allowed", cluster.rows.allowed ) ## Min/max number of seqs to allow to be fed to meme
   set.param( "bg.order", 3 ) ##bg.order <- NA ##0 ##3   ## NA -> no global background; use the input sequences
-  set.param( "recalc.bg", TRUE ) ## if recalc.bg==TRUE, recalc bg for each MEME run using only seqs for genes that are NOT in cluster. Ideally, would be TRUE always, but could be slow for big genomes.
+  set.param( "recalc.bg", FALSE ) ## if recalc.bg==TRUE, recalc bg for each MEME run using only seqs for genes that are NOT in cluster. Ideally, would be TRUE always, but really slows down motifing!
   set.param( "motif.upstream.search", c( -20, 150 ) ) ##-50, 250 ) ##-50, 200 )
   set.param( "motif.upstream.scan", c( -30, 250 ) ) ##-30, 150 ) ##-50, 200 )
 ##  if ( any( mot.scaling > 0 ) && ( ! file.exists( meme.cmd ) || ! file.exists( mast.cmd ) ) )
@@ -442,6 +442,7 @@ cmonkey.init <- function( env=NULL, ... ) {
       regex <- gsub( '.', '\\.', regex, fixed=T )
       message( "Assuming gene/probe names have regex '", regex, "'." )
       genome.info$gene.regex <- regex
+      rm( tmp, tmp2 )
     }    
 
     genome.info$all.gene.names <- unique( as.character( subset( genome.info$feature.names,
@@ -801,7 +802,7 @@ cmonkey.init <- function( env=NULL, ... ) {
     }    
 
     
-    if ( ! no.genome.info && cog.org != '' && cog.org != '?' && ! is.null( cog.org ) && all(is.na(plot.iters) | plot.iters==0) ) {
+    if ( ! no.genome.info && cog.org != '' && cog.org != '?' && ! is.null( cog.org ) && ! all(is.na(plot.iters) | plot.iters==0) ) {
       ## COG code from NCBI whog file
       cat( "Loading COG functional codes (for plotting), org. code", cog.org, ": trying NCBI whog file...\n" )
       genome.info$cog.code <- get.COG.code( cog.org ) ##, genome.info$feature.names ) ##genome.info$transl.table,

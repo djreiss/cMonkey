@@ -500,7 +500,7 @@ plotCluster.network <- function( cluster, network="all", o.genes=NULL, colors=NU
 col.let <- c( "A", "C", "G", "T" )
                    
 viewPssm <- function( pssm, e.val=NA, mot.ind=NA, use.char=T, main.title=NA, no.par=F, scale.e=NA, boxes=F, new=T,
-                     xoff=0, yoff=0, no.axis.labels=F, ... ) { 
+                     xoff=0, yoff=0, no.axis.labels=F, min.height.drawn=1e-5, ... ) { 
   if ( is.null( pssm ) ) return()
   getEntropy <- function( pssm ) {
     pssm[ pssm == 0 ] <- 0.00001
@@ -515,7 +515,7 @@ viewPssm <- function( pssm, e.val=NA, mot.ind=NA, use.char=T, main.title=NA, no.
   
   draw.char <- function( char=col.let, rect=c( 0, 0, 1, 1 ), border=NULL, ... ) {
     ## rect is (x,y,width,height)
-    if ( rect[ 4 ] <= 1e-5 ) return()
+    if ( rect[ 4 ] <= min.height.drawn ) return()
     x <- char.coords[[ char ]]$x * rect[ 3 ] + rect[ 1 ]
     y <- char.coords[[ char ]]$y * rect[ 4 ] + rect[ 2 ]
     color <- char.coords[[ char ]]$color
@@ -545,11 +545,10 @@ viewPssm <- function( pssm, e.val=NA, mot.ind=NA, use.char=T, main.title=NA, no.
     if ( ! is.na( mot.ind ) ) title( main.title, col.main=mot.ind+1, xpd=NA, ... )
     else title( main.title, xpd=NA, ... )
   } else if ( ! is.na( mot.ind ) || ! is.na( e.val ) ) {
-    if ( ! is.na( mot.ind ) ) {
-      if ( ! is.na( e.val ) ) tmp.tit <- sprintf( "PSSM #%d; E=%.3g", mot.ind, e.val )
-      else tmp.tit <- tmp.tit <- sprintf( "PSSM #%d", mot.ind )
-      title( tmp.tit, col.main=mot.ind+1, xpd=NA, ... )
-    } else title( tmp.tit, xpd=NA, ... )
+    if ( ! is.na( e.val ) ) tmp.tit <- sprintf( "PSSM #%d; E=%.3g", mot.ind, e.val )
+    else tmp.tit <- tmp.tit <- sprintf( "PSSM #%d", mot.ind )
+    title( tmp.tit, col.main=mot.ind+1, xpd=NA, ... )
+    ##} else title( tmp.tit, xpd=NA, ... )
   }
   pssm.sc <- scale.e * pssm
   for (j in 1:win.size) {
@@ -561,7 +560,7 @@ viewPssm <- function( pssm, e.val=NA, mot.ind=NA, use.char=T, main.title=NA, no.
           rect( (j-0.5), 0, (j+0.5), pssm.sc[j,ind], col=colMap[ind])
           if (pssm[j,ind] > 0.05) text(j, 0 + pssm.sc[j,ind]/2, colLet[ind])
         } else {
-          draw.char( col.let[ ind ], c( (j-0.4), 0, 0.9, pssm.sc[j,ind]-0.01 ), ... )
+          draw.char( col.let[ ind ], c( (j-0.4), 0, 0.9, pssm.sc[j,ind]-0.001 ), ... )
         }
         prev.h <-  pssm.sc[j,ind]
       } else {
@@ -572,7 +571,7 @@ viewPssm <- function( pssm, e.val=NA, mot.ind=NA, use.char=T, main.title=NA, no.
             else text(j,  prev.h + 0.5 * pssm.sc[j,ind], colLet[ind])
           }
         } else {
-          draw.char( col.let[ ind ], c( (j-0.4), prev.h, 0.9, pssm.sc[j,ind]-0.01 ), ... )
+          draw.char( col.let[ ind ], c( (j-0.4), prev.h, 0.9, pssm.sc[j,ind]-0.001 ), ... )
         }
         prev.h <- prev.h + pssm.sc[j,ind]
       }
@@ -613,7 +612,8 @@ plotClusterMotifPositions <- function( cluster, seqs=cluster$seqs, long.names=T,
   e.clust <- cluster$e.val ##[ seq.type ]
   motif.info <- NULL
   if ( ( ! all( is.na( p.clust ) ) || ! all( is.na( e.clust ) ) ) && ! is.null( motif.out ) &&
-      ! is.null( motif.out$pv.ev ) ) motif.info <- subset( motif.out$pv.ev[[ 2 ]], gene %in% rows )
+      ! is.null( motif.out$pv.ev ) && length( motif.out$pv.ev ) > 1 )
+    motif.info <- subset( motif.out$pv.ev[[ 2 ]], gene %in% rows )
 
   ##if ( no.plot ) {
   ## out.posns <- list()
@@ -924,12 +924,17 @@ plotClust <- function( k, cluster=NULL, w.motifs=T, all.conds=T, title=NULL, o.g
         } else {
           pv.ev <- meme.scores[[ st ]][[ k ]]$pv.ev[[ 1 ]]
           if ( ncol( pv.ev ) <= 2 ) pv.ev <- meme.scores[[ st ]][[ k ]]$pv.ev[[ 2 ]]
-          tmp <- as.matrix( pv.ev[ ,2:ncol( pv.ev ) ] )
-          rownames( tmp ) <- pv.ev[ ,1 ]; colnames( tmp ) <- c( "p.value", "posns", "mots" )
+          tmp <- NULL
+          if ( ncol( pv.ev ) > 0 ) {
+            tmp <- as.matrix( pv.ev[ ,2:ncol( pv.ev ) ] )
+            rownames( tmp ) <- pv.ev[ ,1 ]; colnames( tmp ) <- c( "p.value", "posns", "mots" )
+          }
         }         
         c[[ st ]]$motif.out$pv.ev[[ 1 ]] <- tmp
-        c[[ st ]]$motif.out$p.values <- log10( c[[ st ]]$motif.out$pv.ev[[ 1 ]][ ,"p.value" ] )
-        names( c[[ st ]]$motif.out$p.values ) <- rownames( c[[ st ]]$motif.out$pv.ev[[ 1 ]] )
+        if ( ! is.null( tmp ) ) {
+          c[[ st ]]$motif.out$p.values <- log10( c[[ st ]]$motif.out$pv.ev[[ 1 ]][ ,"p.value" ] )
+          names( c[[ st ]]$motif.out$p.values ) <- rownames( c[[ st ]]$motif.out$pv.ev[[ 1 ]] )
+        }
       }
     }
   }
@@ -1248,8 +1253,7 @@ write.project <- function( ks=sapply( as.list( clusterStack ), "[[", "k" ), para
             file.exists( sprintf( "%s/svgs/cluster%04d.svgz", out.dir, k ) ) ) return( NULL )
         devSVGTips( sprintf( "%s/svgs/cluster%04d.svg", out.dir, k ), toolTipMode=2,
                    title=sprintf( "Bicluster %04d", k ), xmlHeader=T )
-        ##try(
-        plotClust( k, w.motifs=T, seq.type=seq.type, ... ) ##)
+        try( plotClust( k, w.motifs=T, seq.type=seq.type, ... ) )
         dev.off()
       } )
     }

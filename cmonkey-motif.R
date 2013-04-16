@@ -23,7 +23,7 @@ meme.one.cluster <- function( k, seq.type=names( mot.weights )[ 1 ], verbose=F, 
                              ##pseudocount=1/length(get.rows(k)), ##ms=meme.scores[[ seq.type ]][[ k ]], 
                              ##min.seqs=cluster.rows.allowed[ 1 ], max.seqs=cluster.rows.allowed[ 2 ],
                              ##pal.opt="non",
-                             force=F, keep.meme.out=F, ... ) {
+                             force=F, keep.meme.out=F, keep.mast.out=F, ... ) {
   if ( is.numeric( k ) ) rows <- get.rows( k )
   else rows <- k
   meme.out <- mast.out <- NULL
@@ -80,14 +80,15 @@ meme.one.cluster <- function( k, seq.type=names( mot.weights )[ 1 ], verbose=F, 
   }
 
   ms <- NULL
-  if ( is.integer( k ) ) {
+  if ( is.numeric( k ) ) {
     ms <- try( meme.scores[[ seq.type ]][[ k[ 1 ] ]] )
     if ( "try-error" %in% class( ms ) ) ms <- NULL
   }
   
   if ( ! is.null( ms ) ) cmd <- get.meme.consensus( cmd, ... )
   if ( grepl( "-cons $none", cmd, fixed=T ) ) cmd <- gsub( "-cons $none", "", cmd, fixed=T )
-
+  if ( grepl( "-cons $compute", cmd, fixed=T ) ) cmd <- gsub( "-cons $compute", "", cmd, fixed=T )
+  
   bg.list <- genome.info$bg.list[[ seq.type ]]
   bg.fname <- genome.info$bg.fname[ seq.type ]
   bgo <- bg.order[ seq.type ]
@@ -204,6 +205,7 @@ meme.one.cluster <- function( k, seq.type=names( mot.weights )[ 1 ], verbose=F, 
   prev.run <- list( rows=rows, cmd=cmd, bg.order=bgo, m.u.scan=motif.upstream.scan[[ seq.type ]] )
   out <- list( k=k, last.run=FALSE, meme.out=meme.out2, pv.ev=pv.ev, prev.run=prev.run )
   if ( keep.meme.out ) out$meme.out.orig <- meme.out
+  if ( keep.mast.out ) out$mast.out.orig <- mast.out
   invisible( out )
 }
 
@@ -452,7 +454,8 @@ get.mast.pvals <- function( mast.output, in.genes=NULL ) {
   for ( i in 1:length( line.starts ) ) {
     l <- line.starts[ i ]
     gene <- mast.output[ l - 2 ]
-    if ( is.null( gene ) || is.na( gene ) || ( ! is.null( in.genes ) && ! ( gene %in% in.genes ) ) ) next
+    if ( is.null( gene ) || is.na( gene ) || ( ! is.null( in.genes ) && ! ( gene %in% in.genes )
+                                              && ! ( toupper(gene) %in% toupper(in.genes) ) ) ) next
 
     l.next <- line.starts[ i + 1 ] - 2
     if ( i >= length( line.starts ) ) l.next <- end
