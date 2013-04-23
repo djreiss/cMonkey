@@ -1,12 +1,12 @@
-If you have come here looking for the cMonkey R package, you can grab that here:
+If you came here looking for the cMonkey R package, you can grab it here:
 
 http://cmonkey.systemsbiology.net/
 
-(Follow the link to the "New cMonkey R Package and Code".)
+... and follow the link (on the top-right) to the "New cMonkey R Package and Code".
 
 If you want to run cMonkey from raw R code, you've come to the right place. 
 
-Once you've got your copy, you can run cMonkey locally without the package after doing the following (in R):
+Once you've cloned your copy, you can run cMonkey locally (without the package), after doing the following (in R):
 
 source( "cmonkey.R" )    ## This should be all you need
 ## source( "cmonkey-init.R" )
@@ -28,5 +28,4 @@ e <- cMonkey.init(...); cmonkey( e, ..., dont.init=T )
 
 will work as well.
 
-Visit http://cmonkey.systemsbiology.net/ for more useful instructions on actually using the code for
-your organism.
+Visit http://cmonkey.systemsbiology.net/ for more useful instructions on actually using the code for your organism.
