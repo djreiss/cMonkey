@@ -537,8 +537,14 @@ mkBgFile <- function( bgseqs=NULL, order=0, bgfname=NULL, input.list=NULL, use.r
     }
     all.substrings <- all.substrings[ ! is.na( all.substrings ) & all.substrings != "" &
                                      nchar( all.substrings ) == ord+1 ]
-    
+
     counts <- table( as.factor( all.substrings ) )
+    tmp <- names( counts ); counts <- as.vector( counts ); names( counts ) <- tmp
+    if ( length( counts ) < 4^(ord+1) ) {
+      all.pairs <- unique( combn( rep( col.let, ord+1 ), ord+1, FUN=paste, sep="", collapse="" ) )
+      all.pairs <- all.pairs[ ! all.pairs %in% names(counts) ]
+      for ( let in all.pairs ) counts[ let ] <- 0.1 ## add a small pseudocount
+    }
     counts <- sort( counts )
     counts <- counts / length( all.substrings )
     counts <- counts[ grep( "N", names( counts ), val=T, invert=T ) ] ## New R-2.9.0 grep param "invert" - faster?

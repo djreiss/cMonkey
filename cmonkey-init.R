@@ -108,6 +108,7 @@ cmonkey.init <- function( env=NULL, ... ) {
   if ( exists( "ratios" ) && is.null( names( ratios ) ) )
     names( ratios ) <- paste( "ratios", 1:length( ratios ), sep='.' )
   if ( ! is.null( env ) && exists( "ratios" ) ) assign( "ratios", ratios, envir=env )
+  if ( length( ratios ) == 1 ) names( ratios ) <- 'ratios' ## hack-y fix.
 
   ## if ( exists( "is.eukaryotic" ) && is.eukaryotic ) {
   ##   set.param( "operon.shift", FALSE )
@@ -445,13 +446,27 @@ cmonkey.init <- function( env=NULL, ... ) {
       rm( tmp, tmp2 )
     }    
 
-    genome.info$all.gene.names <- unique( as.character( subset( genome.info$feature.names,
-                                                        grepl( paste( "^", genome.info$gene.regex, sep="" ), names,
-                                                                     ignore=T, perl=T ), select="names", drop=T ) ) )
-    if ( length( genome.info$all.gene.names ) ) { ## regex is still in testing phase!
-      genome.info$all.gene.names <- unique( as.character( subset( genome.info$feature.names,
-                                                        grepl( paste( "^", genome.info$gene.prefix, sep="" ), names,
-                                                                     ignore=T, perl=T ), select="names", drop=T ) ) )
+    ##genome.info$all.gene.names <- unique( as.character( subset( genome.info$feature.names,
+    ##                                                    grepl( paste( "^", genome.info$gene.regex, sep="" ), names,
+    ##                                                                 ignore=T, perl=T ), select="names", drop=T ) ) )
+    genome.info$all.gene.names <- unique( grep( paste( "^", genome.info$gene.regex, sep="" ),
+                                               as.character( genome.info$feature.names ), perl=T, val=T ) )
+    if ( exists( 'translation.tab' ) && ! is.null( translation.tab ) ) {
+      genome.info$all.gene.names <- c( genome.info$all.gene.names,
+                                      unique( as.character( grep( paste( "^", genome.info$gene.regex, sep="" ),
+                        c( as.character( translation.tab$V1 ), as.character( translation.tab$V2 ) ), perl=T ) ) ) )
+    }
+    if ( length( genome.info$all.gene.names ) <= 0 ) { ## regex is still in testing phase!
+      ##genome.info$all.gene.names <- unique( as.character( subset( genome.info$feature.names,
+      ##                                                  grepl( paste( "^", genome.info$gene.prefix, sep="" ), names,
+      ##                                                               ignore=T, perl=T ), select="names", drop=T ) ) )
+      genome.info$all.gene.names <- unique( grep( paste( "^", genome.info$gene.prefix, sep="" ),
+                                                 as.character( genome.info$feature.names ), perl=T, val=T ) )
+      if ( exists( 'translation.tab' ) && ! is.null( translation.tab ) ) {
+        genome.info$all.gene.names <- c( genome.info$all.gene.names,
+                                        unique( as.character( grep( paste( "^", genome.info$gene.prefix, sep="" ),
+                          c( as.character( translation.tab$V1 ), as.character( translation.tab$V2 ) ), perl=T ) ) ) )
+      }
     }
 
     if ( ! is.null( env ) ) assign( "genome.info", genome.info, envir=env )

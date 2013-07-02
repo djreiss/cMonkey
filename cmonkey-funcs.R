@@ -20,9 +20,11 @@ get.cols <- function( k ) {
 cmonkey.one.iter <- function( env, dont.update=F, ... ) {
   env <- env$update.all.clusters( env, dont.update=F, ... )
 
-  row.memb <- sapply( 1:k.clust, function( k ) attr( ratios, "rnames" ) %in% get.rows( k ) ); if ( is.vector( row.memb ) ) row.memb <- t( row.memb )
+  row.memb <- sapply( 1:k.clust, function( k ) attr( ratios, "rnames" ) %in% get.rows( k ) )
+  if ( is.vector( row.memb ) ) row.memb <- t( row.memb )
   rownames( row.memb ) <- attr( ratios, "rnames" )    
-  col.memb <- sapply( 1:k.clust, function( k ) attr( ratios, "cnames" ) %in% get.cols( k ) ); if ( is.vector( col.memb ) ) col.memb <- t( col.memb )
+  col.memb <- sapply( 1:k.clust, function( k ) attr( ratios, "cnames" ) %in% get.cols( k ) )
+  if ( is.vector( col.memb ) ) col.memb <- t( col.memb )
   rownames( col.memb ) <- attr( ratios, "cnames" )    
   
   ## OUTPUT

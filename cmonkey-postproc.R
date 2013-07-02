@@ -6,7 +6,7 @@
 ## liable for anything that happens as a result of using this software
 ###################################################################################
 
-## find # of genes per cluster with annoatated "long name" (e.g. "peroxisome") or short name (e.g. "PEX")
+## Find # of genes per cluster with annoatated "long name" (e.g. "peroxisome") or short name (e.g. "PEX")
 clusters.w.func <- function( func, ks=1:k.clust, short=F, max.rows=999, p.val=F ) {
   if ( p.val ) {
     long.names <- get.long.names( attr( ratios, "rnames" ), short=short )
