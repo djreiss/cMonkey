@@ -45,7 +45,7 @@ plotCluster <- function( cluster, imag=F, cond.labels=F, o.genes=NULL, col.func=
   
   ##if ( renorm ) rats <- standardize.row( rats, NULL, 0 )
   ##if ( "ylim" %in% names( list( ... ) ) ) range.r <- ylim
-  ##!else
+  ##else
   if ( is.null( range.r ) ) ##range.r <- range( rats, na.rm=T )
     range.r <- range( rats[ rats != min( rats, na.rm=T ) & rats != max( rats, na.rm=T ) ], na.rm=T )
   if ( cond.labels && cluster$ncols < 100 ) range.r[ 1 ] <- range.r[ 1 ] * 1.5
@@ -79,7 +79,7 @@ plotCluster <- function( cluster, imag=F, cond.labels=F, o.genes=NULL, col.func=
     colmap <- col.func( cols.b )
   }
   ##colmap <- rug1[ cols.b, 2 ]
-  ##!else 
+  ##else 
   
   if ( box.plot ) {
     colMeans <- apply( rats[ cluster$rows, ,drop=F ], 2, mean, na.rm=T )
@@ -194,11 +194,11 @@ plotCluster.all.conds <- function( cluster, imag=F, cond.labels=F, o.genes=NULL,
     colmap <- col.func( cols.b )
   }
   ##colmap <- rug1[ cols.b, 2 ]
-  ##!else
+  ##else
   
   if ( box.plot ) {
     ##if ( exists( "rug1" ) ) colmap <- rug1[ cols.b, 2 ]
-    ##!else colmap <- rep( 'black', length( cols.b ) )
+    ##else colmap <- rep( 'black', length( cols.b ) )
 ##     if ( exists( "col.rug" ) ) colmap <- col.func( max( col.rug ) )[ col.rug[ cols.b ] ]
 ##     else if ( all( deparse( col.func ) == deparse( rainbow ) ) ) colmap <- col.func( len.b ) ##rep( 'black', length( cols.b ) )
 ##     else colmap <- col.func( cols.b )
@@ -303,7 +303,7 @@ plotCluster.motif <- function( cluster, seqs=cluster$seqs, layout=NULL, colors=N
     tmp.lett <- 1:26
     names( tmp.lett ) <- LETTERS
     ##if ( exists( "gene.coords" ) && ! is.null( gene.coords$gene.code ) ) coo <- gene.coords$gene.code[ rows ]
-    ##!else
+    ##else
     if ( ! is.null( cluster$cog.code ) ) coo <- cluster$cog.code[ rows ]
     else coo <- 1:length( rows )
     tmp <- unique( tmp.lett[ coo ] )
@@ -410,7 +410,7 @@ plotCluster.network <- function( cluster, network="all", o.genes=NULL, colors=NU
       names( tmp.lett ) <- LETTERS
       ##if ( exists( "gene.coords" ) && ! is.vector( gene.coords ) && ! is.null( gene.coords$gene.code ) )
       ##  coo <- gene.coords$gene.code[ rows ]
-      ##!else
+      ##else
       if ( ! is.null( cluster$cog.code ) ) coo <- cluster$cog.code[ rows ]
       else coo <- 1:length( rows )
       tmp <- unique( tmp.lett[ coo ] )
@@ -627,7 +627,7 @@ plotClusterMotifPositions <- function( cluster, seqs=cluster$seqs, long.names=T,
     names( tmp.lett ) <- LETTERS
     ##if ( exists( "gene.coords" ) && ! is.vector( gene.coords ) && ! is.null( gene.coords$gene.code ) )
     ##  coo <- gene.coords$gene.code[ rows ]
-    ##!else
+    ##else
     if ( ! is.null( cluster$cog.code ) ) coo <- cluster$cog.code[ rows ]
     else coo <- 1:length( rows )
     tmp <- unique( tmp.lett[ coo ] )
@@ -673,7 +673,7 @@ plotClusterMotifPositions <- function( cluster, seqs=cluster$seqs, long.names=T,
   if ( sort.by == "gene.name" ) inds <- sort( rows, decreasing=T, index=T )$ix
   else if ( sort.by == "p.value" || sort.by == TRUE ) inds <- order( p.values[ rows ], decreasing=T, na.last=F )
   else if ( sort.by == "resid" ) inds <- order( row.scores[ rows, k ], decreasing=T )
-  ##!else if ( sort.by == "total" ) inds <- order( rr.scores[ rows, k ], decreasing=T )
+  ##else if ( sort.by == "total" ) inds <- order( rr.scores[ rows, k ], decreasing=T )
   if ( length( inds ) < length( rows ) ) inds <- c( (1:length( rows ))[ ! 1:length( rows ) %in% inds ], inds )
   x.range <- c( -maxlen*0.08, maxlen*1.15 ) ##c( -maxlen*0.15, maxlen*1.08 )
   y.range <- c( 0.5, length( rows ) + 1 )
@@ -917,7 +917,7 @@ plotClust <- function( k, cluster=NULL, w.motifs=T, all.conds=T, title=NULL, o.g
       c[[ st ]]$motif.out$e.values <- c[[ st ]]$e.val
       if ( ! is.null( c[[ st ]]$motif.out$pv.ev ) ) { ##&& ! is.null( meme.scores[[ st ]]$all.pv ) ) { ## Replicate old pv.ev list of 2 data frames
         if ( "gene" %in% colnames( c[[ st ]]$motif.out$pv.ev[[ 1 ]] ) ) c[[ st ]]$motif.out$pv.ev[[ 2 ]] <- c[[ st ]]$motif.out$pv.ev[[ 1 ]]
-        ##!else if ( "gene" %in% colnames( c[[ st ]]$motif.out$pv.ev[[ 2 ]] ) ) c[[ st ]]$motif.out$pv.ev[[ 2 ]] <- c[[ st ]]$motif.out$pv.ev[[ 2 ]]
+        ##else if ( "gene" %in% colnames( c[[ st ]]$motif.out$pv.ev[[ 2 ]] ) ) c[[ st ]]$motif.out$pv.ev[[ 2 ]] <- c[[ st ]]$motif.out$pv.ev[[ 2 ]]
         if ( ! is.null( meme.scores[[ st ]]$all.pv ) ) {
           tmp <- cbind( p.value=meme.scores[[ st ]]$all.pv[ ,k ],
                  e.value=if ( "all.ev" %in% names( meme.scores[[ st ]] ) ) meme.scores[[ st ]]$all.ev[ ,k ] else NA )
@@ -1220,6 +1220,9 @@ write.project <- function( ks=sapply( as.list( clusterStack ), "[[", "k" ), para
   ##ks <- sapply( clusterStack, "[[", "k" )
   clusterStack <- clusterStack[ ks ]
   mc <- get.parallel( length( ks ), para.cores=para.cores )
+#ifndef PACKAGE
+  has.pdftk <- length( system( "which pdftk", intern=T ) ) > 0 ## Use for compressing pdfs
+#endif
   
   if ( ! file.exists( paste( out.dir, "/svgs", sep="" ) ) )
     dir.create( paste( out.dir, "/svgs", sep="" ), showWarnings=F )
@@ -1269,7 +1272,13 @@ write.project <- function( ks=sapply( as.list( clusterStack ), "[[", "k" ), para
       ##k <- ks[ i ]
       if ( k %% 25 == 0 ) cat( k ) else cat( "." )
       if ( file.exists( sprintf( "%s/pdfs/cluster%04d.pdf", out.dir, k ) ) ) return( NULL )
+#ifndef PACKAGE
+      if ( has.pdftk )
+#endif
         pdf( sprintf( "%s/pdfs/cluster%04d.pdf", out.dir, k ) ) ## Will be compressed later
+#ifndef PACKAGE
+      else cairo_pdf( sprintf( "%s/pdfs/cluster%04d.pdf", out.dir, k ) ) ## Writes out smaller PDFs
+#endif
       try( plotClust( k, w.motifs=T, seq.type=seq.type, ... ), silent=T )
       dev.off()
     } )
@@ -1732,6 +1741,17 @@ write.project <- function( ks=sapply( as.list( clusterStack ), "[[", "k" ), para
     ##for ( f in list.files( out.dir, pattern=glob2rx( "*.html" ), full=T ) ) {
     ##  cat( f, "\n" ); rpl( '.svg"', '.svgz"', f, fixed=T ) }
     ##}
+#ifndef PACKAGE
+    if ( has.pdftk )
+      ##mc$
+      lapply( list.files( paste( out.dir, "/pdfs", sep="" ), full=T ), function( f )
+               if ( grepl( ".pdf", f, fixed=T ) ) {
+                 ##system( sprintf( "ls -al %s", f ) )
+                 system( sprintf( "pdftk %s output %s.tmp compress", f, f ) )
+                 system( sprintf( "/bin/mv -fv %s.tmp %s", f, f ) )
+                 ##system( sprintf( "ls -al %s", f ) )
+               } )
+#endif
   }
   if ( "rdata" %in% output ) save.cmonkey.env( file=paste( out.dir, "/cm_session.RData", sep="" ) )
   out.dir
@@ -1770,6 +1790,17 @@ write.bicluster.network <- function( out.dir=NULL, ks=1:k.clust, seq.type=names(
   if ( ! is.null( m.filter ) ) m.sif <- m.filter( m.sif )
   
   ## Run tomtom to get motif similarities, add edges between motif nodes; include eda's with stats of motif match
+#ifndef PACKAGE
+  if ( "tout" %in% names( list( ... ) ) ) tout <- list( ... )$tout
+  if ( ! exists( "tout" ) ) tout <- motif.similarities.tomtom( ks, ks, ... )
+  tout <- subset( tout, ! is.na( biclust1 ) )
+  tt.sif <- data.frame( sprintf( "motif_%04d_%d", as.integer( tout[ ,1 ] ), as.integer( tout[ ,2 ] ) ),
+                       sprintf( "motif_%04d_%d", as.integer( tout[ ,5 ] ), as.integer( tout[ ,6 ] ) ),
+                       tout[ ,9 ], tout[ ,10 ], tout[ ,11 ], tout[ ,12 ] )
+  tt.sif <- data.frame( tt.sif[ ,1 ], "motif_sim", tt.sif[ ,2:ncol( tt.sif ) ] )
+  colnames( tt.sif ) <- c( "node1", "int", "node2", "offset", "p.value", "q.value", "overlap" ) ## include eda's
+  if ( ! is.null( tt.filter ) ) tt.sif <- tt.filter( tt.sif )
+#endif
   
   ## Make r.sif, m.sif and tt.sif have same number of columns (eda's from m.sif and tt.sif) 
 ##   for ( i in 1:( ncol( m.sif ) + ncol( tt.sif ) - 6 ) ) r.sif <- cbind( r.sif, rep( NA, nrow( r.sif ) ) )
@@ -1785,6 +1816,10 @@ write.bicluster.network <- function( out.dir=NULL, ks=1:k.clust, seq.type=names(
   out.sif <- rbind( r.sif[ ,1:3 ], m.sif[ ,1:3 ], tt.sif[ ,1:3 ] )
   m.eda <- data.frame( edge=paste( m.sif[ ,1 ], " (", m.sif[ ,2 ], ") ", m.sif[ ,3 ], sep="" ),
                      m.sif[ ,4:ncol( m.sif ) ] )
+#ifndef PACKAGE
+  tt.eda <- data.frame( edge=paste( tt.sif[ ,1 ], " (", tt.sif[ ,2 ], ") ", tt.sif[ ,3 ], sep="" ),
+                     tt.sif[ ,4:ncol( tt.sif ) ] )
+#endif
 
   node.type <- as.data.frame( rbind( as.matrix( data.frame( attr( ratios, "rnames" ), "gene" ) ),
                                     as.matrix( data.frame( attr( ratios, "cnames" ), "condition" ) ),

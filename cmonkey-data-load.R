@@ -87,6 +87,65 @@ preprocess.ratios <- function( ratios, filter=T, normalize=T, col.groups=NULL, f
   ratios
 }
 
+#ifndef PACKAGE
+
+#' Load a ratios matrix based on GEO search terms
+#'  
+#' @param search.terms  GEO search terms (DEFAULT: gsub( "_", " ", rsat.species ))
+#' @export
+#' @usage ratios <- load.ratios.GEO()
+load.ratios.GEO <- function( search.terms ) {
+  if ( missing( search.terms ) ) search.terms <- gsub( "_", " ", rsat.species )
+  message( "Searching GEO for terms='", search.terms, "'" )
+  search.terms <- URLencode( search.terms )
+  try( dlf( sprintf( "data/%s/GEO_search.xml", rsat.species ),
+           sprintf( 'http://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=gds&term=%s&retmax=99999',
+                   search.terms ) ) )
+  tmp <- readLines( sprintf( "data/%s/GEO_search.xml", rsat.species ) )
+  tmp <- grep( '<Id>\\d+</Id>', tmp, perl=T, val=T )
+  ids <- sapply( strsplit( tmp, "[<>]" ), "[", 3 )
+  ids <- gsub( "^20+", "", gsub( "^10+", "", ids ) ) ## some ids have '2000' or '1000' at their beginning for some reason
+  cat( "Downloading GEO series:", ids, "\n" )
+  for ( id in ids ) {
+    err <- try( dlf( sprintf( "data/%s/GSE%s_series_matrix.txt.gz", rsat.species, id ),
+        sprintf( "ftp://ftp.ncbi.nih.gov/pub/geo/DATA/SeriesMatrix/GSE%s/GSE%s_series_matrix.txt.gz", id, id ) ) )
+    if ( class( err ) == "try-error" ) { ## Probably has multiple filenames, get a listing...
+      require( RCurl )
+      tmp <- try( getURL( sprintf( "ftp://ftp.ncbi.nih.gov/pub/geo/DATA/SeriesMatrix/GSE%s/", id ) ) )
+      i <- 0
+      while( class( tmp ) == "try-error" && ( i <- i + 1 ) < 10 )
+        tmp <- try( getURL( sprintf( "ftp://ftp.ncbi.nih.gov/pub/geo/DATA/SeriesMatrix/GSE%s/", id ) ) )
+      tmp <- strsplit( tmp, "\n" )[[ 1 ]]
+      tmp <- sapply( tmp, function( i ) strsplit( i, "\\s+" )[[ 1 ]][ 9 ] ); names( tmp ) <- NULL
+      for ( id2 in tmp ) {
+        err <- try( dlf( sprintf( "data/%s/%s", rsat.species, id2 ),
+             sprintf( "ftp://ftp.ncbi.nih.gov/pub/geo/DATA/SeriesMatrix/GSE%s/%s", id, id2 ) ) )
+      }
+    }
+  }
+  out <- list()
+  for ( f in list.files( patt=glob2rx( "GSE*_series_matrix.txt.gz" ),
+                        path=sprintf( "data/%s/", rsat.species ), full=T ) ) {
+    if ( file.info( f )$size == 0 ) next
+    cat( "Loading:", f, "\n" )
+    rats <- read.delim( gzfile( f ), comment='!' )
+    rownames( rats ) <- sapply( strsplit( as.character( rats[[ 1 ]] ), "|", fixed=T ), "[", 1 )
+    out[[ basename( f ) ]] <- as.matrix( rats[ ,-1 ] )
+  }
+  out
+}
+
+#' Return the condition groups for conds
+#'  
+#' @param conds  The conditions to return groups for (DEFAULT: attr( ratios, "cnames" ), i.e. "all" )
+#' @export
+#' @usage cond.groups <- get.condition.groups( conds=attr( ratios, "cnames" ) )
+get.condition.groups <- function( conds=attr( ratios, "cnames" ) ) {
+  tmp <- sapply( conds, function( i ) strsplit( i, "__" )[[ 1 ]][ 1 ] ) ## Specific for halo
+  tmp2 <- as.integer( as.factor( tmp ) ); names( tmp2 ) <- names( tmp )
+  tmp2
+}
+#endif
 
 #' Download a file from the internet.  A wrapper for download.file()
 #'  
@@ -166,6 +225,9 @@ get.genome.info <- function( fetch.upstream=F ) { ##, fetch.predicted.operons="r
     chroms <- unique( as.character( feature.tab$contig ) )
     chroms <- chroms[ ! is.na( chroms ) & chroms != "" ]
 
+#ifndef PACKAGE
+    ##if ( FALSE && big.memory ) genome.seqs <- list.reference( l=NULL, sprintf( "%s/genome.seqs", cmonkey.filename, type="RDS" ) )
+#endif
     
     if ( ! is.na( mot.iters[ 1 ] ) ) {
       genome.seqs <- list()
@@ -194,6 +256,17 @@ get.genome.info <- function( fetch.upstream=F ) { ##, fetch.predicted.operons="r
           next
         }
         out <- toupper( out )
+#ifndef PACKAGE
+        ## Note - can store genomes as on-disk factors, would help for big genomes like human, ath
+        ## then extract subseqs via, e.g. 'as.character(genome.info$genome.seqs[[1]][10:20])'
+        ## Not sure how to do this with bigmemory package.
+        if ( FALSE && big.memory == TRUE ) {
+          rf <- as.factor( strsplit( out, character( 0 ) )[[ 1 ]] )
+          require( ff ); frf <- ff( rf, vmode="quad", levels=levels( rf ),
+                                   filename=sprintf( "./%s/%s.genome.ff", cmonkey.filename, i ) )
+          out <- frf
+        }
+#endif        
         ##out } ) )
         genome.seqs[[ i ]] <- out
       }
@@ -206,6 +279,19 @@ get.genome.info <- function( fetch.upstream=F ) { ##, fetch.predicted.operons="r
       if ( length( genome.seqs ) <= 0 ) genome.seqs <- NULL
     }
 
+#ifndef PACKAGE    
+    if ( ! is.na( mot.iters[ 1 ] ) && fetch.upstream ) {
+      ## Can optionally also get upstream 400bp seqs (or upstream seqs not overlapping w/ orfs):
+      ## Naah, lets extract the sequences ourselves! (See get.sequences() below.)
+      fname <- paste( "data/", rsat.species, "/upstream-noorf.fasta.gz", sep="" )
+      err <- dlf( fname, paste( genome.loc, rsat.species, "_upstream-noorf.fasta.gz", sep="" ),
+                 "Fetching upstream sequences from RSAT..." )
+      upstream.noorf <- readLines( gzfile( fname ) )
+      fname <- paste( "data/", rsat.species, "/upstream.fasta.gz", sep="" )
+      err <- dlf( fname, paste( genome.loc, rsat.species, "_upstream.fasta.gz", sep="" ) )
+      upstream <- readLines( gzfile( fname ) )
+    }
+#endif    
   }
 
   synonyms <- NULL
@@ -233,6 +319,9 @@ get.genome.info <- function( fetch.upstream=F ) { ##, fetch.predicted.operons="r
       print( names( which( is.bad ) ) )
     }
     rm( is.bad ) ##tmp
+#ifndef PACKAGE
+##      if ( big.memory ) synonyms <- list.reference( synonyms, sprintf( "%s/synonyms.dump", cmonkey.filename ) )
+#endif
   }
   
   closeAllConnections()
@@ -459,6 +548,117 @@ get.STRING.links.NEW <- function( org.id=genome.info$org.id$V1[ 1 ], all.genes=a
   invisible( string.links )
 }
 
+#ifndef PACKAGE
+get.STRING.links.OLD <- function( org.id=genome.info$org.id$V1[ 1 ], detailed=T ) { 
+  ## line format is something like this (85962 is Hpy Org.id):
+  ## 85962.HP0001 85962.HP0617 180
+  ## Note old versions of string can be fetched from here: http://string.embl.de/server_versions.html
+  ##   e.g. v8.0 from http://string80.embl.de/newstring_download/protein.links.v8.0.txt.gz
+  
+  ##if ( exists( "get.STRING.links.NEW" ) ) return( invisible( get.STRING.links.NEW( org.id ) ) )
+  
+  url <- string.links.url
+  fname <- strsplit( url, "/" )[[ 1 ]]; fname <- sprintf( "data/STRING/%s", fname[ length( fname ) ] )
+  small.fname <- paste( "data/", rsat.species, "/string_links_", detailed, "_", org.id, ".tab", sep="" )
+  if ( ( ! file.exists( small.fname ) || file.info( small.fname )$size <= 0 ) ) {
+    if ( ! file.exists( fname ) ) {
+      err <- dlf( fname, url, paste( "Fetching STRING protein links file", url, "\nThis will take a while...\n" ) )
+      if ( class( err ) == "try-error" || ! file.exists( fname ) || file.info( fname )$size < 1e9 ) 
+        stop( paste( "Whoops, the file was not completely downloaded. Please try to download it yourself from",
+                    string.links.url, "and place it in data/STRING/, then restart cMonkey.\n" ) )
+    }
+
+    cat( "Loading organism-specific EMBL STRING interaction links (requires UNIX programs \"gunzip\" and \"grep\")",
+        "...\nUsing local file", fname, "->", small.fname, "\n" )
+    system.time.limit( paste( "gunzip -c ", fname, " | grep -E \"combined_score|^", org.id, ".\" > ", small.fname, sep="" ) )
+  }
+  
+  if ( file.exists( small.fname ) && file.info( small.fname )$size == 0 )
+    system.time.limit( paste( "gunzip -c ", fname, " | grep -E \"combined_score|^", org.id, ".\" > ", small.fname, sep="" ) )
+  if ( file.exists( small.fname ) && file.info( small.fname )$size > 0 ) {
+    cat( "Loading EMBL STRING interaction links from local file", small.fname, "\n" )
+    string.links <- read.delim( gzfile( small.fname ), sep=" ", head=T )
+  
+    string.links$protein1 <- gsub( paste( org.id, ".", sep="" ), "", string.links$protein1 ) 
+    string.links$protein2 <- gsub( paste( org.id, ".", sep="" ), "", string.links$protein2 )
+  }
+  url <- string.links.url
+  fname <- strsplit( url, "/" )[[ 1 ]]; fname <- sprintf( "data/STRING/%s", fname[ length( fname ) ] )
+  dlf( gsub( ".gz", "", gsub( "protein.links", "species", fname ) ),
+      gsub( ".gz", "", gsub( "protein.links", "species", url ) ) )
+  closeAllConnections()
+  invisible( string.links )
+}
+
+get.prolinks.links <- function( org.id=genome.info$org.id$V1[ 1 ] ) { ##, filter=F ) {
+  fname <- paste( "data/", rsat.species, "/prolinks_", gsub( " ", "_", org.id ), ".txt", sep="" )
+  org.file <- paste( "http://mysql5.mbi.ucla.edu/public/Genomes/", gsub( " ", "_", org.id ), ".txt", sep="" )
+  err <- dlf( fname, org.file, paste( "Fetching PROLINKS links from", org.file ) )
+  prol.tab <- read.delim( gzfile( fname ), head=T, as.is=T )
+  fname <- paste( "data/prolinks_GeneID_Genename.txt", sep="" )
+  id.file <- "http://mysql5.mbi.ucla.edu/public/reference_files/GeneID_Genename.txt"
+  err <- dlf( fname, id.file, paste( "Fetching PROLINKS genename ref. file from", id.file ) )
+
+  id.tab <- read.delim( gzfile( fname ), head=T, as.is=T )
+  merged.tab <- merge( merge( prol.tab, id.tab, by.x="gene_id_a", by.y="gene_id" ), id.tab, by.x="gene_id_b",
+                      by.y="gene_id" )
+  out <- list()
+  for ( i in unique( merged.tab$method ) ) { ## Already symmetric, it seems
+    out[[ i ]] <- merged.tab[ merged.tab$method == i, c( "name.x", "name.y", "confidence" ) ]
+    colnames( out[[ i ]] ) <- c( "protein1", "protein2", "combined_score" )
+  }
+  closeAllConnections()
+  out
+}
+
+get.predictome.links <- function( org.id=organism ) {
+  out <- list()
+  for ( i in c( "chromo", "comp", "fusion", "phylogenetic" ) ) {
+    fname <- paste( "data/predictome/predictome_", i, "_links.txt", sep="" )
+    pred.file <- paste( "http://predictome.bu.edu/data/all", i, "links.txt", sep="_" )
+    err <- dlf( fname, pred.file, paste( "Reading in predictome links from", pred.file ) )
+    pred.tab <- read.delim( gzfile( fname ), head=T, as.is=T )
+    pred.tab <- pred.tab[ pred.tab$species == org.id, ] ## Alreay symmetric, it seems
+    out[[ i ]] <- data.frame( protein1=pred.tab$orf_id_1, protein2=pred.tab$orf_id_2, combined_score=1.0 )
+  }
+  closeAllConnections()
+  out
+}
+
+## get.mint.links <- function( org.id=rownames( genome.info$org.id )[ 1 ] ) {
+##   file <- "data/MINT-2009-02-03-full.txt"
+##   dlf( file, "ftp://mint.bio.uniroma2.it/pub/release/txt/2009-02-03/2009-02-03-full.txt",
+##       "Fetching MINT interactions from ftp://mint.bio.uniroma2.it/pub/release/txt/2009-02-03/2009-02-03-full.txt." )
+##   mint.head <- strsplit( readLines( gzfile( file, n=1 ), "\t" )[[ 1 ]]
+##   mint.ints <- read.delim( file, head=F, skip=1, as.is=T )
+##   mint.ints <- mint.ints[ grep( paste( "taxid\\:", org.id, "\\(" ), mint.ints$`Taxid interactor A (bait)` ), ]
+## }
+
+## Assumes weights are 2nd column (if they exist) - if not (if they are a type, e.g. 'pp', weights are all 1
+## Weights are all then scaled to 0 -> 1000 to match those from STRING file.
+load.sif.interactions <- function( sif.fname ) { ##, sif.weight ) {
+  sif <- read.delim( gzfile( sif.fname ), sep='', head=F, comment="#" )
+  contains.weights <- ncol( sif ) == 3 && any( sapply( 1:ncol( sif ), function( i ) is.numeric( sif[ ,i ] ) ) )
+  if ( contains.weights ) {
+    weight.col <- which( sapply( 1:ncol( sif ), function( i ) is.numeric( sif[ ,i ] ) ) )
+    ##sif$V2 <- as.numeric( sif$V2 )
+    if ( length( weight.col ) == 1 ) {
+      sif[ ,weight.col ] <- sif[ ,weight.col ] * 1000 / max( sif[ ,weight.col ], na.rm=T ) ##* sif.weight
+      if ( weight.col == 1 ) sif <- sif[ ,c( 2, 1, 3 ) ]
+      else if ( weight.col == 3 ) sif <- sif[ ,c( 1, 3, 2 ) ]
+      colnames( sif ) <- c( "V1", "V2", "V3" )
+    }
+  } else if ( ncol( sif ) == 3 ) { ## Middle column is NOT numeric
+    sif <- data.frame( V1=sif$V1, V2=rep( 1000, nrow( sif ) ), V3=sif$V3 )
+  } else { 
+    sif <- data.frame( V1=sif$V1, V2=rep( 1000, nrow( sif ) ), V3=sif$V2 ) 
+  }
+  sif$V2[ is.na( sif$V2 ) ] <- 0
+  sif <- sif[ ,c( "V1", "V3", "V2" ) ]; colnames( sif ) <- c( "protein1", "protein2", "combined_score" )
+  closeAllConnections()
+  sif
+}
+#endif
 
 get.COG.code <- function( org, rows=attr( ratios, "rnames" ) ) {
   ## Can we use the updated mappings from STRING? Not sure...

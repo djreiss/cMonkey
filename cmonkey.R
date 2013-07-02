@@ -8,6 +8,10 @@
 
 cm.version <- "4.9.6"
 
+#ifndef PACKAGE
+##source( "cmonkey-init.R" )
+source( "cmonkey-funcs.R", local=T )
+#endif
 
 cmonkey <- function( env=NULL, ... ) {
   if ( ( ( is.null( list( ... )$dont.init ) || ! list( ... )$dont.init ) &&
@@ -70,6 +74,9 @@ cmonkey <- function( env=NULL, ... ) {
 }
 
 DEBUG <- function( ... ) {
+#ifndef PACKAGE
+  message( ... )
+#endif
 }
 
 install.binaries <- function( meme.version="4.3.0",
@@ -88,6 +95,9 @@ install.binaries <- function( meme.version="4.3.0",
   system( sprintf( "ln -s meme_%s/local/bin/meme", meme.version ) )
   system( sprintf( "ln -s meme_%s/local/bin/mast", meme.version ) )
   system( sprintf( "ln -s meme_%s/local/bin/dust", meme.version ) )
+#ifndef PACKAGE
+  system( sprintf( "ln -s meme_%s/local/bin/tomtom", meme.version ) )
+#endif
   ## Download and install blast executables? From:
   ## ftp.ncbi.nih.gov/blast/executables/LATEST
   setwd( cwd )
