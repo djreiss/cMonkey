@@ -193,7 +193,9 @@ get.genome.info <- function( fetch.upstream=F ) { ##, fetch.predicted.operons="r
           cat( "ERROR reading genome sequence", i, "\n" )
           next
         }
+        if ( length( out ) > 1 ) out <- paste( out, collapse='', sep='' ) ## probably multiple lines
         out <- toupper( out )
+        print( nchar( out ) )
         ##out } ) )
         genome.seqs[[ i ]] <- out
       }

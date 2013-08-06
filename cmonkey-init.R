@@ -126,6 +126,7 @@ cmonkey.init <- function( env=NULL, ... ) {
     set.param( "k.clust", 100 )
   }
   set.param( "n.clust.per.col", if ( exists( "ratios" ) && attr( ratios, "ncol" ) >= 60 ) round( k.clust / 2 ) else round( k.clust * 2 / 3 ) ) ## dflt to 1/2 of conds in each clust (avg)
+  set.param( "all.genes.even.if.not.in.ratios", FALSE ) ## By default only use genes (e.g. for motif and network scores) that are in ratios. Can set to TRUE if want to use ALL annotated genes for motif and network, even those not in the ratios matrix.
   set.param( "row.iters", seq( 1, n.iter, by=2 ) )
   set.param( "col.iters", seq( 1, n.iter, by=5 ) )
   ##set.param( "meme.iters", seq( 399, n.iter, by=100 ) ) ## Which iters to re-run meme?
@@ -446,27 +447,15 @@ cmonkey.init <- function( env=NULL, ... ) {
       rm( tmp, tmp2 )
     }    
 
-    ##genome.info$all.gene.names <- unique( as.character( subset( genome.info$feature.names,
-    ##                                                    grepl( paste( "^", genome.info$gene.regex, sep="" ), names,
-    ##                                                                 ignore=T, perl=T ), select="names", drop=T ) ) )
-    genome.info$all.gene.names <- unique( grep( paste( "^", genome.info$gene.regex, sep="" ),
-                                               as.character( genome.info$feature.names ), perl=T, val=T ) )
-    if ( exists( 'translation.tab' ) && ! is.null( translation.tab ) ) {
-      genome.info$all.gene.names <- c( genome.info$all.gene.names,
-                                      unique( as.character( grep( paste( "^", genome.info$gene.regex, sep="" ),
-                        c( as.character( translation.tab$V1 ), as.character( translation.tab$V2 ) ), perl=T ) ) ) )
-    }
-    if ( length( genome.info$all.gene.names ) <= 0 ) { ## regex is still in testing phase!
-      ##genome.info$all.gene.names <- unique( as.character( subset( genome.info$feature.names,
-      ##                                                  grepl( paste( "^", genome.info$gene.prefix, sep="" ), names,
-      ##                                                               ignore=T, perl=T ), select="names", drop=T ) ) )
-      genome.info$all.gene.names <- unique( grep( paste( "^", genome.info$gene.prefix, sep="" ),
-                                                 as.character( genome.info$feature.names ), perl=T, val=T ) )
-      if ( exists( 'translation.tab' ) && ! is.null( translation.tab ) ) {
-        genome.info$all.gene.names <- c( genome.info$all.gene.names,
-                                        unique( as.character( grep( paste( "^", genome.info$gene.prefix, sep="" ),
-                          c( as.character( translation.tab$V1 ), as.character( translation.tab$V2 ) ), perl=T ) ) ) )
-      }
+    all.names <- unique( c( as.character( genome.info$feature.names$id ), as.character( genome.info$feature.names$names ) ) )
+    if ( exists( 'translation.tab' ) ) all.names <- unique( c( all.names, as.character( translation.tab$V1 ),
+                                                              as.character( translation.tab$V2 ) ) )
+    
+    if ( ! all.genes.even.if.not.in.ratios ) all.names <- all.names[ all.names %in% attr( ratios, 'rnames' ) ]
+    genome.info$all.gene.names <- unique( grep( paste( "^", genome.info$gene.regex, sep="" ), all.names, perl=T, val=T, ignore=T ) )
+    if ( length( genome.info$all.gene.names ) <= length(attr(ratios,'rnames'))/2 ) { ## regex is still in testing phase!
+      genome.info$all.gene.names <- c( genome.info$all.gene.names, unique( grep( paste( "^", genome.info$gene.prefix, sep="" ),
+                                                                                all.names, perl=T, val=T, ignore=T ) ) )
     }
 
     if ( ! is.null( env ) ) assign( "genome.info", genome.info, envir=env )
@@ -736,7 +725,8 @@ cmonkey.init <- function( env=NULL, ... ) {
           }
           rm( tmp.nn, dupe.nodes )
         }
-        
+
+        ## TODO: need to reconcile the network node names with all.gene.names instead of attr(ratios,'rnames') !!!
         if ( exists( "ratios" ) && ! is.null( ratios ) && ! any( nodes %in% attr( ratios, "rnames" ) ) ) {
           ## ath in STRING has genes like AT1G09180.1 whereas I only know about AT1G09180 so lets double check this
           if ( median( nchar( nodes ) ) > median( nchar( attr( ratios, "rnames" ) ) ) &&

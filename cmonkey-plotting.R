@@ -875,7 +875,7 @@ plotClusterMotifPositions <- function( cluster, seqs=cluster$seqs, long.names=T,
     }
   }
 
-  if ( ! no.key && ( ! all( is.na( p.clust ) ) || ! all( is.na( e.clust ) ) ) ) {##&& ! for.figure ) ##! no.plot && 
+  if ( ! no.key && ( ! all( is.na( p.clust ) ) && ! all( is.na( e.clust ) ) ) ) {##&& ! for.figure ) ##! no.plot && 
     text( -maxlen*0.15, length(rows)+0.9, labels=sprintf( "log10(P) %s", seq.type ), pos=4, ... ) ##cex=0.7 )
     mots.used <- sort( unique( mots.used ) )
     if ( length( mots.used ) > 1 ) {
@@ -1289,10 +1289,12 @@ write.project <- function( ks=sapply( as.list( clusterStack ), "[[", "k" ), para
       if ( file.exists( sprintf( "%s/htmls/cluster%04d.html", out.dir, k ) ) ) return()
       rows <- sort( get.rows( k ) )
       if ( length( rows ) <= 0 ) return()
-      short.names <- get.long.names( rows, short=T )
+      short.names <- try( get.long.names( rows, short=T ) )
+      if ( class( short.names ) == 'try-error' ) short.names <- rep( '', length( rows ) )
       short.names <- cbind( rows, short.names )
       rownames( short.names ) <- colnames( short.names ) <- NULL
-      long.names <- get.long.names( rows, short=F )
+      long.names <- try( get.long.names( rows, short=F ) )
+      if ( class( long.names ) == 'try-error' ) long.names <- rep( '', length( rows ) )
       long.names <- cbind( rows, long.names )
       rownames( long.names ) <- colnames( long.names ) <- NULL
       refseq.names <- unique( unlist( get.synonyms( rows ) ) )
@@ -1524,7 +1526,7 @@ write.project <- function( ks=sapply( as.list( clusterStack ), "[[", "k" ), para
         c <- get.clust( k )
         png( sprintf( "%s/htmls/cluster%04d_profile.png", out.dir, k ), width=128, height=64, antialias="subpixel" )
         par( mar=rep(0.5,4)+0.1, mgp=c(3,1,0)*0.75 )
-        plotCluster( c, main="", no.par=T, ... )
+        try( plotCluster( c, main="", no.par=T, ... ) )
         dev.off() }, silent=T )
     } )
     cat( "\n" )
@@ -1540,7 +1542,7 @@ write.project <- function( ks=sapply( as.list( clusterStack ), "[[", "k" ), para
         png( sprintf( "%s/htmls/cluster%04d_network.png", out.dir, k ), width=64, height=64, antialias="subpixel" )
         par( mar=rep(0.5,4)+0.1, mgp=c(3,1,0)*0.75 )
         c <- get.clust( k )
-        plotCluster.network( c, cex=0.3, no.legend=T, ... )
+        try( plotCluster.network( c, cex=0.3, no.legend=T, ... ) )
         dev.off() }, silent=T )
     } )
     cat( "\n" )
@@ -1583,7 +1585,7 @@ write.project <- function( ks=sapply( as.list( clusterStack ), "[[", "k" ), para
               antialias="subpixel" )
           par( mar=rep(0.5,4)+0.1, mgp=c(3,1,0)*0.75 )
           c <- plotClust( k, dont.plot=T, ... ) ##seq.type=seq.type, 
-          plotClusterMotifPositions( c, cex=0.4, no.key=T, ... )
+          try( plotClusterMotifPositions( c, cex=0.4, no.key=T, ... ) )
           dev.off() }, silent=F )
       } )
       cat( "\n" )

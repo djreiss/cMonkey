@@ -29,8 +29,17 @@ cmonkey.one.iter <- function( env, dont.update=F, ... ) {
   
   ## OUTPUT
   if ( iter %in% stats.iters ) { 
-    ##env$clusterStack <- get.clusterStack( ks=1:k.clust ) 
-    env$stats <- rbind( env$stats, env$get.stats() )
+    ##env$clusterStack <- get.clusterStack( ks=1:k.clust )
+    tmp.stats <- env$get.stats()
+    stats <- env$stats
+    if ( iter > 1 && nrow(stats) > 0 &&
+        any( ! colnames( tmp.stats ) %in% colnames( stats ) ) ) { ## this is for multiple seq-types of motif-finder-types
+      ## assume tmp.stats has more columns than stats ...
+      for ( cn in colnames( tmp.stats )[ ! colnames( tmp.stats ) %in% colnames( stats ) ] )
+        stats[[ cn ]] <- rep(NA, nrow(stats))
+    }
+    ##env$stats <- rbind( env$stats, env$get.stats() )
+    env$stats <- rbind( stats, tmp.stats )
     cat( organism, as.matrix( env$stats[ nrow( env$stats ), ] ), '\n' )
   } else {
     cat( sprintf( "==> %04d %.3f %.3f %.3f\n", iter, ##%5d sum( row.memb != old.row.memb, na.rm=T ),
@@ -318,6 +327,7 @@ cluster.pclust <- function( k, mot.inds="COMBINED" ) { ## actually returns a lis
     ## if ( is.null( pvs ) ) return( NA )
     ## rows <- rows[ rows %in% rownames( pvs ) ]
     ## if ( length( rows ) > 0 ) mean( log10( pvs[ rows, k ] ), na.rm=T ) else NA
+    out
   } )
   
   e.vals <- sapply( inds, function( n ) {
@@ -742,7 +752,7 @@ get.synonyms <- function( gns, ft=genome.info$feature.names, ignore.case=T, verb
   mc <- get.parallel( length( gns ), verbose=F )
   tmp <- mc$apply( gns, function( g ) {
     if ( verbose && g %in% ggggg ) cat( " ...", g )
-    greg <- paste( "^", g, sep="" )
+    greg <- paste( "^", g, "$", sep="" )
     tmp <- subset( ft, grepl( greg, id, perl=T, ignore=ignore.case ) |
                   grepl( greg, names, perl=T, ignore=ignore.case ) ) ## ) )
     if ( nrow( tmp ) <= 0 ) return( g ) ##tmp.out ) ##character() )
@@ -790,7 +800,7 @@ get.gene.coords <- function( rows, op.shift=T, op.table=genome.info$operons, ...
   ids <- data.frame( id=ids, names=names( ids ) ) ##, gene=rows )
   
   coos <- NULL
-  if ( op.shift ) { ## Replace each gene's coords with the head of its operon, but keep the "locus_tag".
+  if ( op.shift && exists( 'op.table' ) ) { ## Replace each gene's coords with the head of its operon, but keep the "locus_tag".
     if ( attr( op.table, "source" ) == "rsat" ) {
       ops <- merge( ids, op.table, by.x="id", by.y="query", all=F )
       ops2 <- ops[ order( ops$lead ), ]
@@ -817,15 +827,23 @@ get.gene.coords <- function( rows, op.shift=T, op.table=genome.info$operons, ...
           ids2 <- ids2[ sapply( ids2, length ) >= 1 ]
           ids2 <- sapply( ids2, "[", 1 )
           ids2 <- data.frame( id=ids2, names=names( ids2 ) ) ##, gene=rows )
-          ops <- merge( ids2, op.table, by.x="id", by.y="gene", all.x=T )
+          if ( any( ! rows %in% ids2$names ) ) {
+            capture.output( prefix <- get.gene.regex( as.character( ids2$id ) )[ 1 ] )
+            missing <- rows[ ! rows %in% ids2$names ]
+            syns2 <- sapply( syns[ missing ], function( i ) grep( sprintf( '^%s', prefix ), i, val=T )[ 1 ] )
+            syns2[ is.na( syns2 ) ] <- names( syns2 )[ is.na( syns2 ) ]; names( syns2 ) <- NULL
+            ids2 <- rbind( ids2, data.frame( id=syns2, names=missing ) )
+          }
+          ops <- merge( ids2, op.table, by.x="id", by.y="gene", all.x=T, incomparables=NA )
         }
       }
-      if ( is.null( ops ) ) ops <- merge( ids, op.table, by.x="names", by.y="gene", all.x=T )
+      if ( is.null( ops ) ) ops <- merge( ids, op.table, by.x="names", by.y="gene", all.x=T, incomparables=NA )
       if ( any( is.na( ops$head ) ) ) {
-        head <- as.character( ops$head ); head[ is.na( head ) ] <- as.character( ops$names[ is.na( head ) ] )
+        head <- as.character( ops$head ); head[ is.na( head ) ] <- as.character( ops$id[ is.na( head ) ] ) ##names[ is.na( head ) ] )
         ops$head <- as.factor( head )
       }
-      head.syns <- get.synonyms( unique( as.character( ops$head ) ) )
+      head.genes <- unique( as.character( ops$head ) ); head.genes <- head.genes[ ! is.na( head.genes ) ]
+      head.syns <- get.synonyms( head.genes )
       head.ids <- lapply( head.syns, function( s ) s[ s %in% tab$id ] )
       head.ids <- head.ids[ sapply( head.ids, length ) >= 1 ]
       head.ids <- data.frame( id=sapply( head.ids, "[", 1 ), names=names( head.ids ) )
@@ -866,7 +884,7 @@ get.long.names <- function( k, shorter=F ) {
   out
 }
 
-get.gene.regex <- function( names=NULL ) {
+get.gene.regex <- function( names=NULL, verbose=F ) {
   if ( ! is.null( names ) ) tmp <- names
   else { ## Get common prefix from feature.names and use those genes (assume >40% of ORF names have this suffix)
     if ( exists( 'ratios' ) && ! is.null( ratios ) ) tmp <- toupper( attr( ratios, "rnames" ) )
@@ -885,10 +903,10 @@ get.gene.regex <- function( names=NULL ) {
   prefix <- NA
   if ( nch > 0 ) {
     prefix <- names( which.max( table( substr( tmp, 1, nch ) ) ) )
-    message( "Assuming gene/probe names have common prefix '", prefix, "'." )
+    if ( verbose ) message( "Assuming gene/probe names have common prefix '", prefix, "'." )
     genome.info$gene.prefix <- prefix
   } else {
-    message( "Could not find a common gene/probe identifier prefix. This only matters if there's no expression matrix." )
+    if ( verbose ) message( "Could not find a common gene/probe identifier prefix. This only matters if there's no expression matrix." )
     prefix <- genome.info$gene.prefix <- NA
   }
 
@@ -911,7 +929,7 @@ get.gene.regex <- function( names=NULL ) {
       regex[[ i ]] <- c( regex[[ i ]][ regex[[ i ]] != ' ' ], '?' )
   }
   regex <- paste( unlist( lapply( regex, paste, sep='', collapse='' ) ), sep='', collapse='' )
-  message( "Assuming gene/probe names have regex '", regex, "'." )
+  if ( verbose ) message( "Assuming gene/probe names have regex '", regex, "'." )
   c( prefix, regex )
 }
 
