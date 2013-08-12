@@ -1,14 +1,18 @@
-If you came here looking for the cMonkey R package, you can grab it here:
+If you came here looking for the cMonkey R package, you can grab it by going here:
 
 http://cmonkey.systemsbiology.net/
 
-... and follow the link (on the top-right) to the ["New cMonkey R Package and Code"](http://baliga.systemsbiology.net/drupal/content/new-cmonkey-r-package-and-code).
+... and then following the link (on the top-right) to the ["New cMonkey R Package and Code"](http://baliga.systemsbiology.net/drupal/content/new-cmonkey-r-package-and-code).
+
+Alternatively, you can just fetch it from this repo via 
+
+https://github.com/dreiss-isb/cmonkey/blob/master/cMonkey_4.9.7.tar.gz?raw=true
 
 If you want to run cMonkey from raw R code, you've come to the right place. 
 
 Once you've cloned your copy, you can run cMonkey locally (without the package), after doing the following (in R):
 
-```R
+```r
 source( "cmonkey.R" )    ## This should be all you need
 ## source( "cmonkey-init.R" )
 ## source( "cmonkey-data-load.R" ) ## Functions for loading the data
