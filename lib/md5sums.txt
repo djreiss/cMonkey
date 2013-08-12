@@ -1,0 +1,6 @@
+VERSION 4.8.5
+6425e40fab4bf29d1ce25f3ec3bd641b  lib/cMonkey.bigdata_4.8.5.tar.gz
+8fdf22f1267abb5ae3f715841b82f6d8  lib/cMonkey.data_4.8.5.tar.gz
+13fb5494e372749cb68c79b2a52d5071  lib/cMonkey_4.8.5.tar.gz
+
+

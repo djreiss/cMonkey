@@ -1,0 +1,211 @@
+<html>
+<head>
+<title>cMonkey R package</title>
+<style type="text/css">
+body {
+    font-family: Georgia, "Times New Roman", Times, serif;
+    color: darkblue;
+    background-color: #ddeeff }
+pre {
+  font-size: x-small;
+  margin: 1ex;
+  padding: 1ex;
+  border:#cccccc dashed thin;
+  background:#e0e0e0; }
+tt {
+  margin: 1ex;
+  padding: 0ex;
+  border:#cccccc dashed thin;
+  background:#fdfdfd; }
+</style>
+<!--<h1>The cMonkey <i>R</i> package</h1>-->
+<table style="text-align:center;font-size:70%" border="1">
+<p>You have reached the <b>updated</b> <a href="http://baliga.systemsbiology.net/cmonkey"><i>cMonkey</i></a> site with a new <a href="http://www.r-project.org"><i>R</i></a> package, installation and running instructions, and additional information. 
+<p>If you are looking for the original <i>cMonkey</i> site, you can <a href="http://baliga.systemsbiology.net/drupal/content/cmonkey">find it here</a>. The original <i>cMonkey</i> algorithm was published with the manuscript
+<a href="http://www.biomedcentral.com/1471-2105/7/280">"Integrated biclustering of heterogeneous genome-wide datasets for the inference of global regulatory networks"</a>, by David J Reiss, Nitin S Baliga and Richard Bonneau.
+<p><font color="#ff0000">*NEW*</font>&nbsp The <i>cMonkey</i> <a href="http://www.r-project.org">R</a> package is <a href="http://cran.r-project.org/web/packages/cMonkey/index.html">now on CRAN</a>. <!--<a href="http://cran.r-project.org/web/packages/">CRAN</a>.-->
+<!--<p><i>cMonkey</i> packages are <a href="https://r-forge.r-project.org/projects/cmonkey/">now hosted on R-forge</a>.-->
+<p><font color="#ff0000">*NEW*</font>&nbsp <i>cMonkey</i> source code is <a href="https://github.com/dreiss-isb/cmonkey">now on Github</a>.
+<tr>
+<td>organism</td><td>n.genes</td><td style="font-weight:bold;text-align:center;font-size:70%"><a>n.arrays</td><td style="font-weight:bold;text-align:center;font-size:70%"><a>profile</td><td style="font-weight:bold;text-align:center;font-size:70%"><a>network</td><td style="font-weight:bold;text-align:center;font-size:70%"><a>motif1</td><td style="font-weight:bold;text-align:center;font-size:70%"><a>motif2</td><td style="font-weight:bold;text-align:center;font-size:70%"><a>motif.posns</td></tr>
+<td><a href="output/cmonkey_4.1.5_sce/htmls/cluster136.html"><i>S. cerevisiae</i></a></td><td>12</td><td>445</td></td><td><img border="0" src="output/cmonkey_4.1.5_sce/htmls/cluster136_profile.png" alt="output/cmonkey_4.1.5_sce/htmls/cluster136_profile.png"></img></td><td><img border="0" src="output/cmonkey_4.1.5_sce/htmls/cluster136_network.png" alt="output/cmonkey_4.1.5_sce/htmls/cluster136_network.png"></img></td><td><img border="0" src="output/cmonkey_4.1.5_sce/htmls/cluster136_pssm1.png" alt="output/cmonkey_4.1.5_sce/htmls/cluster136_pssm1.png"></img></td><td><img border="0" src="output/cmonkey_4.1.5_sce/htmls/cluster136_pssm2.png" alt="output/cmonkey_4.1.5_sce/htmls/cluster136_pssm2.png"></img></td><td><img border="0" src="output/cmonkey_4.1.5_sce/htmls/cluster136_mot_posns.png" alt="output/cmonkey_4.1.5_sce/htmls/cluster136_mot_posns.png"></img></td></tr>
+<td><a href="output/cmonkey_4.1.5_eco/htmls/cluster104.html"><i>E. coli</i></a></td><td>24</td><td>329</td><td><img border="0" src="output/cmonkey_4.1.5_eco/htmls/cluster104_profile.png" alt="output/cmonkey_4.1.5_eco/htmls/cluster104_profile.png"></img></td><td><img border="0" src="output/cmonkey_4.1.5_eco/htmls/cluster104_network.png" alt="output/cmonkey_4.1.5_eco/htmls/cluster104_network.png"></img></td><td><img border="0" src="output/cmonkey_4.1.5_eco/htmls/cluster104_pssm1.png" alt="output/cmonkey_4.1.5_eco/htmls/cluster104_pssm1.png"></img></td><td><img border="0" src="output/cmonkey_4.1.5_eco/htmls/cluster104_pssm2.png" alt="output/cmonkey_4.1.5_eco/htmls/cluster104_pssm2.png"></img></td><td><img border="0" src="output/cmonkey_4.1.5_eco/htmls/cluster104_mot_posns.png" alt="output/cmonkey_4.1.5_eco/htmls/cluster104_mot_posns.png"></img></td></tr>
+<td><a href="output/cmonkey_4.1.5_hpy/htmls/cluster054.html"><i>H. pylori</i></a></td><td><a>12</td><td><a>36</td><td><img border="0" src="output/cmonkey_4.1.5_hpy/htmls/cluster054_profile.png" alt="output/cmonkey_4.1.5_hpy/htmls/cluster054_profile.png"></img></td><td><img border="0" src="output/cmonkey_4.1.5_hpy/htmls/cluster054_network.png" alt="output/cmonkey_4.1.5_hpy/htmls/cluster054_network.png"></img></td><td><img border="0" src="output/cmonkey_4.1.5_hpy/htmls/cluster054_pssm1.png" alt="output/cmonkey_4.1.5_hpy/htmls/cluster054_pssm1.png"></img></td><td><img border="0" src="output/cmonkey_4.1.5_hpy/htmls/cluster054_pssm2.png" alt="output/cmonkey_4.1.5_hpy/htmls/cluster054_pssm2.png"></img></td><td><img border="0" src="output/cmonkey_4.1.5_hpy/htmls/cluster054_mot_posns.png" alt="output/cmonkey_4.1.5_hpy/htmls/cluster054_mot_posns.png"></img></td></tr>
+<td><a href="output/cmonkey_4.1.5_hal/htmls/cluster037.html"><i>H. salinarum</i></a></td><td>21</td><td>175</td><td><img border="0" src="output/cmonkey_4.1.5_hal/htmls/cluster037_profile.png" alt="output/cmonkey_4.1.5_hal/htmls/cluster037_profile.png"></img></td><td><img border="0" src="output/cmonkey_4.1.5_hal/htmls/cluster037_network.png" alt="output/cmonkey_4.1.5_hal/htmls/cluster037_network.png"></img></td><td><img border="0" src="output/cmonkey_4.1.5_hal/htmls/cluster037_pssm1.png" alt="output/cmonkey_4.1.5_hal/htmls/cluster037_pssm1.png"></img></td><td><img border="0" src="output/cmonkey_4.1.5_hal/htmls/cluster037_pssm2.png" alt="output/cmonkey_4.1.5_hal/htmls/cluster037_pssm2.png"></img></td><td><img border="0" src="output/cmonkey_4.1.5_hal/htmls/cluster037_mot_posns.png" alt="output/cmonkey_4.1.5_hal/htmls/cluster037_mot_posns.png"></img></td></tr>
+<td><a href="output/cmonkey_4.1.5_ath/htmls/cluster494.html"><i>A. thaliana</a></a></td><td>19</td><td>66</td><td><img border="0" src="output/cmonkey_4.1.5_ath/htmls/cluster494_profile.png" alt="output/cmonkey_4.1.5_ath/htmls/cluster494_profile.png"></img></td><td><img border="0" src="output/cmonkey_4.1.5_ath/htmls/cluster494_network.png" alt="output/cmonkey_4.1.5_ath/htmls/cluster494_network.png"></img></td><td><img border="0" src="output/cmonkey_4.1.5_ath/htmls/cluster494_pssm1.png" alt="output/cmonkey_4.1.5_ath/htmls/cluster494_pssm1.png"></img></td><td><img border="0" src="output/cmonkey_4.1.5_ath/htmls/cluster494_pssm2.png" alt="output/cmonkey_4.1.5_ath/htmls/cluster494_pssm2.png"></img></td><td><img border="0" src="output/cmonkey_4.1.5_ath/htmls/cluster494_mot_posns.png" alt="output/cmonkey_4.1.5_ath/htmls/cluster494_mot_posns.png"></img></td></tr>
+</table>
+
+<hr>
+<h1>SUMMARY</h1>
+<p>The latest version of <i>cMonkey</i> is still under active development and has now been applied successfully to many systems, including plants (<i>Arabidopsis thaliana</i>) and mammals (<i>Homo sapiens</i>).
+<p>The <i>cMonkey</i> package will enable a user to run the integraged biclustering algorithm on their own microarray data, for their own organism of interest. During initialization, it will <b>automatically</b> download and integrate additional data for that organism, including:
+<ul>
+<li>genome sequence data (from <a href="http://rsat.ulb.ac.be/rsat/">RSAT</a>) in the form of:
+<ul><li>genome sequence and promoter sequences
+<li>gene annotations and coordinates</ul>
+<li>operon data and predictions (from <a href="http://www.microbesonline.org">MicrobesOnline</a>)
+<li>functional associations between genes from one or more of:
+<ul><li><a href="http://string-db.org/">EMBL STRING</a>
+<li><a href="http://mysql5.mbi.ucla.edu/cgi-bin/functionator/pronav">Prolinks</a>
+<li><a href="http://predictome.bu.edu">Predictome</a></ul>
+<li>gene functional annotations from <a href="http://www.ncbi.nlm.nih.gov/COG/">NCBI COG</a>
+<li><font color="#ff0000">coming soon:</font> <a href="http://www.geneontology.org/">GO</a> annotations and <a href="http://www.genome.jp/kegg/kegg2.html">KEGG</a> annotations and pathways will be automatically included as well.
+<li>Additional user-defined data sets from local files, such as protein-protein and protein-DNA interactions, annotations, etc. may be easily integrated as well.
+</ul>
+<font color="#ff0000">IMPORTANT NOTE:</font> <i>cMonkey</i> currently does not completely support <i>H. sapiens</i>. We are working on a version for that specific task. In the meantime, <a href="#hsa">see below</a> for instructions on using <i>cMonkey</i> to run <i>only</i> on your Hsa expression data (i.e. without motifs or networks).
+
+<h1>INSTALLATION</h1>
+<p>To run <a href="http://baliga.systemsbiology.net/cmonkey"><i>cMonkey</i></a> on your own expression data, we recommend using a UNIX-y operating system (e.g., Mac OS-X or Linux). <i>cMonkey</i> will run on Windows, but parallelization will be more difficult to set up (see <a href="#parallel">below</a> and <a href="#windows">below</a>).
+<p>You will only need to do the following steps once:<br>
+<ol>
+<li> Install the latest version of <a href="http://www.r-project.org"><i>R</i></a> (I am currently using version 2.11.0). It should work for versions 2.9.x and up.
+<li> Install the following <i>R</i> packages and their dependencies (all are helpful, but none are absolutely required): <tt>RCurl, doMC, igraph0, RSVGTipsDevice, and hwriter</tt> by typing in <i>R</i>: <pre>install.packages( c( 'RCurl', 'doMC', 'igraph0', 'RSVGTipsDevice', 'hwriter' ) )</pre> 
+<ul><li>The latter three packages are used only for plotting and graphical output.<br>
+<li><a name="parallel"></a><font color="#ff0000">* NOTE</font> the <tt>doMC</tt> package for multi-processor parallelization will not work when using the R GUI in Mac OS X. If you want <i>cMonkey</i> to utilize all processors/cores on your machine, run <i>R</i> from a terminal instead. Also <font color="#ff0000">NOTE</font> that the <tt>doMC</tt> package only works on UNIX OSes (e.g. Linux or Mac OS X). If you want to run <i>cMonkey</i>, parallelized with a Windows OS, you need to install <tt>doSNOW</tt> or the experimental <tt><a href=http://blog.revolutionanalytics.com/2010/05/parallel-computing-life-sciences.html>doSMC</a></tt> package.
+</ul>
+<li> The latest version of <i>cMonkey</i> may now be directly installed via the usual method, by typing in <i>R</i>: <pre>install.packages( "cMonkey" )</pre>
+<ul><li> Alternatively, download and install <a href="cMonkey_VERSION.tar.gz">the most cutting-edge (currently version VERSION) <i>cMonkey</i> <i>R</i> source package</a> on your system (<a href="md5sums.txt">MD5</a>). To download and install the package in <i>R</i>, type: 
+<pre>download.file( 'http://baliga.systemsbiology.net/cmonkey/cMonkey_VERSION.tar.gz', 'cMonkey_VERSION.tar.gz' )
+install.packages( 'cMonkey_VERSION.tar.gz', repos=NULL, type='source' )
+</pre>
+<li><font color="#ff0000">* NOTE</font> while the package will install correctly, it generates warnings during installation. Also <font color="#ff0000">NOTE</font> that the inline documentation is currently empty. This will be remedied. In the meantime, use the instructions below.<br>
+<li><a name="windows"></a><font color="#ff0000">* NOTE</font> <!--<a href="cMonkey_VERSION.zip">-->an <i><font color="#ff0000">experimental</font> </i>Windows version</a> of the package <a href="https://r-forge.r-project.org/R/?group_id=779">does exist</a>; use at your own risk.<br>
+<li><font color="#ff0000">* NOTE</font> old versions may be accessed <a href="old_lib/">here</a>.
+<li><font color="#ff0000">* NOTE</font> there is a supplementary <a href="cMonkey.data_VERSION.tar.gz">package containing sample data sets to use in the examples</a>. For more information on its use, <a href="#data">see below</a>. To install it, in <i>R</i>, type:
+<pre>download.file( 'http://baliga.systemsbiology.net/cmonkey/cMonkey.data_VERSION.tar.gz', 'cMonkey.data_VERSION.tar.gz' )
+install.packages( 'cMonkey.data_VERSION.tar.gz', repos=NULL, type='source' )
+</pre>
+<li><font color="#ff0000">* NOTE</font> there is an additional supplementary <a href="cMonkey.bigdata_VERSION.tar.gz">package containing additional big sample data sets</a>. For more information on its use, <a href="#bigdata">see below</a>.
+</ul><!--<li> If you plan to do motif detection (and of course you do!), download and compile/install the following:
+<ol type="a">-->
+<!--<li><a href="http://meme.nbcr.net/downloads/old_versions/meme-3.0.14.tar.gz"><i>MEME</i> version 3.0.14</a>. Specific <font color="#ff0000">NOTES</font>:-->
+<li>For motif detection, <i>cMonkey</i> uses <a href="http://meme.nbcr.net">the <i>MEME</i> suite</a>. Currently, only versions <a href="http://meme.nbcr.net/downloads/old_versions/meme-3.0.14.tar.gz">3.0.14</a> or <a href="http://meme.nbcr.net/downloads/meme_4.3.0.tar.gz">4.3.0</a> are supported (although others should work). <!--Specific <font color="#ff0000">NOTES</font>:-->
+<ol type="a">
+<li><font color="#ff0000">NEW:</font> On UNIX-y OSes, <tt>meme</tt>, <tt>mast</tt>, and <tt>dust</tt> should be installed automatically upon the first run of <i>cMonkey</i>. If this fails, it may be installed from within R via: <pre>cMonkey:::install.binaries()</pre> This is still somewhat experimental. If both options fail, see item (b.), below.
+<li>If (a.) fails, <tt>meme</tt>, <tt>mast</tt>, and <tt>dust</tt> may be installed in the local <tt>[CWD]/progs</tt> directory, where <tt>[CWD]</tt> is the working directory from which you will be running <i>R</i>/<i>cMonkey</i>. You may do this via soft links (e.g. <tt>mkdir progs; ln -s /usr/local/bin/meme progs/meme</tt>). To find out what <tt>[CWD]</tt> is, type <tt>getwd()</tt> in <i>R</i>. You can change this directory in <i>R</i> by typing <tt>setwd("/new/dir/")</tt>.
+<!--<li>Other versions of <a href="http://meme.nbcr.net"><i>MEME</i></a> will probably work; however I have only (to date) tested versions <a href="http://meme.nbcr.net/downloads/old_versions/meme-3.0.14.tar.gz">3.0.14</a> and <a href="http://meme.nbcr.net/downloads/meme_4.3.0.tar.gz">4.3.0</a>; these are the only versions that I will support.-->
+<!--</ul>-->
+<!--<li><i>cMonkey</i> uses <a href="ftp://ftp.ncbi.nih.gov/pub/tatusov/dust/version1/src/">dust</a> to mask out low-information content regions in the DNA sequences. <a href="http://meme.nbcr.net/downloads/meme_4.3.0.tar.gz"><i>MEME</i> version 4.3.0</a> includes <i>dust</i> by default. As with <i>MEME</i>, place the <tt>dust</tt> executable (or a link to it) in the <tt>[CWD]/progs</tt> directory. <!--<font color="#ff0000">NOTE</font> that <i>dust</i> is not required, but is highly recommended. -->
+</ol>
+</ol>
+<!--... now you're all set!<br><br>-->
+
+<a href="mailto:dreiss@systemsbiology.org">Email me</a> if you have any problems with any of these instructions.<br><br>
+
+<hr>
+<h1>EXAMPLES: RUNNING <i>cMonkey</i></h1>
+<!--Now for the examples (including loading the <i>cMonkey</i> package):-->
+<ol>
+
+<li>First, various <i>cMonkey</i> parameters and instructions on how to set them are described <a href="#params">below</a>.
+
+<li>Run <i>cMonkey</i> on the <i>Halobacterium EGRIN</i> expression data set (NOTE you will have to load the <a href="cMonkey.data_4.8.1.tar.gz">cMonkey.data</a> package; see above) (<a href="output/cmonkey_4.1.5_hal/">sample results</a>):<br>
+
+<pre>
+library( cMonkey ); library( cMonkey.data ); data( halo )
+e <- cmonkey( halo )
+</pre>
+
+ ... this will take ~5 hours to run. <font color="#FF0000">NOTE</font> that the first time <i>cMonkey</i> is run on your system, it will take some time to download the additional data (especially the <a href="http://string.embl.de">EMBL STRING</a> interaction data), but these files will be cached locally for future runs.
+
+<li>We note that it may be useful to pre-initialize a <i>cMonkey</i> run, which loads all the data and prepares the environment for performing the optimization. The pre-initialized environment may be saved, and then optimized later, e.g. multiple times (using a different random number seed). Thus, the following example is identical to the one above:
+
+<pre>
+library( cMonkey ); library( cMonkey.data ); data( halo )
+e <- cmonkey.init( halo )
+cmonkey( e )
+</pre>
+
+<li>The <tt>cmonkey(...)</tt> function returns a new <i><a href="http://cran.r-project.org/doc/manuals/R-lang.html#Environment-objects">environment</a></i> object containing all data and additional functions resulting from the data analysis performed. This object will subsequently be used for exploration of the results (see <a href="#results">below</a>).
+
+<li><a name="data"></a><i>cMonkey</i> can just as easily be run on the sample <i>H. pylori</i> and <i>Mycoplasma pneumoniae</i> expression data sets; just replace <tt>halo</tt> in the example above, with <tt>hpy</tt> (<a href="output/cmonkey_4.1.5_hpy/">sample results</a>) or <tt>mpn</tt> (<a href="output/cmonkey_4.7.2_mpn">sample results</a>), respectively.
+
+<li><a name="bigdata"></a>The separate <a href="cMonkey.bigdata_VERSION.tar.gz">"<i>cMonkey.bigdata</i>" supplemental <i>R</i> package</a> <!--(<a href="cMonkey.bigdata_VERSION.zip">Windows version</a>)--> contains additional large sample data sets for <i>S. cerevisiae</i> (<tt>yeast</tt>; <a href="output/cmonkey_4.1.5_sce/">sample results</a>), <i>E. coli</i> (<tt>ecoli</tt>; <a href="output/cmonkey_4.1.5_eco/">sample results</a>), and <i>A. thaliana</i> (<tt>ath</tt>; <a href="output/cmonkey_4.1.5_ath/">sample results</a>).<!-- This package can be installed alongside the <a href="cMonkey_VERSION.tar.gz"><i>cMonkey</i> package</a>.-->
+
+<!--<li>Run <i>cMonkey</i> on your own <i>Halobacterium</i> expression data matrix, e.g. from a tab-delimited file or broadcast to <i>R</i> via the <a href="http://www.bioconductor.org/packages/2.4/bioc/html/gaggle.html"><i>R/Gaggle</i> interface</a>:<br>
+
+<pre>
+library( cMonkey )
+data( halo )
+halo$ratios <- NULL ## Remove the pre-loaded Halobacterium ratios matrix
+ratios <- read.delim( file='my_ratios.tsv', sep='\t', as.is=T, header=T )
+## Another way to get the ratios matrix is via the Gaggle/R interface.
+## This assumes that you have already broadcast the matrix from another application:
+library( gaggle ); ratios <- getMatrix() 
+e <- cmonkey( halo ) ## cmonkey() knows to use ratios that is in the Global environment
+</pre>-->
+
+<li>Finally, <b>run <i>cMonkey</i> on your own expression data matrix, for your organism of interest</b> (e.g. <i>B. subtilis</i>; all organism codes may be found <a href="ftp://ftp.genome.jp/pub/kegg/genes/taxonomy">here</a>):<br>
+
+<pre>
+library( cMonkey )
+ratios <- read.delim( file='my_ratios.tsv', sep='\t', as.is=T, header=T )
+e <- cmonkey( organism='bsu' )
+</pre>
+
+<li><a name="hsa"></a>And to run <i>cMonkey</i> on your <i>H. sapiens</i> expression data, without motifs or networks (we are working on a version which will have that capability), use the following commands:
+
+<pre>
+library( cMonkey )
+ratios <- read.delim( file='my_ratios.tsv', sep='\t', as.is=T, header=T )
+e <- cmonkey( organism='hsa', no.genome.info=TRUE, post.adjust=FALSE, mot.weights=numeric(), net.weights=numeric() )
+</pre>
+</ol>
+
+<a name="results"></a><h1>EXAMPLES: EXPLORATION OF RESULTS</h1>
+Once a <i>cMonkey</i> run is complete, you may use the following to explore the results:
+<ol type="a"><!--<li>First, save the results to a (arbritrarily named) file: <pre>save.image( 'cm_run.RData' )</pre>
+This may be loaded again in a new <i>R</i> session via: <pre>load( 'cm_run.RData' )</pre>
+<font color="#FF0000">NOTE:</font> once the file is loaded, you must type <pre>library( cMonkey ); cm.attach()</pre> to re-attach the environment.-->
+<li>Write out the clustering results to a set of files (<a href="output/cmonkey_4.1.5_hal/">similar to these</a>) for visualization and exploration of biclusters in a web browser and/or via <a href="http://gaggle.systemsbiology.net"><i>Gaggle</i></a> and Firefox using <a href="http://gaggle.systemsbiology.net/docs/geese/firegoose/"><i>Firegoose</i></a>: <pre>e$write.project()</pre>
+<li>Remind yourself the number of biclusters that <i>cMonkey</i> was told to find (other user-defined or default parameters may be accessed in a similar manner): <pre>e$k.clust</pre>
+<li>Print out a table with a summary of the better clusters (best clusters listed first)<!--. Note that the column labels are offset - the first column printed is the cluster number-->: <pre>e$cluster.summary()</pre>
+<li>Plot some summary statistics and trends of (mean) scores during optimization, <a href="output/cmonkey_4.1.5_hal/svgs/stats.svgz">similar to these</a>: <pre>e$plotStats()</pre>
+<li>Plot a bicluster (e.g. cluster number 37 -- <a href="output/cmonkey_4.1.5_hal/svgs/cluster037.svgz">example</a>): <pre>e$plotClust( 37 )</pre>
+<li>Get the gene or condition members of cluster number 37: 
+<pre>e$get.rows( 37 )
+e$get.cols( 37 )</pre>
+<li>Get the number of genes or conditions that is in each cluster from a given list: 
+<pre>e$clusters.w.genes( geneList )
+e$clusters.w.conds( condList )
+</pre>
+<li>Get the number of genes with a given function annotation substring (e.g. "ribosom" to query "ribosome" or "ribosomal") that is in each cluster: <pre>e$clusters.w.func( func )</pre>
+</ol>
+<!--... and more to come!-->
+More functions and parameters will be documented on an as-asked-about basis.
+
+<br><hr><a name="params"></a><h1><i>cMonkey</i> PARAMETERS</h1>
+<i>cMonkey</i> has a multitude of <b>internal parameters</b> which affect various aspects of its performance and data integration. 
+<br>For example, additional <ul><li>network types such as <a href="http://mysql5.mbi.ucla.edu/cgi-bin/functionator/pronav">Prolinks</a> and <a href="http://predictome.bu.edu">Predictome</a> predictions,<li>3' UTR sequences for motif searching, and <li>additional motif searching algorithms such as <a href="http://159.149.109.9/modtools/">Weeder</a></ul> may be included by a simple tweaking of the parameters. Most of these are currently undocumented but please contact me if you are interested in such possibilities.
+<br>Input parameters and data may be pre-set in one of several different ways, including:
+<ol>
+<li>Pre-setting them in the global environment prior to starting <tt>cmonkey()</tt>, as in: 
+<pre>
+parallel.cores <- 2
+k.clust <- 200
+e <- cmonkey()
+</pre>
+<li>Or setting them in the <tt>cmonkey()</tt> call itself, as in:
+<pre>e <- cmonkey( parallel.cores=2, k.clust=200 )</pre>
+<li>Or adding them to a <tt>list</tt> or <tt>environment</tt> object which is passed to the <tt>cmonkey()</tt> call, e.g.:
+<pre>
+mylist <- list( parallel.cores=2, k.clust=200 )
+e <- cmonkey( mylist )
+</pre>
+</ol>
+... or any combination thereof.<br><br>
+
+<b>Some parameters which may be of general interest:</b><br>
+<ul>
+<li><tt>organism</tt>: the 3-letter organism code to use, taken from the <a href="ftp://ftp.genome.jp/pub/kegg/genes/taxonomy">KEGG taxonomy file</a>. Examples are <tt>hal</tt>, <tt>hpy</tt>, <tt>sce</tt>, <tt>eco</tt>, etc. Any organism listed in that file should work with <i>cMonkey</i>. Please let me know if you find one that doesn't work.
+<li><tt>ratios</tt>: the matrix of expression ratios to bicluster, or a filename pointing to a tab-delimited file. Must have row names (gene/probe IDs) and column names (conditions/experiment names).
+<li><tt>n.iter</tt>: the number iterations to run. We have found that the default of 2000 works well for most cases.
+<li><tt>parallel.cores</tt>: the number of CPU cores to use. <tt>1</tt> prevents parallelization (this is the only option right now on Windows machines); <tt>TRUE</tt> (the default) tells <i>cMonkey</i> to utilize all available cores.
+<li><tt>k.clust</tt>: the number of biclusters to optimize. Default is computed such that the average bicluster siz ewill be about 20 genes; This depends on the number of genes in the organism and the <tt>n.clust.per.row</tt> parameter (see below).
+<li><tt>plot.iters</tt>: set the specific iterations during which to update the visualizations (which I find useful to track the progress of a run). Set <tt>plot.iters <- 0</tt> to turn off plotting (e.g. for non-interactive sessions).
+<li><tt>n.clust.per.row</tt>: the maximum number of biclusters in which each gene may be placed. Default is 2.
+<li><tt>resid.scaling</tt>; <tt>mot.scaling</tt>; <tt>net.scaling</tt>: relative weights (as a function of <i>cMonkey</i> iteration) for the expression/motif/network components, respectively. The defaults should work fine for most uses.
+<li>Other parameters may be of interest; these can be found in the code for the <tt>cMonkey:::cmonkey.init()</tt> function. All parameters are set internally during initialization using the <tt>set.param()</tt> function.
+</ul>
+More functions and parameters will be documented on an as-asked-about basis.
+</html>
