@@ -12,7 +12,7 @@ If you want to run cMonkey from raw R code, you've come to the right place.
 
 Once you've cloned your copy, you can run cMonkey locally (without the package), after doing the following (in R):
 
-```r
+```python
 source( "cmonkey.R" )    ## This should be all you need
 ## source( "cmonkey-init.R" )
 ## source( "cmonkey-data-load.R" ) ## Functions for loading the data
