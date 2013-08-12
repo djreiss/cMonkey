@@ -2,7 +2,7 @@ If you came here looking for the cMonkey R package, you can grab it here:
 
 http://cmonkey.systemsbiology.net/
 
-... and follow the link (on the top-right) to the "New cMonkey R Package and Code".
+... and follow the link (on the top-right) to the ["New cMonkey R Package and Code"](http://baliga.systemsbiology.net/drupal/content/new-cmonkey-r-package-and-code).
 
 If you want to run cMonkey from raw R code, you've come to the right place. 
 
