@@ -638,6 +638,7 @@ seed.clusters <- function( k.clust, seed.method="rnd", col.method="rnd" ) {
     tmp.rat[ is.na( tmp.rat ) ] <- 0
     ##cat(dim(tmp.rat),k.clust,"\n")
     km <- kmeans
+    tmp.rat[ is.na( tmp.rat ) ] <- rnorm( sum( is.na( tmp.rat ) ) )
     rm <- km( tmp.rat, centers=k.clust, iter.max=20, nstart=2 )$cluster
     names( rm ) <- attr( ratios, "rnames" )
     if ( n.clust.per.row[ 1 ] > 1 ) rm <-
@@ -726,6 +727,7 @@ get.cluster.matrix <- function( rows=NULL, cols=NULL, matrices=names( ratios ) )
 
 ## Get all potential synonyms from feature.names table and possibly from "translation.tab" if it exists
 get.synonyms <- function( gns, ft=genome.info$feature.names, ignore.case=T, verbose=F, fast=F, force=F ) { ##transl.table
+  gns.input <- gns
   if ( exists( "no.genome.info" ) && no.genome.info ) { out <- as.list( gns ); names( out ) <- gns; return( out ) }
   out <- list()
   if ( ( ! force && exists( "genome.info" ) && ! is.null( genome.info$synonyms ) ) ) {
@@ -767,7 +769,8 @@ get.synonyms <- function( gns, ft=genome.info$feature.names, ignore.case=T, verb
 
   names( tmp ) <- gns.orig
   if ( verbose ) cat( "\n" )
-  c( tmp, out )
+  out <- c( tmp, out )
+  out[ gns.input[ gns.input %in% names(out) ] ]
 }
 
 ## Get id's from feature.names table possibly translating via "translation.tab" or other rules if necessary
@@ -802,9 +805,9 @@ get.gene.coords <- function( rows, op.shift=T, op.table=genome.info$operons, ...
   coos <- NULL
   if ( op.shift && exists( 'op.table' ) ) { ## Replace each gene's coords with the head of its operon, but keep the "locus_tag".
     if ( attr( op.table, "source" ) == "rsat" ) {
-      ops <- merge( ids, op.table, by.x="id", by.y="query", all=F )
+      ops <- merge( ids, op.table, by.x="id", by.y="query", all=F, sort=F )
       ops2 <- ops[ order( ops$lead ), ]
-      coos <- merge( ops, tab, by.x="lead", by.y="name", all=F )[ ,c( "id.x", "names", "contig",
+      coos <- merge( ops, tab, by.x="lead", by.y="name", all=F, sort=F )[ ,c( "id.x", "names", "contig",
                                                                                "strand", "start_pos", "end_pos" ) ]
       ## Due to not-unique mapping of short names in operons table to coords, we need to get rid of dupes
       ##    in an intelligent way:
@@ -834,10 +837,10 @@ get.gene.coords <- function( rows, op.shift=T, op.table=genome.info$operons, ...
             syns2[ is.na( syns2 ) ] <- names( syns2 )[ is.na( syns2 ) ]; names( syns2 ) <- NULL
             ids2 <- rbind( ids2, data.frame( id=syns2, names=missing ) )
           }
-          ops <- merge( ids2, op.table, by.x="id", by.y="gene", all.x=T, incomparables=NA )
+          ops <- merge( ids2, op.table, by.x="id", by.y="gene", all.x=T, incomparables=NA, sort=F )
         }
       }
-      if ( is.null( ops ) ) ops <- merge( ids, op.table, by.x="names", by.y="gene", all.x=T, incomparables=NA )
+      if ( is.null( ops ) ) ops <- merge( ids, op.table, by.x="names", by.y="gene", all.x=T, incomparables=NA, sort=F )
       if ( any( is.na( ops$head ) ) ) {
         head <- as.character( ops$head ); head[ is.na( head ) ] <- as.character( ops$id[ is.na( head ) ] ) ##names[ is.na( head ) ] )
         ops$head <- as.factor( head )
@@ -847,12 +850,12 @@ get.gene.coords <- function( rows, op.shift=T, op.table=genome.info$operons, ...
       head.ids <- lapply( head.syns, function( s ) s[ s %in% tab$id ] )
       head.ids <- head.ids[ sapply( head.ids, length ) >= 1 ]
       head.ids <- data.frame( id=sapply( head.ids, "[", 1 ), names=names( head.ids ) )
-      ops2 <- merge( ops, head.ids, by.x="head", by.y="names", all.x=T )
-      coos <- merge( ops2, tab, by.x="id.y", by.y="id", all.x=T )[ ,c( "id.x", "names", "contig",
+      ops2 <- merge( ops, head.ids, by.x="head", by.y="names", all.x=T, sort=F )
+      coos <- merge( ops2, tab, by.x="id.y", by.y="id", all.x=T, sort=F )[ ,c( "id.x", "names", "contig",
                                                                                "strand", "start_pos", "end_pos" ) ]
     }
   } else { ##if ( ! op.shift )
-    coos <- merge( ids, tab, by="id" )[ ,c( "id", "names", "contig",
+    coos <- merge( ids, tab, by="id", sort=F )[ ,c( "id", "names", "contig",
                                                    "strand", "start_pos", "end_pos" ) ]
   }
   colnames( coos )[ 1 ] <- "id"

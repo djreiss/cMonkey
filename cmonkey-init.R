@@ -447,7 +447,7 @@ cmonkey.init <- function( env=NULL, ... ) {
       rm( tmp, tmp2 )
     }    
 
-    all.names <- unique( c( as.character( genome.info$feature.names$id ), as.character( genome.info$feature.names$names ) ) )
+    all.names <- unique( c( as.character( genome.info$feature.names$id ), as.character( genome.info$feature.names$names ), attr( ratios, 'rnames' ) ) )
     if ( exists( 'translation.tab' ) ) all.names <- unique( c( all.names, as.character( translation.tab$V1 ),
                                                               as.character( translation.tab$V2 ) ) )
     
