@@ -80,7 +80,7 @@ plotCluster <- function( cluster, imag=F, cond.labels=F, o.genes=NULL, col.func=
   }
   ##colmap <- rug1[ cols.b, 2 ]
   ##!else 
-  
+
   if ( box.plot ) {
     colMeans <- apply( rats[ cluster$rows, ,drop=F ], 2, mean, na.rm=T )
     colSd <- apply( rats[cluster$rows, ,drop=F ], 2, sd, na.rm=T )
@@ -123,7 +123,8 @@ plotCluster.all.conds <- function( cluster, imag=F, cond.labels=F, o.genes=NULL,
   if ( length( cluster$rows ) <= 0 ) { warning( "Trying to plot a cluster with no rows!" ); return() }
   k <- cluster$k
   main <- paste( sprintf( "Cluster: %04d %s; resid: %s; r/c: %d/%d", k, organism,
-                         paste( sprintf( "%.2f", cluster$resid[ rats.names ] ), collapse=" " ),
+                         ##paste( sprintf( "%.2f", cluster$resid[ rats.names ] ), collapse=" " ),
+                         sprintf( "%.2f", weighted.mean( cluster$resid[ rats.names ], row.weights[ rats.names ], na.rm=T ) ),
                          length( cluster$rows ), length( cluster$cols ) ) )
 
   rats <- get.cluster.matrix( unique( c( cluster$rows, o.genes ) ), NULL, matrices=rats.names ) ##sort( cluster$cols )
@@ -171,8 +172,9 @@ plotCluster.all.conds <- function( cluster, imag=F, cond.labels=F, o.genes=NULL,
       if ( in.out == 1 ) cols <- cols.b[ cols.b %in% cluster$cols ]
       else if ( in.out == 2 ) cols <- cols.b[ ! cols.b %in% cluster$cols ]
       for ( i in 1:length( ratios ) ) {
-        col <- sapply( col2rgb( i+1 ) / 255 + 0.9, function( cc ) min( cc, 1 ) )
-        col <- rgb( col[ 1 ], col[ 2 ], col[ 3 ] )
+        #col <- sapply( col2rgb( i+1 ) / 255 + 0.9, function( cc ) min( cc, 1 ) )
+        #col <- rgb( col[ 1 ], col[ 2 ], col[ 3 ] )
+        col <- col.func( length( ratios ), s=0.2 )[ i ]
         rect( ind, range.r[1]+0.01, ind+sum( cols %in% colnames( ratios[[ i ]] ) ), range.r[2]-0.01, col=col,
              dens=NA )
         ind <- ind + sum( cols %in% colnames( ratios[[ i ]] ) )
@@ -182,12 +184,17 @@ plotCluster.all.conds <- function( cluster, imag=F, cond.labels=F, o.genes=NULL,
     }
     rats <- cbind( rts.in, rts.out )
     cols.b <- colnames( rats )
+    len.b <- length( cols.b )
     rm( rts.in, rts.out )
   }
 
   if ( exists( "col.rug" ) ) {
     if ( is.integer( col.rug ) ) colmap <- col.func( max( col.rug ) )[ col.rug[ cols.b ] ]
     else colmap <- col.rug[ cols.b ]
+  } else if ( length( rats.names ) > 1 ) {  ## use a different color for each ratio
+    colmap <- sapply( cols.b, function( col ) which( sapply( ratios[rats.names], function(i) col %in% colnames(i) ) )[ 1 ] )
+    if ( is.list( colmap ) ) { colmap <- unlist( colmap ); names( colmap ) <- cols.b }
+    colmap <- col.func( max( colmap ) )[ colmap ]
   } else if ( all( deparse( col.func ) == deparse( rainbow ) ) ) {
     colmap <- col.func( length( cols.b ) ) ##rep( 'black', length( cols.b ) )
   } else {
@@ -195,7 +202,7 @@ plotCluster.all.conds <- function( cluster, imag=F, cond.labels=F, o.genes=NULL,
   }
   ##colmap <- rug1[ cols.b, 2 ]
   ##!else
-  
+
   if ( box.plot ) {
     ##if ( exists( "rug1" ) ) colmap <- rug1[ cols.b, 2 ]
     ##!else colmap <- rep( 'black', length( cols.b ) )
@@ -489,7 +496,8 @@ plotCluster.network <- function( cluster, network="all", o.genes=NULL, colors=NU
     names <- cluster$gene.coords ##get.long.names( cluster$k )
     for ( i in 1:nrow( gr.layout ) ) {
       gene <- get.vertex.attribute( gr, "name" )[ i ]
-      setSVGShapeToolTip( title=gene, desc1=ifelse( is.na( names[ gene ] ), "", names[ gene ] ) )
+      setSVGShapeToolTip( title=gene, desc1=ifelse( is.na( names[ gene ] ) || is.null( names[ gene ] ), "",
+                                        names[ gene ] ) )
       setSVGShapeURL( paste( "http://www.genome.ad.jp/dbget-bin/www_bget?", organism, ":", gene, sep="" ) )
       points( gr.layout[ i, 1 ], gr.layout[ i, 2 ], col="#FF000001", cex=10/3 )
     }
@@ -892,8 +900,8 @@ plotClusterMotifPositions <- function( cluster, seqs=cluster$seqs, long.names=T,
 }
 
 plotClust <- function( k, cluster=NULL, w.motifs=T, all.conds=T, title=NULL, o.genes=NULL, dont.plot=F,
-                      network="all", short.names=organism == "sce", seq.type=names( mot.weights ), ... ) { 
-  if ( ! dont.plot ) opar <- par( no.readonly=T )
+                      network="all", short.names=organism == "sce", seq.type=names( mot.weights ), ... ) {
+  if ( ! dont.plot && names( dev.cur() ) != "devSVG" ) opar <- par( no.readonly=T )
   if ( ! is.null( cluster ) ) {
     if ( ! dont.plot ) plotCluster.motif( cluster, seqs=cluster$seqs, p.val.shade.cutoff=1, o.genes=o.genes,
                                          no.plotCluster=all.conds, ... )
@@ -962,7 +970,7 @@ plotClust <- function( k, cluster=NULL, w.motifs=T, all.conds=T, title=NULL, o.g
   ##cluster<<-c
   if ( ! dont.plot ) {
     plotCluster.motif( c, seqs=c$seqs, p.val.shade.cutoff=1, o.genes=o.genes, no.plotCluster=all.conds, ... )
-    if ( ! "layout" %in% names( list( ... ) ) ) par( opar )
+    if ( names( dev.cur() ) != "devSVG" && ! "layout" %in% names( list( ... ) ) ) par( opar )
   }
   invisible( c )
 }
@@ -1029,7 +1037,7 @@ plotScores <- function( k, o.genes=NULL, b.genes=NULL, recompute=F ) {
                                    label=which( attr( ratios, "rnames" ) %in% b.genes ), col="blue", cex=0.5 )
 
   try( {
-    tmp <- get.combined.scores( quant=T )
+    tmp <- get.combined.scores( quant=F )
     r.scores <- tmp$r; c.scores <- tmp$c ##; n.scores <- tmp$n; m.scores <- tmp$m
     rr <- get.density.scores( ks=k, r.scores, c.scores, plot="rows" )$r ##ks=k, plot=T )$r
     rr <- rr[ ,k, drop=T ] ##; names( rr ) <- attr( ratios, "rnames" ) ## hack!
@@ -1246,20 +1254,23 @@ write.project <- function( ks=sapply( as.list( clusterStack ), "[[", "k" ), para
     cat( "SVGS: " )
     for ( qqq in 1:3 ) {
     ##mc$
-      lapply( ks, function( k ) { ## will this work in parallel? seems to. No, it doesn't.
+      ##lapply( ks, function( k ) { ## will this work in parallel? seems to. No, it doesn't.
+      for ( k in ks ) {
         ##k <- ks[ i ]
         if ( k %% 25 == 0 ) cat( k ) else cat( "." )
         if ( file.exists( sprintf( "%s/svgs/cluster%04d.svg", out.dir, k ) ) ||
-            file.exists( sprintf( "%s/svgs/cluster%04d.svgz", out.dir, k ) ) ) return( NULL )
+            file.exists( sprintf( "%s/svgs/cluster%04d.svgz", out.dir, k ) ) ) next ##return( NULL )
+        ## Note this is a HACK to get correctly formatted svgs for some reason
+        tmp.cl <- try( plotClust( k, w.motifs=T, seq.type=seq.type, dont.plot=T, ... ) )
         devSVGTips( sprintf( "%s/svgs/cluster%04d.svg", out.dir, k ), toolTipMode=2,
                    title=sprintf( "Bicluster %04d", k ), xmlHeader=T )
-        try( plotClust( k, w.motifs=T, seq.type=seq.type, ... ) )
+        try( plotClust( cluster=tmp.cl, w.motifs=T, seq.type=seq.type, ... ) )
         dev.off()
-      } )
+      } ##)
     }
     cat( "\n" )
   }
-  
+
   ##if ( pdfs ) {
   if ( "pdf" %in% output ) {
     require( igraph0 ) ## load it here
@@ -1268,9 +1279,10 @@ write.project <- function( ks=sapply( as.list( clusterStack ), "[[", "k" ), para
     lapply( ks, function( k ) { ## will this work in parallel? seems to.
       ##k <- ks[ i ]
       if ( k %% 25 == 0 ) cat( k ) else cat( "." )
-      if ( file.exists( sprintf( "%s/pdfs/cluster%04d.pdf", out.dir, k ) ) ) return( NULL )
+      if ( file.exists( sprintf( "%s/pdfs/cluster%04d.pdf", out.dir, k ) ) ) next ##return( NULL )
         pdf( sprintf( "%s/pdfs/cluster%04d.pdf", out.dir, k ) ) ## Will be compressed later
-      try( plotClust( k, w.motifs=T, seq.type=seq.type, ... ), silent=T )
+      #try(
+      plotClust( k, w.motifs=T, seq.type=seq.type, ... )#, silent=T )
       dev.off()
     } )
     cat( "\n" )
@@ -1517,9 +1529,9 @@ write.project <- function( ks=sapply( as.list( clusterStack ), "[[", "k" ), para
     ##parallel.cores <- 1
     mc <- get.parallel( length( ks ), para=1 )
     cat( "PROFILES: " )
-    ##for ( k in ks ) {
+    for ( k in ks ) {
     ##mc$
-    lapply( ks, function( k, ... ) {
+    ##lapply( ks, function( k, ... ) {
       if ( k %% 25 == 0 ) cat( k ) else cat( "." )
       if ( file.exists( sprintf( "%s/htmls/cluster%04d_profile.png", out.dir, k ) ) ) return() ##next
       try( {
@@ -1528,14 +1540,14 @@ write.project <- function( ks=sapply( as.list( clusterStack ), "[[", "k" ), para
         par( mar=rep(0.5,4)+0.1, mgp=c(3,1,0)*0.75 )
         try( plotCluster( c, main="", no.par=T, ... ) )
         dev.off() }, silent=T )
-    } )
+    } ##)
     cat( "\n" )
     
     cat( "NETWORKS: " )
     require( igraph0 )
     ##mc$
-    lapply( ks, function( k, ... ) {
-    ##for ( k in ks ) {
+    ##lapply( ks, function( k, ... ) {
+    for ( k in ks ) {
       if ( k %% 25 == 0 ) cat( k ) else cat( "." )
       if ( file.exists( sprintf( "%s/htmls/cluster%04d_network.png", out.dir, k ) ) ) return() ##next
       try( {
@@ -1544,14 +1556,14 @@ write.project <- function( ks=sapply( as.list( clusterStack ), "[[", "k" ), para
         c <- get.clust( k )
         try( plotCluster.network( c, cex=0.3, no.legend=T, ... ) )
         dev.off() }, silent=T )
-    } )
+    } ##)
     cat( "\n" )
 
     if ( ! is.null( seq.type ) ) {
       cat( "MOTIFS: " )
-      ##for ( k in ks ) {
+      for ( k in ks ) {
       ##mc$
-      lapply( ks, function( k, ... ) {
+      ##lapply( ks, function( k, ... ) {
         if ( k %% 25 == 0 ) cat( k ) else cat( "." )
         e.vals <- lapply( meme.scores[[ seq.type ]][[ k ]]$meme.out, "[[", "e.value" )
         pssms <- lapply( meme.scores[[ seq.type ]][[ k ]]$meme.out, "[[", "pssm" )
@@ -1571,13 +1583,13 @@ write.project <- function( ks=sapply( as.list( clusterStack ), "[[", "k" ), para
                             cex.main=0.7 ), silent=T ) ##e.val=NA, mot.ind=pp
             dev.off() }, silent=T )
         }
-      } )
+      } ##)
       cat( "\n" )
       
       cat( "MOTIF POSITIONS: " )
-      ##for ( k in ks ) {
+      for ( k in ks ) {
       ##mc$
-      lapply( ks, function( k, ... ) {
+      ##lapply( ks, function( k, ... ) {
         if ( k %% 25 == 0 ) cat( k ) else cat( "." )
         if ( file.exists( sprintf( "%s/htmls/cluster%04d_mot_posns.png", out.dir, k ) ) ) return() ##next
         try( {
@@ -1587,7 +1599,7 @@ write.project <- function( ks=sapply( as.list( clusterStack ), "[[", "k" ), para
           c <- plotClust( k, dont.plot=T, ... ) ##seq.type=seq.type, 
           try( plotClusterMotifPositions( c, cex=0.4, no.key=T, ... ) )
           dev.off() }, silent=F )
-      } )
+      } ##)
       cat( "\n" )
     }
   }
