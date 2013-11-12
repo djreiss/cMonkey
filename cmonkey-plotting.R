@@ -508,7 +508,7 @@ plotCluster.network <- function( cluster, network="all", o.genes=NULL, colors=NU
 col.let <- c( "A", "C", "G", "T" )
                    
 viewPssm <- function( pssm, e.val=NA, mot.ind=NA, use.char=T, main.title=NA, no.par=F, scale.e=NA, boxes=F, new=T,
-                     xoff=0, yoff=0, no.axis.labels=F, min.height.drawn=1e-5, ... ) { 
+                     xoff=0, yoff=0, no.axis.labels=F, min.height.drawn=1e-5, no.render=F, ... ) { 
   if ( is.null( pssm ) ) return()
   getEntropy <- function( pssm ) {
     pssm[ pssm == 0 ] <- 0.00001
@@ -558,6 +558,7 @@ viewPssm <- function( pssm, e.val=NA, mot.ind=NA, use.char=T, main.title=NA, no.
     title( tmp.tit, col.main=mot.ind+1, xpd=NA, ... )
     ##} else title( tmp.tit, xpd=NA, ... )
   }
+  if ( no.render ) return( invisible( y.range ) )
   pssm.sc <- scale.e * pssm
   for (j in 1:win.size) {
     inds <- sort( pssm.sc[ j, ], index=T )$ix

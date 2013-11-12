@@ -6,7 +6,7 @@ http://cmonkey.systemsbiology.net/
 
 Alternatively, you can just fetch it from this repo via 
 
-https://github.com/dreiss-isb/cmonkey/blob/master/cMonkey_4.9.7.tar.gz?raw=true
+https://github.com/dreiss-isb/cmonkey/blob/master/cMonkey_4.9.10.tar.gz?raw=true
 
 If you want to run cMonkey from raw R code, you've come to the right place. Once you've cloned your copy, you can run cMonkey locally (without the package), after doing the following (in R, of course):
 

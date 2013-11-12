@@ -305,21 +305,24 @@ get.operon.predictions <- function( fetch.predicted.operons="microbes.online", o
     gns <- unlist( operons )
     search.names <- c( gns, as.character( genome.info$feature.names$id ) )
     if ( exists( "ratios" ) ) search.names <- c( attr( ratios, "rnames" ), search.names )
+    search.names <- unique( search.names )
     mc <- get.parallel( length( operons ) )
+    all.ids <- unique( genome.info$feature.names$id )
     nms <- mc$apply( 1:length( operons ), function( i ) {
       s <- get.synonyms( operons[[ i ]] )
       s <- lapply( s, function( i ) i[ i %in% search.names ] )
-      ids <- unlist( lapply( s, function( i ) i[ i %in% genome.info$feature.names$id ][ 1 ] ) )
+      ids <- unlist( lapply( s, function( i ) i[ i %in% all.ids ][ 1 ] ) ) ##genome.info$feature.names$id ][ 1 ] ) )
       if ( length( ids ) <= 0 ) { 
         warning( paste( "No genome annotation for any genes in operon #", i, " -- don't know what to do!", call.=F ) )
         return( "" ) }
       ids[ is.na( ids ) ] <- names( ids )[ is.na( ids ) ]
       vngs <- unlist( lapply( s, function( i ) {
-        out <- i[ ! i %in% genome.info$feature.names$id ]
+        out <- i[ ! i %in% all.ids ] ##genome.info$feature.names$id ]
         if ( length( out ) <= 0 ) ## && exists( "ratios" ) )
           out <- i[ i %in% search.names ] ##attr( ratios, "rnames" ) ]
-        if ( length( out ) <= 0 ) out <- i[ genome.info$feature.names$id == i & genome.info$feature.names$id == "primary" ]
+        if ( length( out ) <= 0 ) out <- i[ genome.info$feature.names$id %in% i & genome.info$feature.names$id == "primary" ]
         if ( length( out ) <= 0 ) out <- i
+        if ( length( out ) > 1 && any( out %in% attr( ratios, 'rnames' ) ) ) out <- out[ out %in% attr( ratios, 'rnames' ) ]
         out
       } ) )
       coos <- get.gene.coords( ids, op.shift=F )

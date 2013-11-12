@@ -515,7 +515,7 @@ get.col.scores <- function( k, for.cols="all", ratios=ratios[[ 1 ]],
   rats
 }
 
-get.motif.scores <- function( k, seq.type="upstream meme", for.rows="all" ) { ##m=meme.scores$upstream[[ k ]], for.rows="all" ) { 
+get.motif.scores <- function( k, meme.scores, seq.type="upstream meme", for.rows="all" ) { ##m=meme.scores$upstream[[ k ]], for.rows="all" ) { 
   if ( length( k ) <= 0 ) return( NULL )
   if ( is.numeric( k[ 1 ] ) ) rows <- get.rows( k ) 
   else rows <- k
