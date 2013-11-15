@@ -8,6 +8,14 @@ To install (in R):
 install.packages('devtools', dep=T)
 require(devtools)
 install_github('cmonkey', 'dreiss-isb', subdir='cMonkey')
+```
+
+To install the data (or bigdata) packages:
+
+```
+install_github('cmonkey', 'dreiss-isb', subdir='cMonkey.data')
+install_github('cmonkey', 'dreiss-isb', subdir='cMonkey.bigdata')
+```
 
 ... and then go here 
 
