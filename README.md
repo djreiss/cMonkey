@@ -1,4 +1,4 @@
-If you came here looking for the cMonkey R package, you can now grab it here.
+If you came here looking for the cMonkey R package, you're at the right place.
 
 <!--https://github.com/dreiss-isb/cmonkey/blob/master/cMonkey_4.9.10.tar.gz?raw=true-->
 
