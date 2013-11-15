@@ -1,0 +1,12 @@
+Package: cMonkey.data
+Type: Package
+Title: Additional example data sets for use with the cMonkey integrated
+        biclustering algorithm
+Version: 4.9.1
+Date: 2012-08-07
+Author: David J Reiss, Institute for Systems Biology
+Maintainer: David J Reiss <dreiss@systemsbiology.org>
+Description: Additional example data sets for use with the cMonkey integrated biclustering algorithm
+License: GPL-2
+Packaged: 2012-08-31 18:40:13 UTC; dreiss
+Depends: R (>= 2.10)

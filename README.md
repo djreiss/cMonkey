@@ -1,6 +1,13 @@
 If you came here looking for the cMonkey R package, you can now grab it here.
 
-https://github.com/dreiss-isb/cmonkey/blob/master/cMonkey_4.9.10.tar.gz?raw=true
+#https://github.com/dreiss-isb/cmonkey/blob/master/cMonkey_4.9.10.tar.gz?raw=true
+
+To install (in R):
+
+```
+install.packages('devtools', dep=T)
+require(devtools)
+install_github('cmonkey', 'dreiss-isb', subdir='cMonkey')
 
 ... and then go here 
 
@@ -8,6 +15,7 @@ http://baliga.systemsbiology.net/cmonkey
 
 to see some minimal documentation.
 
+<!--
 If you want to run cMonkey from raw R code, you've come to the right place. Once you've cloned your copy, you can run cMonkey locally (without the package), after doing the following (in R, of course):
 
 ```python
@@ -33,3 +41,5 @@ e <- cMonkey.init(...); cmonkey( e, ..., dont.init=T )
 ```
 
 Visit http://cmonkey.systemsbiology.net/ for more useful instructions on actually using the code for your organism.
+-->
+
