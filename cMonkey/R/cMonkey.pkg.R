@@ -1,17 +1,17 @@
 DATE <-
-"Tue Nov 12 14:17:54 2013"
+"Fri Nov 15 11:58:34 2013"
 VERSION <-
-"4.9.10"
+"4.9.11"
 .onLoad <-
 function( libname, pkgname ) { ##.onAttach
     packageStartupMessage( "Loading ", pkgname, " version ", VERSION, " (", DATE, ")" )
     packageStartupMessage( "Copyright (C) David J Reiss, Institute for Systems Biology; dreiss@systemsbiology.org." )
-    packageStartupMessage( "http://cmonkey.systemsbiology.net/" )
+    packageStartupMessage( "https://github.com/dreiss-isb/cmonkey" )
     if ( grepl( "beta", VERSION ) ) return()
-    vers <- try( readLines( "http://baliga.systemsbiology.net/cmonkey/VERSION" ), silent=T )
+    vers <- try( readLines( "http://rawgithub.com/dreiss-isb/cmonkey/master/VERSION" ), silent=T )
     if ( class( vers ) != "try-error" ) {
       vers <- gsub( " ", "", vers )
-      if ( vers != VERSION ) packageStartupMessage( "\nYou are not using the most current version of cMonkey.\nPlease consider upgrading to v", vers, " via:\n\n> download.file( \"http://cmonkey.systemsbiology.net/cmonkey/cMonkey_", vers, ".tar.gz\", \n\t\t\"cMonkey_", vers, ".tar.gz\" )\n> install.packages( \"cMonkey_", vers, ".tar.gz\", repos=NULL )\n\nOr by following the instructions on the cMonkey website, http://cmonkey.systemsbiology.net." )
+      if ( vers != VERSION ) packageStartupMessage( "\nYou are not using the most current version of cMonkey.\nPlease consider upgrading to v", vers, " via:\n\n> install.packages('devtools', dep=T)\n> require(devtools)\n> install_github('cmonkey', 'dreiss-isb', subdir='cMonkey')" )
       else packageStartupMessage( "Congratulations! You are using the latest version of cMonkey.\n" )
     } else {
       packageStartupMessage( "Could not check to see if you are using the latest version of cMonkey." )
@@ -920,7 +920,7 @@ function (env = NULL, ...)
         genome.info$operons <- NULL
         if ((operon.shift || "operons" %in% names(net.weights)) && 
             !no.genome.info) {
-            tmp.operons <- get.operon.predictions("microbes.online")
+            tmp.operons <- try(get.operon.predictions("microbes.online"))
             if (class(tmp.operons) == "try-error") {
                 message("Could not fetch operons file. Assuming it doesn't exist (eukaryote?)")
                 set.param("is.eukaryotic", TRUE, override = T)
@@ -1437,7 +1437,7 @@ function (env)
     invisible(env)
 }
 cm.version <-
-"4.9.10"
+"4.9.11"
 col.let <-
 c("A", "C", "G", "T")
 DEBUG <-
@@ -3239,8 +3239,8 @@ function (fetch.predicted.operons = "microbes.online", org.id = genome.info$org.
                 if (length(out) <= 0) 
                   out <- i[i %in% search.names]
                 if (length(out) <= 0) 
-                  out <- i[genome.info$feature.names$id == i & 
-                    genome.info$feature.names$id == "primary"]
+                  out <- i[genome.info$feature.names$id %in% 
+                    i & genome.info$feature.names$id == "primary"]
                 if (length(out) <= 0) 
                   out <- i
                 if (length(out) > 1 && any(out %in% attr(ratios, 

@@ -6,7 +6,7 @@
 ## liable for anything that happens as a result of using this software
 ###################################################################################
 
-cm.version <- "4.9.10"
+cm.version <- "4.9.11"
 
 #ifndef PACKAGE
 ##source( "cmonkey-init.R" )

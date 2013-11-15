@@ -13,10 +13,10 @@ cMonkey integrated biclustering algorithm for learning co-regulated gene modules
 Package: \tab cMonkey\cr
 Type: \tab Package\cr
 Version: \tab 1.0\cr
-Date: \tab 2013-11-12\cr
+Date: \tab 2013-11-15\cr
 License: \tab GPL-2\cr
 }
-\url{http://cmonkey.systemsbiology.net/}
+\url{https://github.com/dreiss-isb/cmonkey}
 }
 \author{
 David J Reiss, Institute for Systems Biology
@@ -29,7 +29,7 @@ by David J Reiss, Nitin S Baliga and Richard Bonneau: \url{http://www.biomedcent
 }
 \keyword{ package }
 \seealso{
-\url{http://cmonkey.systemsbiology.net/}
+\url{https://github.com/dreiss-isb/cmonkey}
 }
 \examples{
  

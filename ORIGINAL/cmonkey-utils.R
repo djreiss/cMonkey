@@ -21,12 +21,12 @@ cm.package <- function( data=F, bigdata=F, install=T, update.web=F, check=F, ver
   onLoad <- function( libname, pkgname ) { ##.onAttach
     packageStartupMessage( "Loading ", pkgname, " version ", VERSION, " (", DATE, ")" )
     packageStartupMessage( "Copyright (C) David J Reiss, Institute for Systems Biology; dreiss@systemsbiology.org." )
-    packageStartupMessage( "http://cmonkey.systemsbiology.net/" )
+    packageStartupMessage( "https://github.com/dreiss-isb/cmonkey" )
     if ( grepl( "beta", VERSION ) ) return()
-    vers <- try( readLines( "http://baliga.systemsbiology.net/cmonkey/VERSION" ), silent=T )
+    vers <- try( readLines( "http://rawgithub.com/dreiss-isb/cmonkey/master/VERSION" ), silent=T )
     if ( class( vers ) != "try-error" ) {
       vers <- gsub( " ", "", vers )
-      if ( vers != VERSION ) packageStartupMessage( "\nYou are not using the most current version of cMonkey.\nPlease consider upgrading to v", vers, " via:\n\n> download.file( \"http://cmonkey.systemsbiology.net/cmonkey/cMonkey_", vers, ".tar.gz\", \n\t\t\"cMonkey_", vers, ".tar.gz\" )\n> install.packages( \"cMonkey_", vers, ".tar.gz\", repos=NULL )\n\nOr by following the instructions on the cMonkey website, http://cmonkey.systemsbiology.net." )
+      if ( vers != VERSION ) packageStartupMessage( "\nYou are not using the most current version of cMonkey.\nPlease consider upgrading to v", vers, " via:\n\n> install.packages('devtools', dep=T)\n> require(devtools)\n> install_github('cmonkey', 'dreiss-isb', subdir='cMonkey')" )
       else packageStartupMessage( "Congratulations! You are using the latest version of cMonkey.\n" )
     } else {
       packageStartupMessage( "Could not check to see if you are using the latest version of cMonkey." )
@@ -77,7 +77,7 @@ cm.package <- function( data=F, bigdata=F, install=T, update.web=F, check=F, ver
                       "ref", "bigmemory", "filehash" ), ##"fUtilities", , "Cairo", "trimcluster"
                     short.desc="cMonkey integrated biclustering algorithm",
                     long.desc="cMonkey integrated biclustering algorithm for learning co-regulated gene modules",
-                    url="http://cmonkey.systemsbiology.net/",
+                    url="https://github.com/dreiss-isb/cmonkey",
                     reference='"Integrated biclustering of heterogeneous genome-wide datasets for the inference of global regulatory networks",\nby David J Reiss, Nitin S Baliga and Richard Bonneau: \\url{http://www.biomedcentral.com/1471-2105/7/280}',
                     onLoad=onLoad, gsubs=if ( beta ) list( c( "[,]", "" ), c( "[]", "" ) ) else NULL )
 
