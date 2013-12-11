@@ -19,7 +19,8 @@ install_github('cmonkey', 'dreiss-isb', subdir='cMonkey.bigdata')
 
 ... and then go here 
 
-http://baliga.systemsbiology.net/cmonkey 
+<!--http://baliga.systemsbiology.net/cmonkey -->
+http://dreiss-isb.github.io/cMonkey
 
 to see some minimal documentation.
 
