@@ -22,21 +22,18 @@ install_github('cmonkey', 'dreiss-isb', subdir='cMonkey.bigdata')
 <!--http://baliga.systemsbiology.net/cmonkey -->
 http://dreiss-isb.github.io/cMonkey
 
-to see some minimal documentation.
+for some additional documentation.
 
-<!--
-If you want to run cMonkey from raw R code, you've come to the right place. Once you've cloned your copy, you can run cMonkey locally (without the package), after doing the following (in R, of course):
+---
+
+If you want to run cMonkey from raw R scripts, you've come to the right place. All of the R files that are directly part of the cMonkey package are in the Rcode directory. (Note this code has been preprocessed to remove all of my testing and experimental functions.) The *original* files that contain my un-pre-processed, experimental code is in the ORIGINAL directory. 
+
+So, you can run cMonkey locally (without the package), after doing the following (in R):
 
 ```python
-source( "cmonkey.R" )    ## This should be all you need
-## source( "cmonkey-init.R" )
-## source( "cmonkey-data-load.R" ) ## Functions for loading the data
-## source( "cmonkey-motif.R" ) ## Functions for motif finding/scoring
-## source( "cmonkey-plotting.R" ) ## Functions for all cmonkey plotting
-## source( "cmonkey-postproc.R" ) ## Functions for all post-processing and analysis of cmonkey clusters
-## source( "cmonkey-bigmem.R" ) ## Functions for using on-disk list and matrix storage for big organisms
+source( "ORIGINAL/cmonkey.R", chdir=T )    ## This should be all you need
 
-## This is only necessary if you don't have the 'progs/' dir in your current dir (and will only work if
+## And This is only necessary if you don't have the 'progs/' dir in your current dir (and will only work if
 ##     you have previously installed the cMonkey package):
 progs.dir <- sprintf( "%s/progs/", system.file( package="cMonkey" ) )
 
@@ -49,6 +46,6 @@ e <- cMonkey.init(...); cmonkey( e, ..., dont.init=T )
 ## will work as well.
 ```
 
-Visit http://cmonkey.systemsbiology.net/ for more useful instructions on actually using the code for your organism.
--->
+Visit http://dreiss-isb.github.io/cMonkey for more instructions on using the package for your organism.
+
 
