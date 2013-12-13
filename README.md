@@ -31,7 +31,7 @@ If you want to run cMonkey from raw R scripts, you've come to the right place. A
 So, you can run cMonkey locally (without the package), after doing the following (in R):
 
 ```python
-source( "Rcode/cmonkey.R", chdir=T )    ## This should be all you need
+for ( f in list.files( "Rcode", full=T ) ) source( f, chdir=T )
 
 ## And This is only necessary if you don't have the 'progs/' dir in your current dir (and will only work if
 ##     you have previously installed the cMonkey package):
