@@ -394,14 +394,14 @@ fimo.all.motifs <- function( p.cutoff=1e-5 ) { ## Note this creates files w/ no 
 }
 
 evaluate.all.clusterings <- function( ... ) {
-  load( 'filehash/fimo_out_1e-06.RData' )
-  load( 'filehash/new_motif_shadows_1e-06.RData' )
+  if ( ! exists( fimo.out ) ) load( 'filehash/fimo_out_1e-06.RData' )
+  if ( ! exists( 'm' ) ) load( 'filehash/new_motif_shadows_1e-06.RData' )
 
   retry.new.clustering <- function( mcl.I=1.2, mcl.pi=2.0, distance.weight.cutoff=0.999999, 
                                    mcl.cmd=paste( './progs/mcl-10-201/local/bin/mcl new.mcltemp -o %s --abc',
                                      ' -I %.1f -v all -te 3 -S 200000 -scheme 7 --analyze=y -pi %.1f 2>&1' ),
                                    meme.the.clusters=F,
-                                   dirname='filehash/new_motif_shadows_1e-06_52977' ) {
+                                   dirname='filehash/retry_new_clustering/' ) {
 
     outfile <- sprintf( "filehash/new.mcltemp.I%s.pi%s.dcut%s", gsub('.','',sprintf("%.1f",mcl.I),fixed=T),
                        gsub('.','',sprintf("%.1f",mcl.pi),fixed=T),
@@ -574,21 +574,46 @@ evaluate.all.clusterings <- function( ... ) {
   ##tmpl
 }
 
+## To get these into sqlite quickly, use the sqlite3 ".import" command (call e.g. "sqlite3 test.db"):
+## create table bic_c (bic integer, cond text(32), primary key(bic,cond));
+## create table bic_g (bic integer, gene text(8), primary key(bic,gene));
+## .separator "\t"
+## .import bicluster_conds.tsv bic_c
+## create index bic_c_index on bic_c(bic,cond);
+## .import bicluster_genes.tsv bic_g
+## create index bic_g_index on bic_g(bic,gene);
+##     (see https://stackoverflow.com/questions/2629835/create-new-sqlite-db)
 
-ensemble.to.database <- function(out) {
+## Then use sqldf package to query:
+#sqldf("attach 'test.db' as test")
+#sqldf("select * from bic_g where bic=10000", dbname="test.db")
+
+## or in a web site using sandman (https://github.com/jeffknupp/sandman ; http://sandman.io)
+## Note this seems to require all tables to have a primary key (see above)
+## use this command:
+## sandmanctl sqlite:///`pwd`/test.db --show-primary-keys --host=localhost --port=8080
+## and get it: curl -G "http://localhost:8080/bic_g?gene=b0032"
+
+ensemble.to.database <- function(out, to.sqlite=F) {
+  require( data.table )
   dir.create( 'filehash/DATABASES/' )
   ## DATA - ratios, string, operons, annotations
-  tmp <- data.table( round(out$e$ratios$ratios*1000)/1000 )
-  tmp <- data.table( gene=rownames(out$e$ratios$ratios), tmp )
+  #tmp <- data.table( round(out$e$ratios$ratios,dig=3) )
+  #tmp <- data.table( gene=rownames(out$e$ratios$ratios), tmp )
+  tmp <- which( out$e$ratios$ratios < Inf, arr=T )
+  tmp <- data.table( gene=rownames(out$e$ratios$ratios)[ tmp[,1] ], cond=colnames(out$e$ratios$ratios)[ tmp[,2] ],
+                    ratio=(round(out$e$ratios$ratios,dig=3))[tmp] )
   write.table( tmp, file='filehash/DATABASES/ratios.tsv', quote=F, sep='\t', row.names=F, col.names=T, append=F )
   rm( tmp ); system( 'bzip2 -fv filehash/DATABASES/ratios.tsv', wait=F )
   tmp <- data.table( out$e$genome.info$feature.tab )
   write.table( tmp, file='filehash/DATABASES/feature_tab.tsv', quote=F, sep='\t', row.names=F, col.names=T, append=F )
   rm( tmp ); system( 'bzip2 -fv filehash/DATABASES/feature_tab.tsv', wait=F )
   tmp <- data.table( out$e$genome.info$feature.names )
+  setcolorder( tmp, c(2,1,3) )
   write.table( tmp, file='filehash/DATABASES/feature_names.tsv', quote=F, sep='\t', row.names=F, col.names=T, append=F )
   rm( tmp ); system( 'bzip2 -fv filehash/DATABASES/feature_names.tsv', wait=F )
   tmp <- data.table( out$e$genome.info$operons )
+  setcolorder( tmp, c(2,1) )
   write.table( tmp, file='filehash/DATABASES/operons.tsv', quote=F, sep='\t', row.names=F, col.names=T, append=F )
   rm( tmp ); system( 'bzip2 -fv filehash/DATABASES/operons.tsv', wait=F )
   tmp <- data.table( gene=names(out$e$genome.info$all.upstream.seqs[[1]]), sequence=out$e$genome.info$all.upstream.seqs[[1]] )
@@ -612,25 +637,26 @@ ensemble.to.database <- function(out) {
   bzcon4 <- 'filehash/DATABASES/bicluster_motifs.tsv'
   wrote <- FALSE
   for ( k in 1:out$e$k.clust ) {
-    if ( k %% 100 == 0 ) print(k)
-    tab1 <- tab2 <- tab3 <- tab4 <- NULL
     bb <- paste('BIC',k,sep='_')
+    if ( k %% 100 == 0 ) print(bb)
+    tab1 <- tab2 <- tab3 <- tab4 <- NULL
     clust <- out$get.bicluster.info(bb)[[1]]
     if ( ! is.null(clust) ) {
       fname <- names(out$e$fnames.to.cluster[which(out$e$fnames.to.cluster==k)])
+      if ( is.null( fname ) ) fname <- ''
       k.orig <- clust$k
-      tab1 <- data.table( bic=k, nrow=clust$nrow, ncol=clust$ncol, resid=clust$resid, pclust=clust$p.clust,
-                         eval=min(clust$e.val,na.rm=T), k_orig=k.orig, fname=fname )
+      tab1 <- data.table( bic=k, nrow=clust$nrow, ncol=clust$ncol, resid=round(clust$resid,dig=3),
+                         pclust=round(clust$p.clust,dig=3), eval=min(clust$e.val,na.rm=T), k_orig=k.orig, fname=fname )
       if ( ! is.null( tab1 ) ) write.table( tab1, bzcon1, quote=F, sep='\t', row.names=F, col.names=!wrote, append=wrote )
     }
     genes <- clust$rows
-    if ( ! is.null( genes ) ) tab2 <- data.table( bic=k, gene=genes )
+    if ( ! is.null( genes ) ) tab2 <- data.table( bic=k, gene=unique(genes) )
     if ( ! is.null( tab2 ) ) write.table( tab2, bzcon2, quote=F, sep='\t', row.names=F, col.names=!wrote, append=wrote )
     conds <- clust$cols
-    if ( ! is.null( conds ) ) tab3 <- data.table( bic=k, cond=conds )
+    if ( ! is.null( conds ) ) tab3 <- data.table( bic=k, cond=unique(conds) )
     if ( ! is.null( tab3 ) ) write.table( tab3, bzcon3, quote=F, sep='\t', row.names=F, col.names=!wrote, append=wrote )
     mots <- out$get.motifs(bicluster=bb)[[1]]
-    if ( ! is.null( mots ) ) tab4 <- data.table( bic=k, mot=gsub('MOT_','',mots) )
+    if ( ! is.null( mots ) ) tab4 <- data.table( bic=k, mot=gsub('MOT_','',unique(mots)) )
     if ( ! is.null( tab4 ) ) write.table( tab4, bzcon4, quote=F, sep='\t', row.names=F, col.names=!wrote, append=wrote )
     wrote <- TRUE
   }
@@ -649,21 +675,20 @@ ensemble.to.database <- function(out) {
     bic <- paste('BIC',k,sep='_')
     mots <- out$get.motifs(bicluster=bic)[[1]]
     for ( m in mots ) {
-      tab1 <- NULL
       if ( k %% 100 == 0 ) print(m)
       minf <- out$get.motif.info(m)[[1]]
       mm <- gsub( 'MOT_', '', m )
       if ( ! is.null( minf ) ) {
         cf <- out$coding.fracs$all.fracs[m]
         tab <- data.table( mot=mm, width=minf$width, llr=minf$llr, eval=minf$e.value, sites=minf$sites,
-                          coding=cf, good=(cf < out$coding.fracs$mean.fracs - 0.01) )
+                          coding=cf, good=as.integer((cf < out$coding.fracs$mean.fracs - 0.01)) )
         if ( ! is.null( tab ) ) write.table( tab, bzcon1, quote=F, sep='\t', row.names=F, col.names=!wrote, append=wrote )
         tab <- NULL; if ( nrow(minf$posns) > 0 ) tab <- as.data.table( cbind( mot=mm, minf$posns ) )
         if ( ! is.null( tab ) ) write.table( tab, bzcon2, quote=F, sep='\t', row.names=F, col.names=!wrote, append=wrote )
         tab <- NULL; if ( nrow(minf$mast) > 0 ) tab <- as.data.table( cbind( mot=mm, minf$mast ) )
         if ( ! is.null( tab ) ) write.table( tab, bzcon3, quote=F, sep='\t', row.names=F, col.names=!wrote, append=wrote )
         pssm <- minf$pssm; colnames( pssm ) <- out$e$col.let; pssm <- as.data.table( pssm )
-        tab <- data.table( cbind( mot=mm, ind=1:nrow(pssm), round(pssm*1000)/1000 ) )
+        tab <- data.table( cbind( mot=mm, ind=1:nrow(pssm), round(pssm,dig=3) ) )
         if ( ! is.null( tab ) ) write.table( tab, bzcon4, quote=F, sep='\t', row.names=F, col.names=!wrote, append=wrote )
         wrote <- TRUE
       }
@@ -680,24 +705,32 @@ ensemble.to.database <- function(out) {
   bzcon3 <- 'filehash/DATABASES/motif_clust_aligned_pssms.tsv'
   wrote <- FALSE
   for ( k in 1:out$mc.length ) {
-    if ( k %% 100 == 0 ) print(k)
     mc <- paste('MOTC', k, sep='_')
+    if ( k %% 100 == 0 ) print(mc)
     mots <- out$get.motifs(motif.clust=mc)[[1]]
-    tab <- data.table( motc=k, mot=gsub('MOT_','',mots) )
+    tab <- data.table( motc=k, mot=gsub('MOT_','',mots), is.bad=as.integer(mc%in%out$bad.clusts) )
     if ( ! is.null( tab ) ) write.table( tab, bzcon1, quote=F, sep='\t', row.names=F, col.names=!wrote, append=wrote )
     mc.info <- out$get.motif.cluster.info(mc)[[1]]
     pssm <- attr(mc.info, 'combined.pssm' )
-    colnames( pssm ) <- out$e$col.let; pssm <- as.data.table( pssm )
-    tab <- data.table( cbind( motc=k, ind=1:nrow(pssm), round(pssm*1000)/1000 ) )
-    if ( ! is.null( tab ) ) write.table( tab, bzcon2, quote=F, sep='\t', row.names=F, col.names=!wrote, append=wrote )
+    if ( is.null( pssm ) ) pssm <- attr(mc.info$tttt.out[[1]], 'combined.pssm') ## special case: Halo
+    if ( ! is.null( pssm ) ) {
+        colnames( pssm ) <- out$e$col.let; pssm <- as.data.table( pssm )
+        tab <- data.table( cbind( motc=k, ind=1:nrow(pssm), round(pssm,dig=3) ) )
+        if ( ! is.null( tab ) )
+            write.table( tab, bzcon2, quote=F, sep='\t', row.names=F, col.names=!wrote, append=wrote )
+    }
     aligned.pssms <- attr(mc.info, 'aligned.pssms')
-    wrote2 <- wrote
-    for ( m in names( aligned.pssms ) ) {
-      pssm <- aligned.pssms[[m]]
-      colnames( pssm ) <- out$e$col.let; pssm <- as.data.table( pssm )
-      tab <- data.table( cbind( motc=k, motif=gsub('MOT_','',m), ind=1:nrow(pssm), round(pssm*1000)/1000 ) )
-      if ( ! is.null( tab ) ) write.table( tab, bzcon3, quote=F, sep='\t', row.names=F, col.names=!wrote2, append=wrote2 )
-      wrote2 <- TRUE
+    if ( is.null( aligned.pssms ) ) aligned.pssms <- attr(mc.info$tttt.out[[1]], 'aligned.pssms') ## special case: Halo
+    if ( ! is.null( aligned.pssms ) ) {
+        wrote2 <- wrote
+        for ( m in names( aligned.pssms ) ) {
+            pssm <- aligned.pssms[[m]]
+            colnames( pssm ) <- out$e$col.let; pssm <- as.data.table( pssm )
+            tab <- data.table( cbind( motc=k, motif=gsub('MOT_','',m), ind=1:nrow(pssm), round(pssm,dig=3) ) )
+            if ( ! is.null( tab ) )
+                write.table( tab, bzcon3, quote=F, sep='\t', row.names=F, col.names=!wrote2, append=wrote2 )
+            wrote2 <- TRUE
+        }
     }
     wrote <- TRUE
   }
@@ -706,52 +739,114 @@ ensemble.to.database <- function(out) {
   system( sprintf( 'bzip2 -fv -9 %s', bzcon3 ), wait=F )
 
   ## MOTIF SCANS
-  tmp <- out$pssm.scans; setnames( tmp, 'gene', 'p.value', 'posn', 'mot', 'bic' )
+  print("pssm.scans")
+  tmp <- out$pssm.scans; nms <- colnames(tmp); setnames( tmp, c( 'gene', 'p.value', 'posn', 'mot', 'bic' ) )
   tmp$strand <- ifelse( tmp$mot > 0, '+', '-' ); tmp$mot <- abs( tmp$mot )
+  setcolorder( tmp, c(5,4,3,2,1,6) )
   write.table( tmp, file='filehash/DATABASES/motif_scans.tsv', quote=F, sep='\t', row.names=F, col.names=T, append=F )
   system( sprintf( 'bzip2 -fv -9 %s', 'filehash/DATABASES/motif_scans.tsv' ), wait=F )
+  setnames( out$pssm.scans, c( 'gene', 'pvals', 'posns', 'mots', 'bic' ) ) ## reset the names to original
   rm( tmp ); gc()
 
+  print("fimo.out")
   load( "filehash/fimo_out_1e-06.RData" )
-  write.table( fimo.out, file='filehash/DATABASES/motif_scans_fimo.tsv', quote=F, sep='\t', row.names=F, col.names=T, append=F )
+  setcolorder( fimo.out, c(7,8,2,3,5,1,9,4,6) )
+  write.table( fimo.out, file='filehash/DATABASES/motif_scans_fimo.tsv', quote=F, sep='\t', row.names=F, col.names=T,
+              append=F )
   system( sprintf( 'bzip2 -fv -9 %s', 'filehash/DATABASES/motif_scans_fimo.tsv' ), wait=F )
   rm( fimo.out ); gc()
 
   ## MEME HITS
-  write.table( out$meme.hits, file='filehash/DATABASES/motif_meme_hits.tsv', quote=F, sep='\t', row.names=F, col.names=T, append=F )
+  if ( ! exists( 'meme.hits', envir=out ) ) {
+      tf <- tempfile()
+      system( sprintf( "bunzip2 -cv filehash/meme_posns_0.001.tsv.bz2 >%s", tf ) )
+      tmp <- fread( tf )
+      unlink( tf )
+  } else {
+      tmp <- out$meme.hits
+  }
+  print("meme.hits")
+  setcolorder( tmp, c(6,7,1,3,8,9,2,10,4,5) )
+  write.table( tmp, file='filehash/DATABASES/motif_meme_hits.tsv', quote=F, sep='\t', row.names=F,
+              col.names=T, append=F )
   system( sprintf( 'bzip2 -fv -9 %s', 'filehash/DATABASES/motif_meme_hits.tsv' ), wait=F )
 
-  ## MOTIF GENOME-WIDE LOGO INFO
+  ## MOTIF GENOME-WIDE COUNT INFO
   genomes <- lapply( names( out$e$genome.info$genome.seqs ), function(i) {
     nc <- nchar( out$e$genome.info$genome.seqs[i] )
     output <- c( 1, nc ); names( output ) <- c( i, '' ); output } )
-  options( cores=4 )
+  options( cores=8 )
+  type <- 'mast'
+  if ( exists( 'fimo.out', envir=out ) ) type <- 'fimo'
+
+  ## THIS GETS THE COUNTS/PSSMs FOR EACH MOTIF:
+  ## Need to speed this up a bit, try this
+  if ( FALSE ) { ## This takes way too long!
+  pssm.scans.ORIG <- out$pssm.scans
   bzcon1 <- 'filehash/DATABASES/motif_promoter_counts.tsv'
   wrote <- FALSE
+  for ( k in 1:out$e$k.clust ) {
+    bic <- paste('BIC',k,sep='_')
+    mots <- out$get.motifs(bicluster=bic)[[1]]
+
+    mo <- strsplit( gsub( "MOT_", "", mots ), "_" )
+    bi <- as.integer( sapply( mo, "[", 1 ) )
+    mo <- as.integer( sapply( mo, "[", 2 ) )
+    out$pssm.scans <- pssm.scans.ORIG[ J( c( bi, bi ), c( mo, -mo ) ), allow.cart=T ]
+    out$pssm.scans <- out$pssm.scans[ ! is.na( out$pssm.scans$posns ), ]
+    if ( nrow( out$pssm.scans ) <= 0 ) next
+    setkey( out$pssm.scans, bic, mots, gene, posns )
+    
+    for ( m in mots ) {
+      if ( k %% 100 == 0 ) print(m)
+      for ( i in genomes ) {
+          tmp <- try( out$plot.promoter.architecture( i, type=type, dont.plot=T, motif.filter=m, include.bad=T,
+                                                     count.all=T ) )
+          if ( 'try-error' %in% class( tmp ) ) next
+          ## tmp$mat is regular pssm; tmp$mat2 is pssm scaled by info-content.
+          not.zeroes <- which( tmp$counts[,1] != 0 ) ##apply( cbind( tmp$counts[,1], tmp$mat ), 1, function(i) any(i!=0) )
+          tab <- data.table( mot=m, loc=as.integer(names(tmp$counts[not.zeroes,])), chrom=as.factor(names(i)[1]), 
+                            count=tmp$counts[not.zeroes,1], round(tmp$mat[not.zeroes,],dig=3) )
+          cat( m, nrow(tab), "\n" )
+          if ( ! is.null( tab ) ) write.table( tab, bzcon1, quote=F, sep='\t', row.names=F, col.names=!wrote,
+                                              append=wrote )
+          wrote <- TRUE
+          rm( not.zeroes, tmp, tab ); gc()
+      }
+    }
+  }
+  system( sprintf( 'bzip2 -fv -9 %s', bzcon1 ), wait=F )
+  out$pssm.scans <- pssm.scans.ORIG; rm( pssm.scans.ORIG )
+  }
+  
   ## THIS GETS THE COUNTS/PSSMs FOR MOTIFS IN MOTIF CLUSTERS ONLY:
+  wrote <- FALSE
+  bzcon2 <- 'filehash/DATABASES/motif_clust_promoter_counts.tsv'
   for ( mc in 1:out$mc.length ) {
     for ( i in genomes ) {
       mots <- out$motif.clusts[[mc]]
-      tmp <- out$plot.promoter.architecture( i, type='fimo', dont.plot=T, motif.filter=mots, include.bad=T )
+      tmp <- out$plot.promoter.architecture( i, type=type, dont.plot=T, motif.filter=mots, include.bad=T )
       ## tmp$mat is regular pssm; tmp$mat2 is pssm scaled by info-content.
       not.zeroes <- apply( cbind( tmp$counts[,1], tmp$mat ), 1, function(i) any(i!=0) )
-      tab <- data.table( motc=mc, loc=as.integer(names(tmp$counts[not.zeroes,])), count=tmp$counts[not.zeroes,1],
-                        round(tmp$mat[not.zeroes,]*1000)/1000 )
+      tab <- data.table( motc=mc, loc=as.integer(names(tmp$counts[not.zeroes,])), chrom=as.factor(names(i)[1]), 
+                        count=tmp$counts[not.zeroes,1],
+                        round(tmp$mat[not.zeroes,],dig=3) )
       cat( mc, nrow(tab), "\n" )
-      if ( ! is.null( tab ) ) write.table( tab, bzcon1, quote=F, sep='\t', row.names=F, col.names=!wrote, append=wrote )
+      if ( ! is.null( tab ) ) write.table( tab, bzcon2, quote=F, sep='\t', row.names=F, col.names=!wrote, append=wrote )
       wrote <- TRUE
+      rm( not.zeroes, tmp ); gc()
     }
   }
 
   ## NOW DO IT FOR ALL MOTIFS (WHETHER IN MOTIF CLUSTERS OR NOT)
   ## NOTE we use '0' as the value for motc here.
-  tmp <- out$plot.promoter.architecture( i, type='fimo', dont.plot=T, include.bad=F, count.all=T )
+  tmp <- out$plot.promoter.architecture( i, type=type, dont.plot=T, include.bad=F, count.all=T )
   not.zeroes <- apply( cbind( tmp$counts[,1], tmp$mat ), 1, function(i) any(i!=0) )
-  tab <- data.table( motc=0, loc=as.integer(names(tmp$counts[not.zeroes,1])), count=tmp$counts[not.zeroes,1],
-                    round(tmp$mat[not.zeroes,]*1000)/1000 )
-  write.table( tab, bzcon1, quote=F, sep='\t', row.names=F, col.names=F, append=T )
+  tab <- data.table( motc=0, loc=as.integer(names(tmp$counts[not.zeroes,1])),  chrom=as.factor(names(i)[1]),
+                    count=tmp$counts[not.zeroes,1], round(tmp$mat[not.zeroes,],dig=3) )
+  write.table( tab, bzcon2, quote=F, sep='\t', row.names=F, col.names=F, append=T )
   
-  system( sprintf( 'bzip2 -fv -9 %s', bzcon1 ), wait=F )
+  system( sprintf( 'bzip2 -fv -9 %s', bzcon2 ), wait=F )
 
   ## INFERELATOR COEFFS (TBD)
 
@@ -759,11 +854,67 @@ ensemble.to.database <- function(out) {
   ## TRICK TO READ THESE IN FAST (using data.table package):
   ## fread(paste(readLines(bzfile('bicluster.tsv.bz2')),collapse='\n')) ## never mind - this crashes. Need to bunzip2 it first, then use fread()
   ## or use sqldf
-  ## read.csv.sql(bzfile('bicluster.tsv.bz2'),sep='\t')
+  ## read.csv.sql(bzfile('filehash/DATABASES/bicluster.tsv.bz2'),sep='\t')
   ## so this:
   ## tf <- e$my.tempfile(); system(sprintf('bunzip2 -c filehash/DATABASES/motif_promoter_counts.tsv.bz2 >%s', tf))
   ## tab <- fread(tf); unlink(tf)
   ## or, e.g.:
   ## tf <- file(tf); tmp <- sqldf("select ind,count from tf where motc=0",file.format=list(sep='\t',head=T),verbose=T)
+  ## or
+  ## df=read.csv.sql(filter='bunzip2 -c filehash/DATABASES/motif.tsv.bz2')
+
+  if ( to.sqlite ) {
+  ## once these are created, can do e.g.:
+  ## sqldf('select * from motif limit 10', dbname='filehash/DATABASES/motif.db')
+  ## or:
+  ## sqldf('select * from motif_scans where bic=10000', dbname='filehash/DATABASES/motif_scans.db')
+  ## or:
+  ## sqldf(dbname='filehash/DATABASES/motif_scans.db')  ## open a persistent connection
+  ##    sqldf('create index pval_index on motif_scans(p_value)')
+  ##    tmp=sqldf('select * from motif_scans where p_value<1e-7')
+  ## sqldf() ## close the connection
+  files <- list.files(path='filehash/DATABASES/', patt=glob2rx('*.tsv.bz2'), full=T )
+  for ( f in files ) {
+      print(f)
+      typematch <- c( integer='integer', character='character', numeric='real' )
+      tf <- tempfile(); system(sprintf('bunzip2 -c %s | head -1000000 >%s', f, tf))
+      tmp <- fread(tf, nrows=1000000)
+      print(head(tmp,5))
+      classes <- sapply( tmp, class )
+      if ( any( classes == 'character' ) ) {
+          max.char <- sapply( tmp, function(i) max(nchar(i)) )[which(classes == 'character')]
+          for ( i in max.char ) typematch[sprintf('character(%d)',i)] <- sprintf('character(%d)',i)
+          classes[which(classes == 'character')] <- sprintf('character(%d)',max.char)
+      }
+      rm(tmp)
+      print(classes)
+      system(sprintf('bunzip2 -cv %s | tail -n +2 >%s', f, tf)) ## skip first (header) line
+      system(sprintf('wc -l %s',tf))
+      table.name <- gsub('.tsv.bz2','',basename(f),fixed=T)
+      names(classes) <- gsub( '[.+-/|]', '_', names(classes) )
+      index.classes <- classes ##classes[classes != 'numeric']
+      scrp <- tempfile()
+      ## cat( sprintf( 'create table %s (%s, primary key(%s));\n', table.name,
+      ##              paste(paste(names(classes), typematch[classes]), collapse=','),
+      ##              paste(names(index.classes),collapse=',') ), file=scrp, append=F )
+      ## NOTE primary key not needed. Sqlite automatically generates a "rowid" column used as primary key
+      cat( sprintf( 'create table %s (%s);\n', table.name,
+                   paste(paste(names(classes), typematch[classes]), collapse=',') ), file=scrp, append=F )
+      cat( '.separator "\\t"\n', file=scrp, append=T )
+      cat( sprintf( '.import %s %s\n', tf, table.name ), file=scrp, append=T )
+      cat( sprintf( 'create index %s_index on %s(%s);\n', table.name, table.name,
+                   paste(names(index.classes),collapse=',') ), file=scrp, append=T )
+      cat( '.quit\n', file=scrp, append=T )
+      unlink( sprintf( 'filehash/DATABASES/%s.db', table.name ) )
+      system( sprintf( 'cat %s', scrp ) )
+      system( sprintf( 'sqlite3 filehash/DATABASES/%s.db <%s', table.name, scrp ) )
+      unlink(tf); unlink(scrp)
+  }
+  cat( paste( 'Script to attach all databases:\n',
+               paste( sprintf( "attach database 'filehash/DATABASES/%s.db' as %s;\n",
+                              gsub('.tsv.bz2','',basename(files),fixed=T),
+                              gsub('.tsv.bz2','',basename(files),fixed=T) ),
+                     collapse='' ) ) )
+  }
 }
 

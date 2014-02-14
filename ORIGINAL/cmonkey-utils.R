@@ -8,7 +8,7 @@ cm.package <- function( data=F, bigdata=F, install=T, update.web=F, check=F, ver
   source.files <- source.files[ ! source.files %in% c( "cmonkey.code.update.R", "cmonkey-experimental.R",
                                                       "cmonkey-motif-other.R", "cmonkey-utils.R",
                                                       "cmonkey-ensemble.R", "cmonkey-ensemble-funcs.R",
-                                                      "cmonkey-optim2.R" ) ]
+                                                      "cmonkey-ensemble-funcs2.R", "cmonkey-optim2.R" ) ]
   print( source.files )
   
   ##cm.name <- "cMonkey"
@@ -23,7 +23,7 @@ cm.package <- function( data=F, bigdata=F, install=T, update.web=F, check=F, ver
     packageStartupMessage( "Copyright (C) David J Reiss, Institute for Systems Biology; dreiss@systemsbiology.org." )
     packageStartupMessage( "https://github.com/dreiss-isb/cmonkey" )
     if ( grepl( "beta", VERSION ) ) return()
-    vers <- try( readLines( "http://rawgithub.com/dreiss-isb/cmonkey/master/VERSION" ), silent=T )
+    vers <- try( readLines( "http://dreiss-isb.github.io/cMonkey/VERSION" ), silent=T )
     if ( class( vers ) != "try-error" ) {
       vers <- gsub( " ", "", vers )
       if ( vers != VERSION ) packageStartupMessage( "\nYou are not using the most current version of cMonkey.\nPlease consider upgrading to v", vers, " via:\n\n> install.packages('devtools', dep=T)\n> require(devtools)\n> install_github('cmonkey', 'dreiss-isb', subdir='cMonkey')" )

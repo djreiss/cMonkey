@@ -1064,7 +1064,7 @@ plotStats <- function( iter=stats$iter[ nrow( stats ) ], plot.clust=NA, new.dev=
     if ( attr( get.all.scores, "version" ) == 1 ) {
       tmp <- get.all.scores()
       row.scores <- tmp$r; mot.scores <- tmp$m; net.scores <- tmp$n; col.scores <- tmp$c
-      tmp <- get.combined.scores( quant=T )
+      tmp <- get.combined.scores( quant=F )
       r.scores <- tmp$r; c.scores <- tmp$c ##; n.scores <- tmp$n; m.scores <- tmp$m
     } else if ( attr( get.all.scores, "version" ) == 2 ) {
       tmp <- get.old.scores.matrices()
@@ -1230,7 +1230,7 @@ write.project <- function( ks=sapply( as.list( clusterStack ), "[[", "k" ), para
   clusterStack <- clusterStack[ ks ]
   mc <- get.parallel( length( ks ), para.cores=para.cores )
 #ifndef PACKAGE
-  has.pdftk <- length( system( "which pdftk", intern=T ) ) > 0 ## Use for compressing pdfs
+  ##has.pdftk <- length( system( "which pdftk", intern=T ) ) > 0 ## Use for compressing pdfs
 #endif
   
   if ( ! file.exists( paste( out.dir, "/svgs", sep="" ) ) )

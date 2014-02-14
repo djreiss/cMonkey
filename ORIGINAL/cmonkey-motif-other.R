@@ -203,6 +203,8 @@ weeder.one.cluster <- function( k, seq.type="upstream weeder", n.motifs=4,
   }
   attr( weeder.out, "weeder.out" ) <- out
 
+  ## TODO: tomtom all resulting pssms to find unique ones!
+  
   m.in <- character()
   for ( i in 1:length( weeder.out ) )
     m.in <- c( m.in, pssm.motif.lines( weeder.out[[ i ]]$counts.all, id=sprintf( "weeder_%d", i ), header=(i==1) ) )
@@ -701,7 +703,7 @@ all.motifs.to.mast.file <- function( ks=1:k.clust, seq.type=names(mot.weights)[1
     if ( is.null( memeOut ) || memeOut == "" ) return( lines )
     memeOut <- meme.scores[[ seq.type ]][[ k ]]$meme.out
     if ( is.null( memeOut ) ) return( lines )
-    if ( clusterStack[[ k ]]$resid > resid.cutoff ) return( lines )
+    if ( ! is.infinite( resid.cutoff ) && clusterStack[[ k ]]$resid > resid.cutoff ) return( lines )
     ##max.motifs <- max( max.motifs, length( memeOut ) )
     for ( i in 1:length( memeOut ) ) {
       if ( memeOut[[ i ]]$e.value > e.value.cutoff ) next

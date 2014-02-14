@@ -921,7 +921,7 @@ filter.updated.memberships <- function( row.membership, col.membership, rr.score
 adjust.clust <- function( k, row.memb=get("row.membership"), expand.only=T, limit=100, ##motif=F, plot=F, 
                          ##scores="rr.scores", quant.cutoff=0.1, force.expand=0 ) { ##0.25 ) {
                          scores="r.scores", quant.cutoff=0.33, force.expand=0 ) {
-  if ( scores == "rr.scores" || scores == "r.scores" ) {
+  if ( scores == "rr.scores" || scores == "r.scores" ) {  # note Wei-Ju pointed out this can be moved out of the loop into adjust.all.clusters
     tmp <- get.combined.scores( quant=F ) ## changed on Oct 16 2013 from quant=T
     r.scores <- tmp$r
     if ( scores == "rr.scores" ) {

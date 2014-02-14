@@ -20,19 +20,19 @@ cmonkey.init <- function( env=NULL, ... ) {
     cmonkey.params <- new.env( hash=T ) ##, parent=globalenv() )
     ##if ( ! is.null( env ) && is.environment( env ) ) cmonkey.params <- new.env( hash=T, parent=env )
   }
-#ifndef PACKAGE  
-  if ( file.exists( "cmonkey-funcs.R" ) ) {
-    tmp.e <- new.env( hash=T )
-    sys.source( "cmonkey-funcs.R", envir=tmp.e )
-  } else if ( file.exists( "~/scratch/biclust/cmonkey-funcs.R" ) ) {
-    tmp.e <- new.env( hash=T )
-    sys.source( "~/scratch/biclust/cmonkey-funcs.R", envir=tmp.e )
-  } else if ( "cmonkey" %in% search() ) {
-#endif    
-    tmp.e <- environment( cMonkey:::cmonkey ) ## Packaged - get the env. that the "cmonkey" function is stored in
-#ifndef PACKAGE
-  }
-#endif
+## #ifndef PACKAGE
+##   if ( file.exists( "cmonkey-funcs.R" ) ) {
+##     tmp.e <- new.env( hash=T )
+##     sys.source( "cmonkey-funcs.R", envir=tmp.e )
+##   } else if ( file.exists( "~/scratch/biclust/cmonkey-funcs.R" ) ) {
+##     tmp.e <- new.env( hash=T )
+##     sys.source( "~/scratch/biclust/cmonkey-funcs.R", envir=tmp.e )
+##   } else if ( "cmonkey" %in% search() || "cmonkey.beta" %in% search() ) {
+## #endif    
+    tmp.e <- environment( cmonkey ) ## Packaged - get the env. that the "cmonkey" function is stored in
+## #ifndef PACKAGE
+##   }
+## #endif
   
   if ( ! is.null( env ) && ( is.list( env ) || is.environment( env ) ) ) { ## if env is an input data list or env (e.g. "halo") copy its items here.
     ## Allow override of variables in "env" by ones that came in by commandline.
@@ -147,7 +147,7 @@ cmonkey.init <- function( env=NULL, ... ) {
   set.param( "meme.iters", c( 1, seq( 100, n.iter, by=100 ) ) )
   ##set.param( "mot.iters", seq( 100, n.iter, by=10 ) ) ## Which iters to use results of most recent meme run in scores
   ##set.param( "mot.iters", seq( 601, max( n.iter, 605 ), by=3 ) ) ## Which iters to use results of most recent meme run in scores
-  set.param( "mot.iters", seq( 1, n.iter, by=10 ) ) ## Which iters to use results of most recent meme run in scores
+  set.param( "mot.iters", seq( 2, n.iter, by=10 ) ) ## Which iters to use results of most recent meme run in scores
   set.param( "net.iters", seq( 1, n.iter, by=7 ) ) ## Which iters to re-calculate network scores?
   set.param( "row.scaling", 1 ) ##6 )  ## Seems to work best for Mpn, works good for Halo (6 is with quantile.normalize turned on)
   set.param( "row.weights", c( ratios=1 ) ) ## Optionally load multiple ratios files and set relative weights
@@ -419,7 +419,7 @@ cmonkey.init <- function( env=NULL, ... ) {
     cat( "Initializing genome info for organism", organism, "\n" )
     
     set.param( "no.genome.info", FALSE )
-    genome.info <- get.genome.info()
+    genome.info <- get.genome.info( rsat.species, rsat.url=rsat.urls[ 1 ] )
     if ( ! is.null( env ) ) assign( "genome.info", genome.info, envir=env )
     
     if ( is.na( taxon.id ) || length( taxon.id ) <= 0 ) {

@@ -1277,6 +1277,7 @@ plot.promoter.architecture <- function( gene, window=125, shift=75, e.value.cuto
 
   if ( type == 'mast' ) { ## use mast pssm scans
     if ( ! exists( "pssm.scans" ) ) pssm.scans <- get.pssm.scans()
+    
     if ( p.value.cutoff < max( pssm.scans$pvals, na.rm=T ) )
       pssm.scans <- pssm.scans[ pvals <= p.value.cutoff ]
     if ( ! is.data.table( pssm.scans ) ) {
@@ -1304,17 +1305,17 @@ plot.promoter.architecture <- function( gene, window=125, shift=75, e.value.cuto
 
   if ( type == 'mast' ) { ## use mast pssm scans
     scans <- pssm.scans[ gene == chr & posns %betw% ( st.st + c( -100, 100 ) ) ]
-    scans <- unique( scans )
+    ##scans <- unique( scans )
     motifs <- unique( paste( "MOT", scans$bic, abs( scans$mots ), sep="_" ) )
   } else if ( type == 'meme' ) {
     chr2 <- chr; rm( chr )
     scans <- meme.hits[ chr == chr2 & genome.posns %betw% ( st.st + c( -1000, 1000 ) ) ]
     chr <- chr2; rm( chr2 )
-    scans <- unique( scans )
+    ##scans <- unique( scans )
     motifs <- unique( paste( "MOT", scans$bic, abs( scans$mot ), sep="_" ) )
   } else if ( type == 'fimo' ) {
     scans <- fimo.out[ Seq == chr & Start %betw% ( st.st + c( -100, 100 ) ) ]
-    scans <- unique( scans )
+    ##scans <- unique( scans )
     motifs <- unique( paste( 'MOT', scans$bic, scans$mot, sep="_" ) )
   }
 
@@ -1406,7 +1407,7 @@ plot.promoter.architecture <- function( gene, window=125, shift=75, e.value.cuto
   scans <- scans[ scans$posns %betw% ( st.st + c( -100, 100 ) ) ]
 
   if ( exists( "motif.clusts" ) ) {
-    mcs <- get.motif.clusters( motif=motifs )
+    mcs <- get.motif.clusters( motif=motifs, filter.bad=!include.bad )
     mot.tab <- sort( table( unlist( mcs ) ) )##[ sort( table( unlist( mcs ) ) ) > 2 ]
     mot.tab <- rev( mot.tab[ mot.tab > 2 ] )
     print( mot.tab )
@@ -1534,8 +1535,10 @@ plot.promoter.architecture <- function( gene, window=125, shift=75, e.value.cuto
     counts1a <- counts # * max( yr ) / cmax #( max( counts, na.rm=T ) * 1.2 )
     if ( ncol( counts1a ) > 0 ) matlines( counts1a, typ='l', lwd=3, col=1:ncol( counts ), lty=((1:ncol( counts )) %/% 9) + 1 )
 
-    legend( 'topleft', legend=paste( colnames( counts ), leg.count ), lwd=3,
-           col=1:ncol( counts ), lty=((1:ncol( counts )) %/% 9) + 1, cex=0.6, horiz=F, trace=F, seg.len=5 )
+    leg <- paste( colnames( counts ), leg.count )
+    if ( top.only ) leg <- sprintf( "%s: %d", gsub( 'MOTC_', 'GRE #', colnames( counts ) ), leg.count )
+    legend( 'topleft', legend=leg, lwd=3, col=1:ncol( counts ), lty=((1:ncol( counts )) %/% 9) + 1, cex=0.6,
+           horiz=F, trace=F, seg.len=5 )
   }
   ##plot( st.st, c( -2, 2 ), typ='n' ) ##, mar=c(0,0,0,0), xaxs='i', yaxs='i' )
   try( plot.genes.in.region( mean( st.st[1:2] ), chr, diff( range( st.st[1:2] ) ), new=T, yscale=0.5, plot.axis=!top.only ) )
@@ -1591,6 +1594,7 @@ plot.promoter.architecture <- function( gene, window=125, shift=75, e.value.cuto
 ## qqq=out$cluster.motifs('hclust',m,min.gene=1,expand=T,k.cut=0.99)
 ## e$viewPssm(attr(qqq$tt.out2[[1]],'combined.pssm'))
 ## par(mfrow=c(4,4));for(i in 1:16)e$viewPssm(attr(qqq$tt.out2[[1]],'aligned.pssms')[[i]])
+## NOTE: settings for Eco that worked best were: p.value.cutoff=1e-6, mcl.I=1.2
 
 cluster.motifs <- function( cluster.option, motifs='ALL', min.gene.overlap=1, ## NA for all-vs-all motif comparison
                            e.value.cutoff=Inf, p.value.cutoff=0.001, resid.cutoff=Inf, n.cutoff=10,
@@ -1645,7 +1649,8 @@ cluster.motifs <- function( cluster.option, motifs='ALL', min.gene.overlap=1, ##
   mots <- as.integer( sapply( strsplit( motifs, '_', ), '[', 3 ) )
   if ( ! is.null( in.tt.out ) ) {
     tt.out <- in.tt.out ## Input tomtom data frame
-  } else if ( file.exists( 'filehash/tt.out.RData' ) ) {
+  } else if ( exists( 'tt.out' ) || file.exists( 'filehash/tt.out.RData' ) ) {
+    save.touts.file <- FALSE
     print( 'Loading pre-computed tt.out data frame.' )
     if ( ! exists( 'tt.out' ) ) load( 'filehash/tt.out.RData' )
     if ( ! motifs.all ) {
@@ -1698,6 +1703,7 @@ cluster.motifs <- function( cluster.option, motifs='ALL', min.gene.overlap=1, ##
     }
   }
 
+  print(head(tt.out))
   if ( is.null( tt.out ) ) {
     ##system( 'bunzip2 -c filehash/touts_*_*_*_*/*_tout.tsv.bz2 | bzip2 -c >filehash/tt_outs.tsv.bz2' )
     ## Skip the first (header) lines of each file.
@@ -1742,6 +1748,7 @@ cluster.motifs <- function( cluster.option, motifs='ALL', min.gene.overlap=1, ##
   ##       n.ov <- sapply( 1:length( g1 ), function( i ) sum( g1[[ i ]] %in% g2[[ i ]] ) )
   ##       tt.out <- subset( tt.out, n.ov >= min.gene.overlap )
   ##     }
+  save( tt.out, file='filehash/tt.out.RData' )
   out2$tt.out <- tt.out
   if ( cluster.option != 'mcl' ) {
     e$parallel.cores <- 1

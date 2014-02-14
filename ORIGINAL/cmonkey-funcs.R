@@ -305,13 +305,13 @@ cluster.resid <- function( k, rats.inds="COMBINED", varNorm=F, in.cols=T, ... ) 
     }
     average.r
   }
-  
+
   inds <- rats.inds
   if ( rats.inds[ 1 ] == "COMBINED" ) inds <- names( get( "row.weights" ) )
   rows <- get.rows( k ); cols <- get.cols( k )
   resids <- sapply( ratios[ inds ], function( rn ) {
 #ifndef PACKAGE
-    if ( row.score.func == "default" ) { ## Original FLOC resid score works for co-expressed genes
+    if ( row.score.func == "orig" ) { ## Original FLOC resid score works for co-expressed genes
 #endif
       if ( in.cols ) residual.submatrix( rn, rows, cols, varNorm=varNorm )
       else residual.submatrix( rn, get.rows( k ), colnames( rn )[ ! colnames( rn ) %in% cols ], varNorm=varNorm )
@@ -326,6 +326,7 @@ cluster.resid <- function( k, rats.inds="COMBINED", varNorm=F, in.cols=T, ... ) 
   if ( rats.inds[ 1 ] == "COMBINED" ) resids <- weighted.mean( resids, row.weights[ inds ], na.rm=T )
   if ( rats.inds[ 1 ] != "COMBINED" && length( resids ) < length( inds ) && all( is.na( resids ) ) ) {
     resids <- rep( NA, length( inds ) ); names( resids ) <- inds }
+
   resids
 }
 
@@ -338,6 +339,7 @@ cluster.pclust <- function( k, mot.inds="COMBINED" ) { ## actually returns a lis
   p.clusts <- sapply( inds, function( n ) {
     ms <- meme.scores[[ n ]][[ k ]]
     out <- NA
+    if ( is.null( ms ) || is.null( ms$pv.ev ) || length( ms$pv.ev ) <= 0 ) return( out )
     if ( length( rows ) > 0 && ! is.null( ms$pv.ev ) && ! is.null( ms$pv.ev[[ 1 ]] ) ) {
       if ( 'p.value' %in% colnames( ms$pv.ev[[ 1 ]] ) )
         out <- mean( log10( ms$pv.ev[[ 1 ]][ rownames( ms$pv.ev[[ 1 ]] ) %in% rows, "p.value" ] ), na.rm=T )

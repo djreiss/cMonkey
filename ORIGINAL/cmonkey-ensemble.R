@@ -945,11 +945,16 @@ full.cmonkey.ensemble.analysis <- function( org='mpn', glob=sprintf( 'zzz_%s_???
 
   ##if ( FALSE ) { ## to re-init the offline databases
   e <<- e
+  out <<- out
   try( source( "cmonkey-ensemble.R" ) )
   try( source( "~/scratch/biclust/cmonkey-ensemble.R", chdir=T ) )
   re.init() ## see that func for more
   ##}
-  
+
+  out <- get( 'out', envir=.GlobalEnv )
+  out$e <- e
+  save( e, out, file=sprintf( 'zzz_%s_ensemble_%d_w_pssm.scans.RData', org,
+                  length(unique(names(e$fnames.to.cluster))) ) )
   out
 }
 

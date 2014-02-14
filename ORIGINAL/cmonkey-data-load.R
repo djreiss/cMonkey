@@ -176,8 +176,7 @@ dlf <- function( f, url, msg=NULL, mode="wb", quiet=F, ... ) {
 #' @param fetch.predicted.operons  (DEFAULT: "rsat")
 #' @export
 #' @usage err <- get.genome.info( fetch.upstream=F, fetch.predicted.operons="rsat" )
-get.genome.info <- function( fetch.upstream=F ) { ##, fetch.predicted.operons="rsat" ) { 
-  rsat.url <- rsat.urls[ 1 ]
+get.genome.info <- function( rsat.species, fetch.upstream=F, rsat.url ) { ##, fetch.predicted.operons="rsat" ) {   
   feature.tab <- feature.names <- genome.seqs <- operons <- org.id <- synonyms <- NULL 
   genome.loc <- paste( rsat.url, "/data/genomes/", rsat.species, "/genome/", sep="" )
 
