@@ -273,7 +273,7 @@ cmonkey.ensemble.analysis <- function( e, make.sif=T, cluster.motifs=F, min.gene
                                       ... ) { ## e from cmonkey.ensemble()
   ##if ( force.single ) mclapply <- lapply ## even 2 cores is too much for my mac
   ##else
-  require( multicore )
+  require( parallel )
   out <- new.env() ##list( sif=r.sif, na=r.na )
   out$args <- c( mget( names( formals() ), env=as.environment( -1 ) ), ## Store the function call's arguments, incl
                 sapply( as.list( substitute( { ... } )[ -1 ] ), deparse ) ) ## expanding the '...' nifty trick, eh?
@@ -638,7 +638,7 @@ do.nwInf <- function( ..., all.tfs, cv.choose="min+4se", n.boot=100, make.shortc
 re.init <- function( make.shortcuts=T, filehash="filehash" ) {
   require( filehashRO )
   require( data.table )
-  require( multicore )
+  require( parallel )
   X11.options(type="dbcairo"); options(X11updates=0.25)
   try( source( "~/scratch/biclust/cmonkey-ensemble.R", chdir=T ) )
   e$meme.scores[[ 1 ]] <- dbInit( sprintf('%s/meme.scores.1.dump',filehash),
@@ -922,8 +922,8 @@ full.cmonkey.ensemble.analysis <- function( org='mpn', glob=sprintf( 'zzz_%s_???
     out <- cmonkey.ensemble.analysis( e, make.sif=F, cluster.motifs='mcl', min.gene.overlap=1, p.value.cutoff=1e-5 )
   }
 
-  e$parallel.cores <- e$parallel.cores.motif <- multicore:::detectCores()
-  options( cores=multicore:::detectCores() )
+  e$parallel.cores <- e$parallel.cores.motif <- parallel:::detectCores()
+  options( cores=parallel:::detectCores() )
 
   if ( ! 'n.cutoff' %in% names(list(...)) ) { ## default is 10 but make it number.of.cmonkey.runs/10 (min 3)
     n.cutoff <- max( 3, round( length( unique( names( e$fnames.to.cluster ) ) ) / 10 ) )

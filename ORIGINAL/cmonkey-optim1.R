@@ -38,14 +38,18 @@ update.all.clusters <- function( env, dont.update=F, ... ) {
   rownames( col.memb ) <- attr( ratios, "cnames" )    
   
   ## Fuzzify scores a bit for stochasticity! (fuzz should be between 0.2 and 0 (decreasing with iter)
-  if ( row.scaling[ iter ] > 0 && fuzzy.index[ iter ] > 1e-5 ) {
-    r.scores[,] <- r.scores[,] +
-      rnorm( length( r.scores[,] ), sd=sd( r.scores[,][ row.memb[,] == 1 ], na.rm=T ) * fuzzy.index[ iter ] )
-    if ( ! is.null( c.scores ) ) c.scores[,] <- c.scores[,] +
-      rnorm( length( c.scores[,] ), sd=sd( c.scores[,][ col.memb[,] == 1 ], na.rm=T ) * fuzzy.index[ iter ] )
+  if ( row.scaling[ iter ] > 0 ) {
+      if ( fuzzy.index.rows[ iter ] > 1e-5 ) {
+          r.scores[,] <- r.scores[,] +
+              rnorm( length( r.scores ), sd=sd( r.scores[,][ row.memb[,] == 1 ], na.rm=T ) * fuzzy.index.rows[ iter ] )
+      }
+      if ( ! is.null( c.scores ) && fuzzy.index.cols[ iter ] > 1e-5 ) {
+          c.scores[,] <- c.scores[,] +
+              rnorm( length( c.scores ), sd=sd( c.scores[,][ col.memb[,] == 1 ], na.rm=T ) * fuzzy.index.cols[ iter ] )
+      }
   }
 
-  tmp <- get.density.scores( ks=1:k.clust, r.scores, col.scores )
+  tmp <- get.density.scores( ks=1:k.clust, r.scores, c.scores )  ## OLD: this was col.scores!!!
   rr.scores <- tmp$r; cc.scores <- tmp$c; rm( tmp )
     
   ## NEW - will it work? -- help shrink big clusters, grow small clusters, both in rows and cols
@@ -181,8 +185,8 @@ get.combined.scores <- function( quantile.normalize=F ) {
 
   if ( ! is.null( col.scores ) ) {
     ## c.scores <- NULL
-    c.scores <- col.scores[,] * 0
-    c.scores <- matrix.reference( c.scores )
+    c.scores <- col.scores[,] ##* 0 ## huh? why did I do this?
+    #c.scores <- matrix.reference( c.scores )
     tmp <- c.scores[,] < -20; c.scores[,][ tmp ] <- min( c.scores[,][ ! tmp ], na.rm=T ); rm( tmp ) ## effective zero ##-220
     ##}
   } else c.scores <- NULL
@@ -503,7 +507,7 @@ motif.all.clusters <- function( ks=1:k.clust, seq.type=names( mot.weights )[ 1 ]
   ## Make sure random seed is different for each process (for tempfile generation!)
   if ( any( grepl( "foreach", deparse( mc$apply ) ) ) && getDoParName() == "doMC" )
     mc$apply <- function( list, FUN, ... ) 
-      foreach( l=list, .options.multicore=list( preschedule=F, set.seed=T ) ) %dopar% { FUN( l, ... ) }
+      foreach( l=list, .options.parallel=list( preschedule=F, set.seed=T ) ) %dopar% { FUN( l, ... ) }
   if ( ! debug ) {
     out.ms <- mc$apply( ks, FUN=function( k ) try( motif.one.cluster( k, seq.type=seq.type, verbose=F, ... ) ) )
   } else {

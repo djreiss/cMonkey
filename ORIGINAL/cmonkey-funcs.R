@@ -84,9 +84,9 @@ cmonkey.one.iter <- function( env, dont.update=F, ... ) {
   ##   and that will reconnect them with their files.
   
   if ( get.parallel()$mc ) {
-    if ( getDoParName() == "doMC" ) { ##require( multicore, quietly=T ) ) { ## Clean up any multicore spawned processes (as doc'ed in mclapply help)
-      chld <- multicore::children()
-      if ( length( chld ) > 0 ) { try( { multicore::kill( chld ); tmp <- multicore::collect( chld ) }, silent=T ) }
+    if ( getDoParName() == "doMC" ) { ##require( parallel, quietly=T ) ) { ## Clean up any parallel spawned processes (as doc'ed in mclapply help)
+      chld <- parallel::children()
+      if ( length( chld ) > 0 ) { try( { parallel::kill( chld ); tmp <- parallel::collect( chld ) }, silent=T ) }
     } else if ( getDoParName() == "doSNOW" && "data" %in% ls( pos=foreach:::.foreachGlobals ) ) {
       cl <- get( "data", pos=foreach:::.foreachGlobals ) ## Tricky, eh?
       if ( ! is.null( data ) ) stopCluster( cl )
@@ -179,7 +179,7 @@ set.param <- function( name, val, env=cmonkey.params, override=F, quiet=F ) {
 ## Make sure all processes are killed via kill(children(),SIGKILL) ??
 ## Use "parallel.cores" param to determine if parallelization is desired - if it is FALSE or 0 or 1 or NA, then no.
 ## If it is >1 or TRUE then yes. If TRUE, then determine # of cores via parallel::detectCores()
-## This should allow running on Windows boxes when there is no multicore package.
+## This should allow running on Windows boxes when there is no parallel package.
 ## Note that with the use of "foreach", this can now run on Windows if we use doSMP instead of doMC !!!
 ##    Set the "foreach.register.backend" function to a different backend if desired.
 
@@ -209,19 +209,19 @@ get.parallel <- function( X=k.clust, verbose=F, para.cores=get( "parallel.cores"
     out <- list( mc=FALSE, par=para.cores, apply=lapply )
     if ( verbose ) cat( "NOT PARALLELIZING\n" )
   } else {
-    try( has.multi <- require( multicore, quietly=T ), silent=T )
-    if ( ! has.multi || ( has.multi && multicore:::isChild() ) ) {    
+    try( has.multi <- require( parallel, quietly=T ), silent=T )
+    if ( ! has.multi || ( has.multi && parallel:::isChild() ) ) {    
       out <- list( mc=FALSE, par=para.cores, apply=lapply )
       if ( verbose ) cat( "NOT PARALLELIZING\n" )
     } else {
-      mc <- has.multi && ! multicore:::isChild() && X > 1 && ! is.na( para.cores ) &&
+      mc <- has.multi && ! parallel:::isChild() && X > 1 && ! is.na( para.cores ) &&
       ( is.numeric( para.cores ) && para.cores > 1 ) ||
       ( is.logical( para.cores ) && para.cores == TRUE )
       par <- para.cores
       out.apply <- lapply 
       if ( mc ) {
-        if ( is.logical( par ) && par == TRUE ) par <- multicore:::detectCores() ## all.tests=TRUE )
-        par <- min( c( X, par, multicore:::detectCores() ) ) ## all.tests=TRUE ) ) )
+        if ( is.logical( par ) && par == TRUE ) par <- parallel:::detectCores() ## all.tests=TRUE )
+        par <- min( c( X, par, parallel:::detectCores() ) ) ## all.tests=TRUE ) ) )
         if ( verbose ) cat( "PARALLELIZING:", par, ": " )
         ## if ( ! exists( "foreach.register.backend" ) || is.null( foreach.register.backend ) ||
         ##     is.null( foreach.register.backend( par ) ) ) { ##use.foreach ) {
@@ -240,7 +240,7 @@ get.parallel <- function( X=k.clust, verbose=F, para.cores=get( "parallel.cores"
     }
   }
   ##if ( attr( ratios, "nrow" ) > big.run ) print( gc() ) ## gc() before we spawn new copied processes
-  if ( is.numeric( out$par ) && ! is.na( out$par ) ) options( cores=out$par ) ## getOption("cores") is the default of how mclapply gets its mc.cores number
+  if ( is.numeric( out$par ) && ! is.na( out$par ) ) options( mc.cores=out$par ) ## getOption("cores") is the default of how mclapply gets its mc.cores number
   else if ( is.na( out$par ) || ( is.logical( out$par ) && out$par == TRUE ) ) options( cores=NULL )
   else options( cores=1 )
   out
@@ -602,8 +602,9 @@ get.col.scores <- function( k, for.cols="all", ratios=ratios[[ 1 ]],
                            w=row.weights, na.rm=T ) / mn
       }
     } )
+    ##rats <- log( rats + 1e-99 )
     return( rats )
-  }
+}
 #endif
   
   var.norm <- 0.99
@@ -631,7 +632,6 @@ get.col.scores <- function( k, for.cols="all", ratios=ratios[[ 1 ]],
   ##if ( is.na( col.weights ) )
   rats <- rats / ( var.norm + 0.01 ) ## default
   ##else rats <- colMeans( rats, na.rm=T ) / ( var.norm * col.weights[ cols ] + 0.01 ) ## customized col. weights
-
   ##return( log( rats + 1e-99 ) )
   rats
 }

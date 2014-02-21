@@ -352,7 +352,7 @@ mkTempMemeFiles <- function( sgenes, seqs, fname="meme.tmp.fst", bgseqs=NULL, bg
 }
 
 ## Thread-safe tempfile (so parallelized calls dont use same filename)
-## Make sure to set .options.multicore=list( set.seed=T ) to make sure this is true!
+## Make sure to set .options.parallel=list( set.seed=T ) to make sure this is true!
 my.tempfile <- function( pattern="file", tmpdir=tempdir(), suffix="", n.rnd.char=20 ) {
   ## f <- paste( tempfile( pattern, tmpdir ), "_", k, "_", iter, suffix, sep="" )
   ## while( file.exists( f ) ) f <- paste( tempfile( pattern, tmpdir ), "_", k, "_", iter, suffix, sep="" )

@@ -73,8 +73,8 @@ cm.package <- function( data=F, bigdata=F, install=T, update.web=F, check=F, ver
                     ##data=list( halo="halo", hpy="hpy", mpn="mpn" ), ##ecoli="ecoli", yeast="yeast", ath="ath",
                     ##objects.included=c( cm.init="cm.init", cm.main="cm.main" ),
                     required=if ( beta ) c( "ref", "bigmemory", "filehash" ) else NULL,
-                    suggested=c( "RCurl", "doMC", "foreach", "multicore", "igraph0", "RSVGTipsDevice", "hwriter",
-                      "ref", "bigmemory", "filehash" ), ##"fUtilities", , "Cairo", "trimcluster"
+                    suggested=c( "RCurl", "doMC", "foreach", "igraph0", "RSVGTipsDevice", "hwriter" ), ##"parallel", 
+                      ##"ref", "bigmemory", "filehash" ), ##"fUtilities", , "Cairo", "trimcluster"
                     short.desc="cMonkey integrated biclustering algorithm",
                     long.desc="cMonkey integrated biclustering algorithm for learning co-regulated gene modules",
                     url="https://github.com/dreiss-isb/cmonkey",
@@ -261,7 +261,7 @@ cmonkey.init.ec2 <- function( inst, ... ) {
       "echo \"require( utils ); require( graphics ); require( stats )\" >>~/.Rprofile\n",
       "echo \"my.utils <- attach( NULL, name=\\\"my.utils\\\" )\n",
       "sys.source( \\\"~/my.util.R\\\", env=my.utils )\" >>~/.Rprofile\n",
-      sprintf( "Rscript -e \"Sys.setenv(MAKE=\\\"make -j 8\\\");install.packages( c(%s), dep=F, lib=\\\"~/R\\\", repos=\\\"http://%s/\\\" )\"\n", "\\\"cMonkey\\\",\\\"multicore\\\",\\\"igraph0\\\",\\\"RSVGTipsDevice\\\",\\\"glmnet\\\",\\\"lars\\\"", cran.repos ),
+      sprintf( "Rscript -e \"Sys.setenv(MAKE=\\\"make -j 8\\\");install.packages( c(%s), dep=F, lib=\\\"~/R\\\", repos=\\\"http://%s/\\\" )\"\n", "\\\"cMonkey\\\",\\\"parallel\\\",\\\"igraph0\\\",\\\"RSVGTipsDevice\\\",\\\"glmnet\\\",\\\"lars\\\"", cran.repos ),
       sprintf( "Rscript -e \"Sys.setenv(MAKE=\\\"make -j 8\\\");install.packages( c(%s), dep=T, lib=\\\"~/R\\\", repos=\\\"http://%s/\\\" )\"\n", "\\\"doMC\\\",\\\"RCurl\\\"", cran.repos ),
       "mkdir ~/progs; cd ~/progs; wget \"http://meme.nbcr.net/downloads/old_versions/meme_4.3.0.tar.gz\"\n",
       "tar -xvzf meme_4.3.0.tar.gz; cd ~/progs/meme_4.3.0; mkdir local\n",

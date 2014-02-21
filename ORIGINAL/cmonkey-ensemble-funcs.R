@@ -703,7 +703,7 @@ network <- function( genes, conditions, q.val=T ) {
     names( all.cm ) <- conditions ##rownames( e$col.membership )
   }
   
-  require( multicore ); apply.func <- mclapply
+  require( parallel ); apply.func <- mclapply
   out <- apply.func( genes, function( g ) {
     print( g )
     tmp <- agglom( src=g, srcType='gene', targetType='gene', path='bicluster', q.val=q.val,

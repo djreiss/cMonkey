@@ -773,7 +773,7 @@ motif.similarities.tomtom <- function( query=1:k.clust, target=1:k.clust, query.
   cmd <- "%s/tomtom -verbosity 1 -q-thresh %.3f -dist %s -min-overlap %d -text -query-pseudo %.3f -target-pseudo %.3f -target %s"
   mc <- get.parallel( length( target ) ) ## Parallelize running query motifs against all target motifs
   apply.fun <- mc$apply
-  if ( multicore:::isChild() || length( query ) == 1 ) apply.func <- lapply
+  if ( parallel:::isChild() || length( query ) == 1 ) apply.func <- lapply
   ##apply.fun <- lapply
   
   if ( is.na( min.gene.overlap ) ) { ## If no cluster-specific targets, just create target file once for all clusters
@@ -1047,7 +1047,7 @@ cluster.tomtom.results <- function( tt.out, seq.type=names(mot.weights)[1],
   rm( tmp ); gc()
   ##out.tt <- list()
   ##for ( i in as.integer( names( sort( table( cs ), decreasing=T ) ) ) ) {
-  ##require( multicore )
+  ##require( parallel )
   cat( "HERE:", range( as.integer( names( sort( table( cs ), decreasing=T ) ) ) ), "\n" )
   meme.let <- c( "A", "C", "G", "T" )
   mc <- get.parallel( length( table( cs ) ) ) ## Parallelize running query motifs against all target motifs

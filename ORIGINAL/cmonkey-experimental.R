@@ -434,7 +434,7 @@ cluster.cloud <- function( history ) {
   c.mat <- matrix( 0, nrow=attr( ratios, "ncol" ), ncol=attr( ratios, "ncol" ) )
   rownames( c.mat ) <- colnames( c.mat ) <- attr( ratios, "cnames" )
   ##for ( i in 1:length( history ) ) {
-  require( multicore )
+  require( parallel )
   out <- mclapply( 0:3, function( ii ) { ##length( history ), function( i ) {
     for ( i in ( 1:length( history ) )[ 1:length( history ) %% 4 == ii ] ) {
       if ( i %% 100 == ii ) cat( ii, i, Sys.getpid(), "\n" )

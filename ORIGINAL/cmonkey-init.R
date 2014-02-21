@@ -155,7 +155,7 @@ cmonkey.init <- function( env=NULL, ... ) {
   set.param( "row.score.func", "orig" ) ##"cor2" ) ## method=c("mi","cor2","abscor","dist","pval","orig")
   set.param( "col.score.func", "orig" ) ## method=c("new","orig") -- orig for both cases is old (pre v4.7.0) version
 #endif
-  set.param( "mot.scaling", c( rep( 1e-5, 100 ), seq( 0, 1, length=n.iter*3/4 ) ) ) ##* 0.5
+  set.param( "mot.scaling", c( rep( 1e-5, 100 ), seq( 1e-5, 1, length=n.iter*3/4 ) ) ) ##* 0.5
   set.param( "mot.weights", c( `upstream meme`=1 ) ) ##, `upstream weeder`=0.5, `upstream spacer`=1, `upstream memepal`=1 ) ) ## Sequence and algorithm for for motif search: Optionally use different automatically computed sequences (e.g. `downstream meme`=1) or an input file (e.g. `fstfile=zzz.fst meme`=1) (csvfile too!) and motif algos (e.g. weeder, spacer, prism, meme, memepal)
   set.param( "net.scaling", seq( 1e-5, 0.5, length=n.iter*3/4 ) ) ##0.1 0.25
   ## Net weights and grouping weights - names must correspond to full file paths (sifs) that are to be read in.
@@ -173,8 +173,9 @@ cmonkey.init <- function( env=NULL, ... ) {
   set.param( "cluster.rows.allowed", c( 3, 70 ) ) ##200 ) ) ## Min/max number of rows to allow in a bicluster
   set.param( "merge.cutoffs", c( n=0.3, cor=0.975 ) ) ## n=0.3 => merge 1 pair of clusters every 3 iters; if n>1 then merge that number of pairs of clusters every iter; cor is correlation cutoff
   ## Note: to use seeded clusters use the "list=" row seeding method and set "fuzzy.index" to close to 0... seems to work (note setting it to 0 is probably a bad idea).
-  set.param( "fuzzy.index", 0.75 * exp( -( 1:n.iter ) / (n.iter/4) ) ) ## (n.iter/6) ## hack to add stochasticity
+  set.param( "fuzzy.index.rows", 0.75 * exp( -( 1:n.iter ) / (n.iter/4) ) ) ## (n.iter/6) ## hack to add stochasticity
   ##set.param( "fuzzy.index", 0.7 * exp( -( 1:n.iter ) / (n.iter/3) ) + 0.05 ) ## (n.iter/6) ## hack to add stochasticity
+  set.param( "fuzzy.index.cols", 0 ) ## turn it off - it only seems to hurt
   set.param( "translation.tab", NULL ) ## custom 2-column translation table to be used for additional synonyms
   set.param( "seed.method", c( rows="kmeans", cols="best" ) ) ## "net=string:5" "rnd" "kmeans" "trimkmeans=TRIM" "rnd" "list=FILENAME" "rnd=NG" "cor=NG" "net=netname:NG" "netcor=netname:NG" "custom" -- NG is # of genes per seeded cluster; "best" or "rnd" is option for cols
   set.param( "maintain.seed", NULL ) ## List of lists of vectors of rows to maintain for each k: force seeded rows or cols in each cluster to STAY there! e.g. maintain.seed=list(rows=list(`3`=c(gene1,gene2,gene3))) ; This should be used in conjunection with seed.method["rows"]=="custom" or "list=..."
@@ -915,7 +916,8 @@ cmonkey.init <- function( env=NULL, ... ) {
   ##max.motif.width <- lapply( motif.width.range, function( i ) extend.vec( i[ 2 ] ) ) ##, envir=cmonkey.env )
   ##n.clust.per.row <- extend.vec( n.clust.per.row ) ##, envir=cmonkey.env )
   ##n.clust.per.col <- extend.vec( n.clust.per.col ) ##, envir=cmonkey.env )
-  fuzzy.index <- extend.vec( fuzzy.index ) ##, envir=cmonkey.env )
+  fuzzy.index.rows <- extend.vec( fuzzy.index.rows ) ##, envir=cmonkey.env )
+  fuzzy.index.cols <- extend.vec( fuzzy.index.cols ) ##, envir=cmonkey.env )
 
   is.inited <- TRUE
   if ( is.null( env ) ) env <- new.env( hash=T, parent=globalenv() )
