@@ -892,6 +892,7 @@ get.sequences <- function( k, seq.type=paste( c("upstream","upstream.noncod","up
         if ( coos$strand[ i ] == "D" ) seq <- substr( seq, 1, abs( diff( distance ) ) )
         else seq <- rev.comp( substr( rev.comp( seq ), 1, abs( diff( distance ) ) ) )
       }
+      names( seq ) <- NULL
       ##seqs[ as.character( coos$names[ i ] ) ] <- seq
       ##start.stops <- rbind( start.stops, data.frame( start=st.st[ 1 ], end=st.st[ 2 ],
       ##                                              strand=as.character( coos$strand[ i ] ),

@@ -217,9 +217,9 @@ get.genome.info <- function( rsat.species, fetch.upstream=F, rsat.url ) { ##, fe
     err <- dlf( fname, paste( genome.loc, if ( ! use.cds ) "feature_names.tab" else "cds_names.tab", sep="" ) )
     nskip <- sum( substr( readLines( gzfile( fname ), n=20 ), 1, 2 ) == "--" )
     closeAllConnections()
-    feature.names <- read.delim( gzfile( fname ), head=F, as.is=T, skip=nskip, row.names=NULL, comment='' ) 
+    feature.names <- read.delim( gzfile( fname ), head=F, as.is=T, skip=nskip, row.names=NULL, comment='' )
     closeAllConnections()
-    colnames( feature.names ) <- c( "id", "names", "type" ) 
+    colnames( feature.names ) <- c( "id", "names", "type" )
     feature.names <- unique( feature.names )
     chroms <- unique( as.character( feature.tab$contig ) )
     chroms <- chroms[ ! is.na( chroms ) & chroms != "" ]
@@ -404,13 +404,15 @@ get.operon.predictions <- function( fetch.predicted.operons="microbes.online", o
         warning( paste( "No genome annotation for any genes in operon #", i, " -- don't know what to do!", call.=F ) )
         return( "" ) }
       ids[ is.na( ids ) ] <- names( ids )[ is.na( ids ) ]
-      vngs <- unlist( lapply( s, function( i ) {
-        out <- i[ ! i %in% all.ids ] ##genome.info$feature.names$id ]
+      vngs <- unlist( lapply( s, function( ii ) {
+        out <- ii[ ! ii %in% all.ids ] ##genome.info$feature.names$id ]
         if ( length( out ) <= 0 ) ## && exists( "ratios" ) )
-          out <- i[ i %in% search.names ] ##attr( ratios, "rnames" ) ]
-        if ( length( out ) <= 0 ) out <- i[ genome.info$feature.names$id %in% i & genome.info$feature.names$id == "primary" ]
-        if ( length( out ) <= 0 ) out <- i
-        if ( length( out ) > 1 && any( out %in% attr( ratios, 'rnames' ) ) ) out <- out[ out %in% attr( ratios, 'rnames' ) ]
+          out <- ii[ ii %in% search.names ] ##attr( ratios, "rnames" ) ]
+        if ( length( out ) <= 0 ) out <- ii[ genome.info$feature.names$id %in% ii &
+                       genome.info$feature.names$id == "primary" ]
+        if ( length( out ) <= 0 ) out <- ii
+        if ( length( out ) > 1 && any( out %in% attr( ratios, 'rnames' ) ) )
+            out <- out[ out %in% attr( ratios, 'rnames' ) ]
         out
       } ) )
       coos <- get.gene.coords( ids, op.shift=F )
@@ -424,6 +426,7 @@ get.operon.predictions <- function( fetch.predicted.operons="microbes.online", o
         warning( paste( "About 50% of operon #", i, "are on opposite strands -- don't know what to do!", call.=F ) ) }
       head
     } )
+    
     names( operons ) <- unlist( nms )
     operons <- operons[ names( operons ) != "" ]
     operons <- do.call( rbind, lapply( names( operons ), function( h ) data.frame( head=h, gene=operons[[ h ]] ) ) )
@@ -598,12 +601,12 @@ get.prolinks.links <- function( org.id=genome.info$org.id$V1[ 1 ] ) { ##, filter
   fname <- paste( "data/", rsat.species, "/prolinks_", gsub( " ", "_", org.id ), ".txt", sep="" )
   org.file <- paste( "http://mysql5.mbi.ucla.edu/public/Genomes/", gsub( " ", "_", org.id ), ".txt", sep="" )
   err <- dlf( fname, org.file, paste( "Fetching PROLINKS links from", org.file ) )
-  prol.tab <- read.delim( gzfile( fname ), head=T, as.is=T )
+  prol.tab <- as.data.table( read.delim( gzfile( fname ), head=T, as.is=T ) )
   fname <- paste( "data/prolinks_GeneID_Genename.txt", sep="" )
   id.file <- "http://mysql5.mbi.ucla.edu/public/reference_files/GeneID_Genename.txt"
   err <- dlf( fname, id.file, paste( "Fetching PROLINKS genename ref. file from", id.file ) )
 
-  id.tab <- read.delim( gzfile( fname ), head=T, as.is=T )
+  id.tab <- as.data.table( read.delim( gzfile( fname ), head=T, as.is=T ) )
   merged.tab <- merge( merge( prol.tab, id.tab, by.x="gene_id_a", by.y="gene_id" ), id.tab, by.x="gene_id_b",
                       by.y="gene_id", sort=F )
   out <- list()
@@ -621,9 +624,9 @@ get.predictome.links <- function( org.id=organism ) {
     fname <- paste( "data/predictome/predictome_", i, "_links.txt", sep="" )
     pred.file <- paste( "http://predictome.bu.edu/data/all", i, "links.txt", sep="_" )
     err <- dlf( fname, pred.file, paste( "Reading in predictome links from", pred.file ) )
-    pred.tab <- read.delim( gzfile( fname ), head=T, as.is=T )
+    pred.tab <- as.data.table( read.delim( gzfile( fname ), head=T, as.is=T ) )
     pred.tab <- pred.tab[ pred.tab$species == org.id, ] ## Alreay symmetric, it seems
-    out[[ i ]] <- data.frame( protein1=pred.tab$orf_id_1, protein2=pred.tab$orf_id_2, combined_score=1.0 )
+    out[[ i ]] <- data.table( protein1=pred.tab$orf_id_1, protein2=pred.tab$orf_id_2, combined_score=1.0 )
   }
   closeAllConnections()
   out
@@ -634,14 +637,14 @@ get.predictome.links <- function( org.id=organism ) {
 ##   dlf( file, "ftp://mint.bio.uniroma2.it/pub/release/txt/2009-02-03/2009-02-03-full.txt",
 ##       "Fetching MINT interactions from ftp://mint.bio.uniroma2.it/pub/release/txt/2009-02-03/2009-02-03-full.txt." )
 ##   mint.head <- strsplit( readLines( gzfile( file, n=1 ), "\t" )[[ 1 ]]
-##   mint.ints <- read.delim( file, head=F, skip=1, as.is=T )
+##   mint.ints <- as.data.table( read.delim( file, head=F, skip=1, as.is=T ) )
 ##   mint.ints <- mint.ints[ grep( paste( "taxid\\:", org.id, "\\(" ), mint.ints$`Taxid interactor A (bait)` ), ]
 ## }
 
 ## Assumes weights are 2nd column (if they exist) - if not (if they are a type, e.g. 'pp', weights are all 1
 ## Weights are all then scaled to 0 -> 1000 to match those from STRING file.
 load.sif.interactions <- function( sif.fname ) { ##, sif.weight ) {
-  sif <- read.delim( gzfile( sif.fname ), sep='', head=F, comment="#" )
+  sif <- as.data.table( read.delim( gzfile( sif.fname ), sep='', head=F, comment="#" ) )
   contains.weights <- ncol( sif ) == 3 && any( sapply( 1:ncol( sif ), function( i ) is.numeric( sif[ ,i ] ) ) )
   if ( contains.weights ) {
     weight.col <- which( sapply( 1:ncol( sif ), function( i ) is.numeric( sif[ ,i ] ) ) )
@@ -653,9 +656,9 @@ load.sif.interactions <- function( sif.fname ) { ##, sif.weight ) {
       colnames( sif ) <- c( "V1", "V2", "V3" )
     }
   } else if ( ncol( sif ) == 3 ) { ## Middle column is NOT numeric
-    sif <- data.frame( V1=sif$V1, V2=rep( 1000, nrow( sif ) ), V3=sif$V3 )
+    sif <- data.table( V1=sif$V1, V2=rep( 1000, nrow( sif ) ), V3=sif$V3 )
   } else { 
-    sif <- data.frame( V1=sif$V1, V2=rep( 1000, nrow( sif ) ), V3=sif$V2 ) 
+    sif <- data.table( V1=sif$V1, V2=rep( 1000, nrow( sif ) ), V3=sif$V2 ) 
   }
   sif$V2[ is.na( sif$V2 ) ] <- 0
   sif <- sif[ ,c( "V1", "V3", "V2" ) ]; colnames( sif ) <- c( "protein1", "protein2", "combined_score" )

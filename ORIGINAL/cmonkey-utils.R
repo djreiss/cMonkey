@@ -8,7 +8,8 @@ cm.package <- function( data=F, bigdata=F, install=T, update.web=F, check=F, ver
   source.files <- source.files[ ! source.files %in% c( "cmonkey.code.update.R", "cmonkey-experimental.R",
                                                       "cmonkey-motif-other.R", "cmonkey-utils.R",
                                                       "cmonkey-ensemble.R", "cmonkey-ensemble-funcs.R",
-                                                      "cmonkey-ensemble-funcs2.R", "cmonkey-optim2.R" ) ]
+                                                      "cmonkey-ensemble-funcs2.R", "cmonkey-optim2.R",
+                                                      "cmonkey-data-load-mo.R" ) ]
   print( source.files )
   
   ##cm.name <- "cMonkey"
@@ -72,8 +73,8 @@ cm.package <- function( data=F, bigdata=F, install=T, update.web=F, check=F, ver
                       ),
                     ##data=list( halo="halo", hpy="hpy", mpn="mpn" ), ##ecoli="ecoli", yeast="yeast", ath="ath",
                     ##objects.included=c( cm.init="cm.init", cm.main="cm.main" ),
-                    required=if ( beta ) c( "ref", "bigmemory", "filehash" ) else NULL,
-                    suggested=c( "RCurl", "doMC", "foreach", "igraph0", "RSVGTipsDevice", "hwriter" ), ##"parallel", 
+                    required=if ( beta ) c( "ref", "bigmemory", "filehash" ) else "",
+                    suggested=c( "RCurl", "doMC", "foreach", "igraph0", "RSVGTipsDevice", "hwriter", "parallel" ), 
                       ##"ref", "bigmemory", "filehash" ), ##"fUtilities", , "Cairo", "trimcluster"
                     short.desc="cMonkey integrated biclustering algorithm",
                     long.desc="cMonkey integrated biclustering algorithm for learning co-regulated gene modules",

@@ -230,7 +230,7 @@ cmonkey.init <- function( env=NULL, ... ) {
   set.param( "discard.genome", TRUE )
   set.param( "pareto.adjust.scalings", FALSE ) ## Automatic adjust 3 scalings to try to decrease all 3 scores
 #endif
-  set.param( "rsat.urls", c( "http://rsat.ccb.sickkids.ca/", "http://rsat.ulb.ac.be/rsat/", 
+  set.param( "rsat.urls", c( "http://rsat.ulb.ac.be/rsat/", "http://rsat.ccb.sickkids.ca/", 
                             "http://embnet.ccg.unam.mx/rsa-tools" ) ) ## Right now only first one is used
   set.param( "stats.iters", c( 1, seq( 5, n.iter, by=5 ) ) )
   set.param( "cm.script.each.iter", "cm.script.each.iter.R" ) ## a vector of R script file names to source every iter!
@@ -841,7 +841,7 @@ cmonkey.init <- function( env=NULL, ... ) {
         
         nn <- nn[ ! duplicated( nn[ ,c( "protein1", "protein2" ) ] ), ]
         cat( n, "network filtered, symmetrized and uniquified:", nrow( nn ), "edges.\n" )
-        networks[[ n ]] <- nn
+        networks[[ n ]] <- unique( nn )
         if ( ! is.null( env ) ) assign( "networks", networks, envir=env )
       }
       rm( n, nn, nodes, dupes )

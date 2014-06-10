@@ -85,8 +85,8 @@ cmonkey.one.iter <- function( env, dont.update=F, ... ) {
   
   if ( get.parallel()$mc ) {
     if ( getDoParName() == "doMC" ) { ##require( parallel, quietly=T ) ) { ## Clean up any parallel spawned processes (as doc'ed in mclapply help)
-      chld <- parallel::children()
-      if ( length( chld ) > 0 ) { try( { parallel::kill( chld ); tmp <- parallel::collect( chld ) }, silent=T ) }
+      chld <- parallel:::children()
+      if ( length( chld ) > 0 ) { try( { parallel::mckill( chld ); tmp <- parallel:::mccollect( chld ) }, silent=T ) }
     } else if ( getDoParName() == "doSNOW" && "data" %in% ls( pos=foreach:::.foreachGlobals ) ) {
       cl <- get( "data", pos=foreach:::.foreachGlobals ) ## Tricky, eh?
       if ( ! is.null( data ) ) stopCluster( cl )
@@ -275,9 +275,7 @@ get.unpreprocessed.ratios <- function( ... ) {
   return( ratios.raw )
 }
 
-cluster.resid <- function( k, rats.inds="COMBINED", varNorm=F, in.cols=T, ... ) {
-  ## FLOC residual number is a good statistic
-  residual.submatrix <- function( rats, rows, cols, varNorm=F, ... ) {
+residual.submatrix <- function( rats, rows, cols, varNorm=F, ... ) {
     rows <- rows[ rows %in% rownames( rats ) ]
     cols <- cols[ cols %in% colnames( rats ) ]
     if ( length( rows ) <= 1 || length( cols ) <= 1 ) return( 1 )
@@ -298,13 +296,16 @@ cluster.resid <- function( k, rats.inds="COMBINED", varNorm=F, in.cols=T, ... ) 
     ##average.r <- mean( abs( rij ), na.rm = TRUE )
     average.r <- mean( abs( rats ), na.rm = TRUE )
     if ( varNorm && ! is.null( maxRowVar ) ) {
-      ##maxRowVar <- attr( rats, "maxRowVar" )
-      row.var <- mean( apply( rats, 1, var, use = "pairwise.complete.obs" ), na.rm=T )
-      if ( is.na( row.var ) || row.var > maxRowVar ) row.var <- maxRowVar
-      average.r <- average.r / row.var
+        ##maxRowVar <- attr( rats, "maxRowVar" )
+        row.var <- mean( apply( rats, 1, var, use = "pairwise.complete.obs" ), na.rm=T )
+        if ( is.na( row.var ) || row.var > maxRowVar ) row.var <- maxRowVar
+        average.r <- average.r / row.var
     }
     average.r
-  }
+}
+
+cluster.resid <- function( k, rats.inds="COMBINED", varNorm=F, in.cols=T, ... ) {
+  ## FLOC residual number is a good statistic
 
   inds <- rats.inds
   if ( rats.inds[ 1 ] == "COMBINED" ) inds <- names( get( "row.weights" ) )
@@ -649,6 +650,7 @@ get.motif.scores <- function( k, meme.scores, seq.type="upstream meme", for.rows
   return( m.scores )
 }
 
+## TODO: this could be a lot faster (?) if we used data.table rather than data.frame
 get.network.scores <- function( k, net=networks$string, for.rows="all", p1.col="protein1", p2.col="protein2", 
                                score.col="combined_score", combine.func=sum ) {
   if ( length( k ) <= 0 ) return( NULL )
@@ -977,7 +979,7 @@ get.synonyms <- function( gns, ft=genome.info$feature.names, ignore.case=T, verb
   if ( exists( "translation.tab" ) && ! is.null( translation.tab ) )
     ft <- rbind( ft, data.frame( id=as.character( translation.tab$V1 ), names=as.character( translation.tab$V2 ) ) )
   ft <- subset( ft, names != "" )
-
+  
   if ( verbose ) ggggg <- gns[ seq( 1, length( gns ), by=min(length(gns),100) ) ]
 
   mc <- get.parallel( length( gns ), verbose=F )
@@ -993,7 +995,7 @@ get.synonyms <- function( gns, ft=genome.info$feature.names, ignore.case=T, verb
       tmp2 <- unique( c( g, as.character( tmp2[ ,1 ] ), as.character( tmp2[ ,2 ] ) ) )
     }
     tmp2 <- gsub( "\\\\([\\[\\]\\(\\)\\{\\}\\.\\+\\-'\"])", "\\1", tmp2, perl=T )
-    tmp2
+    unique( tmp2 )
   } ) 
 
   names( tmp ) <- gns.orig
@@ -1069,7 +1071,8 @@ get.gene.coords <- function( rows, op.shift=T, op.table=genome.info$operons, ...
           ops <- merge( ids2, op.table, by.x="id", by.y="gene", all.x=T, incomparables=NA, sort=F )
         }
       }
-      if ( is.null( ops ) ) ops <- merge( ids, op.table, by.x="names", by.y="gene", all.x=T, incomparables=NA, sort=F )
+      if ( is.null( ops ) ) #ops <- merge( ids, op.table, by.x="names", by.y="gene", all.x=T, incomparables=NA, sort=F )
+          ops <- op.table[ ids ]
       if ( any( is.na( ops$head ) ) ) {
         head <- as.character( ops$head ); head[ is.na( head ) ] <- as.character( ops$id[ is.na( head ) ] ) ##names[ is.na( head ) ] )
         ops$head <- as.factor( head )
@@ -1081,11 +1084,10 @@ get.gene.coords <- function( rows, op.shift=T, op.table=genome.info$operons, ...
       head.ids <- data.frame( id=sapply( head.ids, "[", 1 ), names=names( head.ids ) )
       ops2 <- merge( ops, head.ids, by.x="head", by.y="names", all.x=T, sort=F )
       coos <- merge( ops2, tab, by.x="id.y", by.y="id", all.x=T, sort=F )[ ,c( "id.x", "names", "contig",
-                                                                               "strand", "start_pos", "end_pos" ) ]
+                                                                     "strand", "start_pos", "end_pos" ) ]
     }
   } else { ##if ( ! op.shift )
-    coos <- merge( ids, tab, by="id", sort=F )[ ,c( "id", "names", "contig",
-                                                   "strand", "start_pos", "end_pos" ) ]
+    coos <- merge( ids, tab, by="id", sort=F )[ ,c( "id", "names", "contig", "strand", "start_pos", "end_pos" ) ]
   }
   colnames( coos )[ 1 ] <- "id"
   if ( is.factor( coos$start_pos ) ) coos$start_pos <- as.numeric( levels( coos$start_pos ) )[ coos$start_pos ]
@@ -1103,13 +1105,14 @@ get.long.names <- function( k, shorter=F ) {
   if ( ! shorter ) desc <- mc$apply( ids, function( i ) subset( genome.info$feature.tab, id %in% i, 
                                                                select=c( "id", "description" ) ) )
   else {
-    desc <- mc$apply( ids, function( i ) subset( genome.info$feature.tab, id %in% i, select=c( "id", "name", "description" ) ) )
+    desc <- mc$apply( ids, function( i ) subset( genome.info$feature.tab, id %in% i,
+                                                select=c( "id", "name", "description" ) ) )
     for ( i in 1:length( desc ) ) if ( length( desc[[ i ]]$name ) > 0 && desc[[ i ]]$name %in% rows ) {
       if ( grepl( "(", desc[[ i ]]$description, fixed=T ) ) ## Try to parse out short name from description
         desc[[ i ]]$name <- strsplit( as.character( desc[[ i ]]$description ), "[()]", perl=T )[[ 1 ]][ 2 ]
     }
   }
-  out <- sapply( desc, function( i ) as.character( i[ 1, 2 ] ) )
+  out <- sapply(desc, function(i) as.character(i[1, 2]))
   out <- out[ rows ]
   names( out ) <- rows
   out[ is.na( out ) | out == names( out ) ] <- "" 
