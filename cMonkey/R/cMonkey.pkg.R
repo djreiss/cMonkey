@@ -1,7 +1,7 @@
 DATE <-
-"Tue Dec 10 16:25:04 2013"
+"Tue Jun 10 11:15:24 2014"
 VERSION <-
-"4.9.11"
+"4.9.20"
 .onLoad <-
 function( libname, pkgname ) { ##.onAttach
     packageStartupMessage( "Loading ", pkgname, " version ", VERSION, " (", DATE, ")" )
@@ -141,6 +141,9 @@ function (k, mot.inds = "COMBINED")
     p.clusts <- sapply(inds, function(n) {
         ms <- meme.scores[[n]][[k]]
         out <- NA
+        if (is.null(ms) || is.null(ms$pv.ev) || length(ms$pv.ev) <= 
+            0) 
+            return(out)
         if (length(rows) > 0 && !is.null(ms$pv.ev) && !is.null(ms$pv.ev[[1]])) {
             if ("p.value" %in% colnames(ms$pv.ev[[1]])) 
                 out <- mean(log10(ms$pv.ev[[1]][rownames(ms$pv.ev[[1]]) %in% 
@@ -187,32 +190,6 @@ cluster.resid <-
 function (k, rats.inds = "COMBINED", varNorm = F, in.cols = T, 
     ...) 
 {
-    residual.submatrix <- function(rats, rows, cols, varNorm = F, 
-        ...) {
-        rows <- rows[rows %in% rownames(rats)]
-        cols <- cols[cols %in% colnames(rats)]
-        if (length(rows) <= 1 || length(cols) <= 1) 
-            return(1)
-        maxRowVar <- attr(rats, "maxRowVar")
-        rats <- rats[rows, cols]
-        if (is.vector(rats) || any(dim(rats) <= 1) || mean(is.na(rats)) > 
-            0.95) 
-            return(1)
-        d.rows <- rowMeans(rats, na.rm = T)
-        d.cols <- colMeans(rats, na.rm = T)
-        d.all <- mean(d.rows, na.rm = T)
-        rats[, ] <- rats[, ] + d.all - outer(d.rows, d.cols, 
-            "+")
-        average.r <- mean(abs(rats), na.rm = TRUE)
-        if (varNorm && !is.null(maxRowVar)) {
-            row.var <- mean(apply(rats, 1, var, use = "pairwise.complete.obs"), 
-                na.rm = T)
-            if (is.na(row.var) || row.var > maxRowVar) 
-                row.var <- maxRowVar
-            average.r <- average.r/row.var
-        }
-        average.r
-    }
     inds <- rats.inds
     if (rats.inds[1] == "COMBINED") 
         inds <- names(get("row.weights"))
@@ -377,7 +354,7 @@ function (env = NULL, ...)
     if (!exists("cmonkey.params")) {
         cmonkey.params <- new.env(hash = T)
     }
-    tmp.e <- environment(cMonkey:::cmonkey)
+    tmp.e <- environment(cmonkey)
     if (!is.null(env) && (is.list(env) || is.environment(env))) {
         for (i in names(env)) if (!i %in% names(list(...))) 
             assign(i, env[[i]])
@@ -496,12 +473,12 @@ function (env = NULL, ...)
     set.param("row.iters", seq(1, n.iter, by = 2))
     set.param("col.iters", seq(1, n.iter, by = 5))
     set.param("meme.iters", c(1, seq(100, n.iter, by = 100)))
-    set.param("mot.iters", seq(1, n.iter, by = 10))
+    set.param("mot.iters", seq(2, n.iter, by = 10))
     set.param("net.iters", seq(1, n.iter, by = 7))
     set.param("row.scaling", 1)
     set.param("row.weights", c(ratios = 1))
-    set.param("mot.scaling", c(rep(1e-05, 100), seq(0, 1, length = n.iter * 
-        3/4)))
+    set.param("mot.scaling", c(rep(1e-05, 100), seq(1e-05, 1, 
+        length = n.iter * 3/4)))
     set.param("mot.weights", c(`upstream meme` = 1))
     set.param("net.scaling", seq(1e-05, 0.5, length = n.iter * 
         3/4))
@@ -514,7 +491,8 @@ function (env = NULL, ...)
     set.param("max.changes", c(rows = 0.5, cols = 5))
     set.param("cluster.rows.allowed", c(3, 70))
     set.param("merge.cutoffs", c(n = 0.3, cor = 0.975))
-    set.param("fuzzy.index", 0.75 * exp(-(1:n.iter)/(n.iter/4)))
+    set.param("fuzzy.index.rows", 0.75 * exp(-(1:n.iter)/(n.iter/4)))
+    set.param("fuzzy.index.cols", 0)
     set.param("translation.tab", NULL)
     set.param("seed.method", c(rows = "kmeans", cols = "best"))
     set.param("maintain.seed", NULL)
@@ -545,8 +523,8 @@ function (env = NULL, ...)
     set.param("recalc.bg", FALSE)
     set.param("motif.upstream.search", c(-20, 150))
     set.param("motif.upstream.scan", c(-30, 250))
-    set.param("rsat.urls", c("http://rsat.ccb.sickkids.ca/", 
-        "http://rsat.ulb.ac.be/rsat/", "http://embnet.ccg.unam.mx/rsa-tools"))
+    set.param("rsat.urls", c("http://rsat.ulb.ac.be/rsat/", "http://rsat.ccb.sickkids.ca/", 
+        "http://embnet.ccg.unam.mx/rsa-tools"))
     set.param("stats.iters", c(1, seq(5, n.iter, by = 5)))
     set.param("cm.script.each.iter", "cm.script.each.iter.R")
     set.param("date.run", format(Sys.time(), "%y %b %d %H:%M:%S"))
@@ -726,7 +704,7 @@ function (env = NULL, ...)
         cat("Initializing genome info for organism", organism, 
             "\n")
         set.param("no.genome.info", FALSE)
-        genome.info <- get.genome.info()
+        genome.info <- get.genome.info(rsat.species, rsat.url = rsat.urls[1])
         if (!is.null(env)) 
             assign("genome.info", genome.info, envir = env)
         if (is.na(taxon.id) || length(taxon.id) <= 0) {
@@ -1160,7 +1138,7 @@ function (env = NULL, ...)
                   ]
                 cat(n, "network filtered, symmetrized and uniquified:", 
                   nrow(nn), "edges.\n")
-                networks[[n]] <- nn
+                networks[[n]] <- unique(nn)
                 if (!is.null(env)) 
                   assign("networks", networks, envir = env)
             }
@@ -1207,7 +1185,8 @@ function (env = NULL, ...)
     mot.scaling <- extend.vec(mot.scaling)
     net.scaling <- extend.vec(net.scaling)
     n.motifs <- lapply(n.motifs, extend.vec)
-    fuzzy.index <- extend.vec(fuzzy.index)
+    fuzzy.index.rows <- extend.vec(fuzzy.index.rows)
+    fuzzy.index.cols <- extend.vec(fuzzy.index.cols)
     is.inited <- TRUE
     if (is.null(env)) 
         env <- new.env(hash = T, parent = globalenv())
@@ -1292,11 +1271,11 @@ function (env, dont.update = F, ...)
     }
     if (get.parallel()$mc) {
         if (getDoParName() == "doMC") {
-            chld <- multicore::children()
+            chld <- parallel:::children()
             if (length(chld) > 0) {
                 try({
-                  multicore::kill(chld)
-                  tmp <- multicore::collect(chld)
+                  parallel::mckill(chld)
+                  tmp <- parallel:::mccollect(chld)
                 }, silent = T)
             }
         }
@@ -1344,8 +1323,244 @@ function (env)
     attr(env$clusterStack, "iter") <- env$iter - 1
     invisible(env)
 }
+cmonkey.run.to.sqlite <-
+function (e, fname, to.sqlite = F) 
+{
+    require(data.table)
+    dir.create(fname)
+    tmp <- NULL
+    for (param in ls(e$cmonkey.params)) {
+        print(param)
+        val <- e$cmonkey.params[[param]]
+        if (is.null(val) || length(val) <= 0) 
+            next
+        if (is.matrix(val)) 
+            val <- dim(val)
+        if (is.list(val) && length(val) == 1) 
+            val <- val[[1]]
+        if (is.numeric(val)) 
+            val <- round(val, dig = 4)
+        if (param == "session.info") {
+            val["TERMCAP"] <- ""
+            val <- val[nchar(val) > 0]
+            val <- paste(names(val), val, sep = "=", collapse = ",")
+        }
+        else {
+            if (length(val) > 1) 
+                val <- paste(unlist(val), collapse = ",")
+        }
+        val <- gsub("[\n\t]", "", val)
+        tmp <- rbind(tmp, data.table(param = param, val = as.character(val)))
+    }
+    write.table(tmp, file = sprintf("%s/%s", fname, "params.tsv"), 
+        quote = F, sep = "\t", row.names = F, col.names = T, 
+        append = F)
+    rm(tmp)
+    system(sprintf("bzip2 -fv %s/%s", fname, "params.tsv"), wait = F)
+    stats <- e$stats
+    for (i in colnames(stats)) if (is.numeric(stats[[i]])) 
+        stats[[i]] <- round(stats[[i]], dig = 4)
+    write.table(stats, file = sprintf("%s/%s", fname, "stats.tsv"), 
+        quote = F, sep = "\t", row.names = F, col.names = T, 
+        append = F)
+    system(sprintf("bzip2 -fv %s/%s", fname, "stats.tsv"), wait = F)
+    rm(stats)
+    tmp <- which(e$ratios$ratios < Inf, arr = T)
+    tmp <- data.table(gene = rownames(e$ratios$ratios)[tmp[, 
+        1]], cond = colnames(e$ratios$ratios)[tmp[, 2]], ratio = (round(e$ratios$ratios, 
+        dig = 3))[tmp])
+    write.table(tmp, file = sprintf("%s/%s", fname, "ratios.tsv"), 
+        quote = F, sep = "\t", row.names = F, col.names = T, 
+        append = F)
+    rm(tmp)
+    system(sprintf("bzip2 -fv %s/%s", fname, "ratios.tsv"), wait = F)
+    tmp <- data.table(e$genome.info$feature.tab)
+    write.table(tmp, file = sprintf("%s/%s", fname, "feature_tab.tsv"), 
+        quote = F, sep = "\t", row.names = F, col.names = T, 
+        append = F)
+    rm(tmp)
+    system(sprintf("bzip2 -fv %s/%s", fname, "feature_tab.tsv"), 
+        wait = F)
+    tmp <- data.table(e$genome.info$feature.names)
+    setcolorder(tmp, c(2, 1, 3))
+    write.table(tmp, file = sprintf("%s/%s", fname, "feature_names.tsv"), 
+        quote = F, sep = "\t", row.names = F, col.names = T, 
+        append = F)
+    rm(tmp)
+    system(sprintf("bzip2 -fv %s/%s", fname, "feature_names.tsv"), 
+        wait = F)
+    tmp <- data.table(e$genome.info$operons)
+    setcolorder(tmp, c(2, 1))
+    write.table(tmp, file = sprintf("%s/%s", fname, "operons.tsv"), 
+        quote = F, sep = "\t", row.names = F, col.names = T, 
+        append = F)
+    rm(tmp)
+    system(sprintf("bzip2 -fv %s/%s", fname, "operons.tsv"), 
+        wait = F)
+    tmp <- data.table(gene = names(e$genome.info$all.upstream.seqs[[1]]), 
+        sequence = e$genome.info$all.upstream.seqs[[1]])
+    write.table(tmp, file = sprintf("%s/%s", fname, "upstream_seqs.tsv"), 
+        quote = F, sep = "\t", row.names = F, col.names = T, 
+        append = F)
+    rm(tmp)
+    system(sprintf("bzip2 -fv %s/%s", fname, "upstream_seqs.tsv"), 
+        wait = F)
+    if (!is.null(e$networks$operons)) {
+        tmp <- data.table(e$networks$operons)
+        write.table(tmp, file = sprintf("%s/%s", fname, "operon_network.tsv"), 
+            quote = F, sep = "\t", row.names = F, col.names = T, 
+            append = F)
+        rm(tmp)
+        system(sprintf("bzip2 -fv %s/%s", fname, "operon_network.tsv"), 
+            wait = F)
+    }
+    if (!is.null(e$networks$string)) {
+        tmp <- data.table(e$networks$string)
+        write.table(tmp, file = sprintf("%s/%s", fname, "string_network.tsv"), 
+            quote = F, sep = "\t", row.names = F, col.names = T, 
+            append = F)
+        rm(tmp)
+        system(sprintf("bzip2 -fv %s/%s", fname, "string_network.tsv"), 
+            wait = F)
+    }
+    bzcon1 <- sprintf("%s/bicluster.tsv", fname)
+    bzcon2 <- sprintf("%s/bicluster_genes.tsv", fname)
+    bzcon3 <- sprintf("%s/bicluster_conds.tsv", fname)
+    wrote <- FALSE
+    for (k in 1:e$k.clust) {
+        if (k%%100 == 0) 
+            print(k)
+        tab1 <- tab2 <- tab3 <- tab4 <- NULL
+        clust <- e$clusterStack[[k]]
+        if (!is.null(clust)) {
+            tab1 <- data.table(bic = k, nrow = clust$nrow, ncol = clust$ncol, 
+                resid = round(clust$resid, dig = 3), pclust = round(clust$p.clust, 
+                  dig = 3), eval = min(clust$e.val, na.rm = T))
+            if (!is.null(tab1)) 
+                write.table(tab1, bzcon1, quote = F, sep = "\t", 
+                  row.names = F, col.names = !wrote, append = wrote)
+        }
+        genes <- clust$rows
+        if (!is.null(genes)) 
+            tab2 <- data.table(bic = k, gene = unique(genes))
+        if (!is.null(tab2)) 
+            write.table(tab2, bzcon2, quote = F, sep = "\t", 
+                row.names = F, col.names = !wrote, append = wrote)
+        conds <- clust$cols
+        if (!is.null(conds)) 
+            tab3 <- data.table(bic = k, cond = unique(conds))
+        if (!is.null(tab3)) 
+            write.table(tab3, bzcon3, quote = F, sep = "\t", 
+                row.names = F, col.names = !wrote, append = wrote)
+        wrote <- TRUE
+    }
+    system(sprintf("bzip2 -fv -9 %s", bzcon1), wait = F)
+    system(sprintf("bzip2 -fv -9 %s", bzcon2), wait = F)
+    system(sprintf("bzip2 -fv -9 %s", bzcon3), wait = F)
+    bzcon1 <- sprintf("%s/motif.tsv", fname)
+    bzcon2 <- sprintf("%s/motif_meme_posn.tsv", fname)
+    bzcon3 <- sprintf("%s/motif_mast_posn.tsv", fname)
+    bzcon4 <- sprintf("%s/motif_pssm.tsv", fname)
+    wrote <- FALSE
+    for (k in 1:e$k.clust) {
+        mots <- e$meme.scores[[1]][[k]]$meme.out
+        pv <- e$meme.scores[[1]][[k]]$pv.ev[[2]]
+        for (mm in 1:length(mots)) {
+            if (k%%100 == 0) 
+                print(paste(k, mm))
+            m <- mots[[mm]]
+            minf <- m
+            if (!is.null(minf)) {
+                tab <- data.table(bic = k, mot = mm, width = minf$width, 
+                  llr = minf$llr, eval = minf$e.value, sites = minf$sites)
+                if (!is.null(tab)) 
+                  write.table(tab, bzcon1, quote = F, sep = "\t", 
+                    row.names = F, col.names = !wrote, append = wrote)
+                tab <- NULL
+                if (nrow(minf$posns) > 0) 
+                  tab <- as.data.table(cbind(bic = k, mot = mm, 
+                    minf$posns))
+                if (!is.null(tab)) 
+                  write.table(tab, bzcon2, quote = F, sep = "\t", 
+                    row.names = F, col.names = !wrote, append = wrote)
+                tab <- NULL
+                if (!is.null(pv) && nrow(pv) > 0) {
+                  tmp <- subset(pv, abs(mots) == mm)
+                  if (nrow(tmp) > 0) 
+                    tab <- as.data.table(cbind(bic = k, mot = mm, 
+                      tmp))
+                }
+                if (!is.null(tab)) 
+                  write.table(tab, bzcon3, quote = F, sep = "\t", 
+                    row.names = F, col.names = !wrote, append = wrote)
+                pssm <- minf$pssm
+                colnames(pssm) <- e$col.let
+                pssm <- as.data.table(pssm)
+                tab <- data.table(cbind(bic = k, mot = mm, ind = 1:nrow(pssm), 
+                  round(pssm, dig = 3)))
+                if (!is.null(tab)) 
+                  write.table(tab, bzcon4, quote = F, sep = "\t", 
+                    row.names = F, col.names = !wrote, append = wrote)
+                wrote <- TRUE
+            }
+        }
+    }
+    system(sprintf("bzip2 -fv -9 %s", bzcon1), wait = F)
+    system(sprintf("bzip2 -fv -9 %s", bzcon2), wait = F)
+    system(sprintf("bzip2 -fv -9 %s", bzcon3), wait = F)
+    system(sprintf("bzip2 -fv -9 %s", bzcon4), wait = F)
+    if (to.sqlite) {
+        files <- list.files(path = fname, patt = glob2rx("*.tsv.bz2"), 
+            full = T)
+        unlink(sprintf("%s/%s.db", fname, "cmonkey"))
+        for (f in files) {
+            print(f)
+            typematch <- c(integer = "integer", character = "character", 
+                numeric = "real")
+            tf <- tempfile()
+            system(sprintf("bunzip2 -c %s | head -1000000 >%s", 
+                f, tf))
+            tmp <- fread(tf, nrows = 1e+06, sep = "\t")
+            print(head(tmp, 5))
+            classes <- sapply(tmp, class)
+            if (any(classes == "character")) {
+                max.char <- sapply(tmp, function(i) max(nchar(i)))[which(classes == 
+                  "character")]
+                for (i in max.char) typematch[sprintf("character(%d)", 
+                  i)] <- sprintf("character(%d)", i)
+                classes[which(classes == "character")] <- sprintf("character(%d)", 
+                  max.char)
+                classes[which(max.char > 1024)] <- "blob"
+            }
+            rm(tmp)
+            print(classes)
+            system(sprintf("bunzip2 -cv %s | tail -n +2 >%s", 
+                f, tf))
+            system(sprintf("wc -l %s", tf))
+            table.name <- gsub(".tsv.bz2", "", basename(f), fixed = T)
+            names(classes) <- gsub("[.+-/|]", "_", names(classes))
+            index.classes <- classes
+            scrp <- tempfile()
+            cat(sprintf("create table %s (%s);\n", table.name, 
+                paste(paste(names(classes), typematch[classes]), 
+                  collapse = ",")), file = scrp, append = F)
+            cat(".separator \"\\t\"\n", file = scrp, append = T)
+            cat(sprintf(".import %s %s\n", tf, table.name), file = scrp, 
+                append = T)
+            cat(sprintf("create index %s_index on %s(%s);\n", 
+                table.name, table.name, paste(names(index.classes), 
+                  collapse = ",")), file = scrp, append = T)
+            cat(".quit\n", file = scrp, append = T)
+            system(sprintf("cat %s", scrp))
+            system(sprintf("sqlite3 %s/cmonkey.db <%s", fname, 
+                scrp))
+            unlink(tf)
+            unlink(scrp)
+        }
+    }
+}
 cm.version <-
-"4.9.11"
+"4.9.20"
 col.let <-
 c("A", "C", "G", "T")
 DEBUG <-
@@ -1854,8 +2069,7 @@ function (quantile.normalize = F)
         }
     }
     if (!is.null(col.scores)) {
-        c.scores <- col.scores[, ] * 0
-        c.scores <- matrix.reference(c.scores)
+        c.scores <- col.scores[, ]
         tmp <- c.scores[, ] < -20
         c.scores[, ][tmp] <- min(c.scores[, ][!tmp], na.rm = T)
         rm(tmp)
@@ -2057,8 +2271,7 @@ function (rows, op.shift = T, op.table = genome.info$operons,
                 }
             }
             if (is.null(ops)) 
-                ops <- merge(ids, op.table, by.x = "names", by.y = "gene", 
-                  all.x = T, incomparables = NA, sort = F)
+                ops <- op.table[ids]
             if (any(is.na(ops$head))) {
                 head <- as.character(ops$head)
                 head[is.na(head)] <- as.character(ops$id[is.na(head)])
@@ -2164,9 +2377,8 @@ function (names = NULL, verbose = F)
     c(prefix, regex)
 }
 get.genome.info <-
-function (fetch.upstream = F) 
+function (rsat.species, fetch.upstream = F, rsat.url) 
 {
-    rsat.url <- rsat.urls[1]
     feature.tab <- feature.names <- genome.seqs <- operons <- org.id <- synonyms <- NULL
     genome.loc <- paste(rsat.url, "/data/genomes/", rsat.species, 
         "/genome/", sep = "")
@@ -2627,15 +2839,15 @@ function (fetch.predicted.operons = "microbes.online", org.id = genome.info$org.
                 return("")
             }
             ids[is.na(ids)] <- names(ids)[is.na(ids)]
-            vngs <- unlist(lapply(s, function(i) {
-                out <- i[!i %in% all.ids]
+            vngs <- unlist(lapply(s, function(ii) {
+                out <- ii[!ii %in% all.ids]
                 if (length(out) <= 0) 
-                  out <- i[i %in% search.names]
+                  out <- ii[ii %in% search.names]
                 if (length(out) <= 0) 
-                  out <- i[genome.info$feature.names$id %in% 
-                    i & genome.info$feature.names$id == "primary"]
+                  out <- ii[genome.info$feature.names$id %in% 
+                    ii & genome.info$feature.names$id == "primary"]
                 if (length(out) <= 0) 
-                  out <- i
+                  out <- ii
                 if (length(out) > 1 && any(out %in% attr(ratios, 
                   "rnames"))) 
                   out <- out[out %in% attr(ratios, "rnames")]
@@ -2681,23 +2893,23 @@ function (X = k.clust, verbose = F, para.cores = get("parallel.cores"))
             cat("NOT PARALLELIZING\n")
     }
     else {
-        try(has.multi <- require(multicore, quietly = T), silent = T)
-        if (!has.multi || (has.multi && multicore:::isChild())) {
+        try(has.multi <- require(parallel, quietly = T), silent = T)
+        if (!has.multi || (has.multi && parallel:::isChild())) {
             out <- list(mc = FALSE, par = para.cores, apply = lapply)
             if (verbose) 
                 cat("NOT PARALLELIZING\n")
         }
         else {
-            mc <- has.multi && !multicore:::isChild() && X > 
-                1 && !is.na(para.cores) && (is.numeric(para.cores) && 
+            mc <- has.multi && !parallel:::isChild() && X > 1 && 
+                !is.na(para.cores) && (is.numeric(para.cores) && 
                 para.cores > 1) || (is.logical(para.cores) && 
                 para.cores == TRUE)
             par <- para.cores
             out.apply <- lapply
             if (mc) {
                 if (is.logical(par) && par == TRUE) 
-                  par <- multicore:::detectCores()
-                par <- min(c(X, par, multicore:::detectCores()))
+                  par <- parallel:::detectCores()
+                par <- min(c(X, par, parallel:::detectCores()))
                 if (verbose) 
                   cat("PARALLELIZING:", par, ": ")
                 foreach.register.backend(par)
@@ -2717,7 +2929,7 @@ function (X = k.clust, verbose = F, para.cores = get("parallel.cores"))
         }
     }
     if (is.numeric(out$par) && !is.na(out$par)) 
-        options(cores = out$par)
+        options(mc.cores = out$par)
     else if (is.na(out$par) || (is.logical(out$par) && out$par == 
         TRUE)) 
         options(cores = NULL)
@@ -2910,6 +3122,7 @@ function (k, seq.type = paste(c("upstream", "upstream.noncod",
                 else seq <- rev.comp(substr(rev.comp(seq), 1, 
                   abs(diff(distance))))
             }
+            names(seq) <- NULL
             out <- list(seq = seq, name = as.character(coos$names[i]), 
                 start.stops = data.frame(start = st.st[1], end = st.st[2], 
                   strand = as.character(coos$strand[i]), contig = as.character(coos$contig[i])))
@@ -3178,7 +3391,7 @@ function (gns, ft = genome.info$feature.names, ignore.case = T,
         }
         tmp2 <- gsub("\\\\([\\[\\]\\(\\)\\{\\}\\.\\+\\-'\"])", 
             "\\1", tmp2, perl = T)
-        tmp2
+        unique(tmp2)
     })
     names(tmp) <- gns.orig
     if (verbose) 
@@ -3317,49 +3530,6 @@ function (meme.version = "4.3.0", url = "ftp://ftp.ebi.edu.au/pub/software/MEME/
     system(sprintf("ln -s meme_%s/local/bin/mast", meme.version))
     system(sprintf("ln -s meme_%s/local/bin/dust", meme.version))
     setwd(cwd)
-}
-load.data <-
-function (org.code = NULL) 
-{
-    try(dlf("data/NCBI/taxdump.tar.gz", sprintf("ftp://ftp.ncbi.nih.gov/pub/taxonomy/taxdump.tar.gz")))
-    system("cd data/NCBI; tar -xvzf taxdump.tar.gz names.dmp; gzip -v names.dmp")
-    if (!is.null(org.code)) {
-        lines <- system(sprintf("gunzip -c data/NCBI/names.dmp.gz | grep \"%s\"", 
-            as.character(org.code)), intern = T)
-    }
-    lines <- do.call(rbind, lapply(strsplit(lines, "\t"), function(i) i[i != 
-        "" & i != "|"]))[, 1:2]
-    while (length(unique(lines[, 1])) > 1) {
-    }
-    taxon.id <- as.integer(unique(lines[, 1]))
-    org.name <- unique(lines[, 2])
-    try(dlf(sprintf("%s/genome.txt", data.dir), sprintf("http://microbesonline.org/cgi-bin/genomeInfo.cgi?tId=%s;export=genome", 
-        taxon.id)))
-    system(sprintf("gzip -v %s/genome.txt", data.dir))
-    genome <- read.fasta(gzfile(sprintf("%s/genome.txt.gz", data.dir)))
-    data.dir <- sprintf("data/%s/", gsub("[.,; ]", "_", org.name[1]))
-    try(dlf(sprintf("%s/genome_info.tsv", data.dir), sprintf("http://microbesonline.org/cgi-bin/genomeInfo.cgi?tId=%d;export=tab", 
-        taxon.id)))
-    system(sprintf("gzip -v %s/genome_info.tsv", data.dir))
-    genome.info <- read.delim(gzfile(sprintf("%s/genome_info.tsv.gz", 
-        data.dir)), head = T)
-    invisible(list(taxon.id = taxon.id, org.name = org.name, 
-        genome = genome, genome.info = genome.info))
-}
-load.genome.info.MicrobesOnline <-
-function (id = taxon.id) 
-{
-    f <- sprintf("data/%s/microbesOnlineGenomeInfo_%d.tsv", rsat.species, 
-        id)
-    if (!file.exists(sprintf("%s.gz", f))) {
-        try(dlf(f, sprintf("http://www.microbesonline.org/cgi-bin/genomeInfo.cgi?tId=%d;export=tab", 
-            id)))
-        system(sprintf("gzip -fv %s", f))
-    }
-    cat("Loading:", f, "\n")
-    out <- read.delim(gzfile(sprintf("%s.gz", f)), row.names = 1, 
-        sep = "\t", as.is = T, head = T)
-    out
 }
 load.ratios <-
 function (ratios) 
@@ -3722,7 +3892,7 @@ function (ks = 1:k.clust, seq.type = names(mot.weights)[1], verbose = T,
     if (any(grepl("foreach", deparse(mc$apply))) && getDoParName() == 
         "doMC") 
         mc$apply <- function(list, FUN, ...) foreach(l = list, 
-            .options.multicore = list(preschedule = F, set.seed = T)) %dopar% 
+            .options.parallel = list(preschedule = F, set.seed = T)) %dopar% 
             {
                 FUN(l, ...)
             }
@@ -4975,7 +5145,7 @@ function (iter = stats$iter[nrow(stats)], plot.clust = NA, new.dev = F,
             mot.scores <- tmp$m
             net.scores <- tmp$n
             col.scores <- tmp$c
-            tmp <- get.combined.scores(quant = T)
+            tmp <- get.combined.scores(quant = F)
             r.scores <- tmp$r
             c.scores <- tmp$c
         }
@@ -5040,7 +5210,7 @@ function (iter = stats$iter[nrow(stats)], plot.clust = NA, new.dev = F,
         try(matplot(stats[, "iter"], tmp, typ = "l", xlab = "iter", 
             ylab = "Mean motif p-value", main = sprintf("Motif scaling: %.3f", 
                 mot.scaling[max(1, iter - 1)]), lty = 1), silent = T)
-        sapply(c(51, 101, 21), function(kwin) try(matlines(stats[!is.na(tmp), 
+        sapply(c(51, 101, 21), function(kwin) try(matlines(stats[!is.na(tmp)][, 
             "iter"], apply(tmp, 2, function(i) runmed(i[!is.na(i)], 
             k = min(sum(!is.na(i)), kwin))), lty = 2, lwd = 0.6), 
             silent = T))
@@ -5279,6 +5449,32 @@ function (seqs, length = 8, entropy.cutoff = 0.6, repl = "N",
             return(seqs)
         }
     }
+}
+residual.submatrix <-
+function (rats, rows, cols, varNorm = F, ...) 
+{
+    rows <- rows[rows %in% rownames(rats)]
+    cols <- cols[cols %in% colnames(rats)]
+    if (length(rows) <= 1 || length(cols) <= 1) 
+        return(1)
+    maxRowVar <- attr(rats, "maxRowVar")
+    rats <- rats[rows, cols]
+    if (is.vector(rats) || any(dim(rats) <= 1) || mean(is.na(rats)) > 
+        0.95) 
+        return(1)
+    d.rows <- rowMeans(rats, na.rm = T)
+    d.cols <- colMeans(rats, na.rm = T)
+    d.all <- mean(d.rows, na.rm = T)
+    rats[, ] <- rats[, ] + d.all - outer(d.rows, d.cols, "+")
+    average.r <- mean(abs(rats), na.rm = TRUE)
+    if (varNorm && !is.null(maxRowVar)) {
+        row.var <- mean(apply(rats, 1, var, use = "pairwise.complete.obs"), 
+            na.rm = T)
+        if (is.na(row.var) || row.var > maxRowVar) 
+            row.var <- maxRowVar
+        average.r <- average.r/row.var
+    }
+    average.r
 }
 rev.comp <-
 function (seqs) 
@@ -5553,16 +5749,19 @@ function (env, dont.update = F, ...)
     if (is.vector(col.memb)) 
         col.memb <- t(col.memb)
     rownames(col.memb) <- attr(ratios, "cnames")
-    if (row.scaling[iter] > 0 && fuzzy.index[iter] > 1e-05) {
-        r.scores[, ] <- r.scores[, ] + rnorm(length(r.scores[, 
-            ]), sd = sd(r.scores[, ][row.memb[, ] == 1], na.rm = T) * 
-            fuzzy.index[iter])
-        if (!is.null(c.scores)) 
-            c.scores[, ] <- c.scores[, ] + rnorm(length(c.scores[, 
-                ]), sd = sd(c.scores[, ][col.memb[, ] == 1], 
-                na.rm = T) * fuzzy.index[iter])
+    if (row.scaling[iter] > 0) {
+        if (fuzzy.index.rows[iter] > 1e-05) {
+            r.scores[, ] <- r.scores[, ] + rnorm(length(r.scores), 
+                sd = sd(r.scores[, ][row.memb[, ] == 1], na.rm = T) * 
+                  fuzzy.index.rows[iter])
+        }
+        if (!is.null(c.scores) && fuzzy.index.cols[iter] > 1e-05) {
+            c.scores[, ] <- c.scores[, ] + rnorm(length(c.scores), 
+                sd = sd(c.scores[, ][col.memb[, ] == 1], na.rm = T) * 
+                  fuzzy.index.cols[iter])
+        }
     }
-    tmp <- get.density.scores(ks = 1:k.clust, r.scores, col.scores)
+    tmp <- get.density.scores(ks = 1:k.clust, r.scores, c.scores)
     rr.scores <- tmp$r
     cc.scores <- tmp$c
     rm(tmp)
