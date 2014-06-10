@@ -1,5 +1,5 @@
 DATE <-
-"Tue Jun 10 11:15:24 2014"
+"Tue Jun 10 12:28:05 2014"
 VERSION <-
 "4.9.20"
 .onLoad <-
@@ -2271,7 +2271,8 @@ function (rows, op.shift = T, op.table = genome.info$operons,
                 }
             }
             if (is.null(ops)) 
-                ops <- op.table[ids]
+                ops <- merge(ids, op.table, by.x = "names", by.y = "gene", 
+                  all.x = T, incomparables = NA, sort = F)
             if (any(is.na(ops$head))) {
                 head <- as.character(ops$head)
                 head[is.na(head)] <- as.character(ops$id[is.na(head)])
