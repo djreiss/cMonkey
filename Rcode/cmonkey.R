@@ -8,7 +8,6 @@
 
 cm.version <- "4.9.20"
 
-
 cmonkey <- function( env=NULL, ... ) {
   if ( ( ( is.null( list( ... )$dont.init ) || ! list( ... )$dont.init ) &&
       ( is.null( env$dont.init ) || ! env$dont.init ) && ( ! exists( "dont.init" ) || ! dont.init ) ) ||
