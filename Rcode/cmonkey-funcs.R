@@ -80,9 +80,9 @@ cmonkey.one.iter <- function( env, dont.update=F, ... ) {
   ##   and that will reconnect them with their files.
   
   if ( get.parallel()$mc ) {
-    if ( getDoParName() == "doMC" ) { ##require( multicore, quietly=T ) ) { ## Clean up any multicore spawned processes (as doc'ed in mclapply help)
-      chld <- multicore::children()
-      if ( length( chld ) > 0 ) { try( { multicore::kill( chld ); tmp <- multicore::collect( chld ) }, silent=T ) }
+    if ( getDoParName() == "doMC" ) { ##require( parallel, quietly=T ) ) { ## Clean up any parallel spawned processes (as doc'ed in mclapply help)
+      chld <- parallel:::children()
+      if ( length( chld ) > 0 ) { try( { parallel::mckill( chld ); tmp <- parallel:::mccollect( chld ) }, silent=T ) }
     } else if ( getDoParName() == "doSNOW" && "data" %in% ls( pos=foreach:::.foreachGlobals ) ) {
       cl <- get( "data", pos=foreach:::.foreachGlobals ) ## Tricky, eh?
       if ( ! is.null( data ) ) stopCluster( cl )
@@ -175,7 +175,7 @@ set.param <- function( name, val, env=cmonkey.params, override=F, quiet=F ) {
 ## Make sure all processes are killed via kill(children(),SIGKILL) ??
 ## Use "parallel.cores" param to determine if parallelization is desired - if it is FALSE or 0 or 1 or NA, then no.
 ## If it is >1 or TRUE then yes. If TRUE, then determine # of cores via parallel::detectCores()
-## This should allow running on Windows boxes when there is no multicore package.
+## This should allow running on Windows boxes when there is no parallel package.
 ## Note that with the use of "foreach", this can now run on Windows if we use doSMP instead of doMC !!!
 ##    Set the "foreach.register.backend" function to a different backend if desired.
 
@@ -202,19 +202,19 @@ get.parallel <- function( X=k.clust, verbose=F, para.cores=get( "parallel.cores"
     out <- list( mc=FALSE, par=para.cores, apply=lapply )
     if ( verbose ) cat( "NOT PARALLELIZING\n" )
   } else {
-    try( has.multi <- require( multicore, quietly=T ), silent=T )
-    if ( ! has.multi || ( has.multi && multicore:::isChild() ) ) {    
+    try( has.multi <- require( parallel, quietly=T ), silent=T )
+    if ( ! has.multi || ( has.multi && parallel:::isChild() ) ) {    
       out <- list( mc=FALSE, par=para.cores, apply=lapply )
       if ( verbose ) cat( "NOT PARALLELIZING\n" )
     } else {
-      mc <- has.multi && ! multicore:::isChild() && X > 1 && ! is.na( para.cores ) &&
+      mc <- has.multi && ! parallel:::isChild() && X > 1 && ! is.na( para.cores ) &&
       ( is.numeric( para.cores ) && para.cores > 1 ) ||
       ( is.logical( para.cores ) && para.cores == TRUE )
       par <- para.cores
       out.apply <- lapply 
       if ( mc ) {
-        if ( is.logical( par ) && par == TRUE ) par <- multicore:::detectCores() ## all.tests=TRUE )
-        par <- min( c( X, par, multicore:::detectCores() ) ) ## all.tests=TRUE ) ) )
+        if ( is.logical( par ) && par == TRUE ) par <- parallel:::detectCores() ## all.tests=TRUE )
+        par <- min( c( X, par, parallel:::detectCores() ) ) ## all.tests=TRUE ) ) )
         if ( verbose ) cat( "PARALLELIZING:", par, ": " )
         ## if ( ! exists( "foreach.register.backend" ) || is.null( foreach.register.backend ) ||
         ##     is.null( foreach.register.backend( par ) ) ) { ##use.foreach ) {
@@ -233,7 +233,7 @@ get.parallel <- function( X=k.clust, verbose=F, para.cores=get( "parallel.cores"
     }
   }
   ##if ( attr( ratios, "nrow" ) > big.run ) print( gc() ) ## gc() before we spawn new copied processes
-  if ( is.numeric( out$par ) && ! is.na( out$par ) ) options( cores=out$par ) ## getOption("cores") is the default of how mclapply gets its mc.cores number
+  if ( is.numeric( out$par ) && ! is.na( out$par ) ) options( mc.cores=out$par ) ## getOption("cores") is the default of how mclapply gets its mc.cores number
   else if ( is.na( out$par ) || ( is.logical( out$par ) && out$par == TRUE ) ) options( cores=NULL )
   else options( cores=1 )
   out
@@ -264,9 +264,7 @@ get.unpreprocessed.ratios <- function( ... ) {
   return( ratios.raw )
 }
 
-cluster.resid <- function( k, rats.inds="COMBINED", varNorm=F, in.cols=T, ... ) {
-  ## FLOC residual number is a good statistic
-  residual.submatrix <- function( rats, rows, cols, varNorm=F, ... ) {
+residual.submatrix <- function( rats, rows, cols, varNorm=F, ... ) {
     rows <- rows[ rows %in% rownames( rats ) ]
     cols <- cols[ cols %in% colnames( rats ) ]
     if ( length( rows ) <= 1 || length( cols ) <= 1 ) return( 1 )
@@ -287,14 +285,17 @@ cluster.resid <- function( k, rats.inds="COMBINED", varNorm=F, in.cols=T, ... ) 
     ##average.r <- mean( abs( rij ), na.rm = TRUE )
     average.r <- mean( abs( rats ), na.rm = TRUE )
     if ( varNorm && ! is.null( maxRowVar ) ) {
-      ##maxRowVar <- attr( rats, "maxRowVar" )
-      row.var <- mean( apply( rats, 1, var, use = "pairwise.complete.obs" ), na.rm=T )
-      if ( is.na( row.var ) || row.var > maxRowVar ) row.var <- maxRowVar
-      average.r <- average.r / row.var
+        ##maxRowVar <- attr( rats, "maxRowVar" )
+        row.var <- mean( apply( rats, 1, var, use = "pairwise.complete.obs" ), na.rm=T )
+        if ( is.na( row.var ) || row.var > maxRowVar ) row.var <- maxRowVar
+        average.r <- average.r / row.var
     }
     average.r
-  }
-  
+}
+
+cluster.resid <- function( k, rats.inds="COMBINED", varNorm=F, in.cols=T, ... ) {
+  ## FLOC residual number is a good statistic
+
   inds <- rats.inds
   if ( rats.inds[ 1 ] == "COMBINED" ) inds <- names( get( "row.weights" ) )
   rows <- get.rows( k ); cols <- get.cols( k )
@@ -305,6 +306,7 @@ cluster.resid <- function( k, rats.inds="COMBINED", varNorm=F, in.cols=T, ... ) 
   if ( rats.inds[ 1 ] == "COMBINED" ) resids <- weighted.mean( resids, row.weights[ inds ], na.rm=T )
   if ( rats.inds[ 1 ] != "COMBINED" && length( resids ) < length( inds ) && all( is.na( resids ) ) ) {
     resids <- rep( NA, length( inds ) ); names( resids ) <- inds }
+
   resids
 }
 
@@ -317,6 +319,7 @@ cluster.pclust <- function( k, mot.inds="COMBINED" ) { ## actually returns a lis
   p.clusts <- sapply( inds, function( n ) {
     ms <- meme.scores[[ n ]][[ k ]]
     out <- NA
+    if ( is.null( ms ) || is.null( ms$pv.ev ) || length( ms$pv.ev ) <= 0 ) return( out )
     if ( length( rows ) > 0 && ! is.null( ms$pv.ev ) && ! is.null( ms$pv.ev[[ 1 ]] ) ) {
       if ( 'p.value' %in% colnames( ms$pv.ev[[ 1 ]] ) )
         out <- mean( log10( ms$pv.ev[[ 1 ]][ rownames( ms$pv.ev[[ 1 ]] ) %in% rows, "p.value" ] ), na.rm=T )
@@ -510,7 +513,6 @@ get.col.scores <- function( k, for.cols="all", ratios=ratios[[ 1 ]],
   ##if ( is.na( col.weights ) )
   rats <- rats / ( var.norm + 0.01 ) ## default
   ##!else rats <- colMeans( rats, na.rm=T ) / ( var.norm * col.weights[ cols ] + 0.01 ) ## customized col. weights
-
   ##return( log( rats + 1e-99 ) )
   rats
 }
@@ -528,6 +530,7 @@ get.motif.scores <- function( k, meme.scores, seq.type="upstream meme", for.rows
   return( m.scores )
 }
 
+## TODO: this could be a lot faster (?) if we used data.table rather than data.frame
 get.network.scores <- function( k, net=networks$string, for.rows="all", p1.col="protein1", p2.col="protein2", 
                                score.col="combined_score", combine.func=sum ) {
   if ( length( k ) <= 0 ) return( NULL )
@@ -748,7 +751,7 @@ get.synonyms <- function( gns, ft=genome.info$feature.names, ignore.case=T, verb
   if ( exists( "translation.tab" ) && ! is.null( translation.tab ) )
     ft <- rbind( ft, data.frame( id=as.character( translation.tab$V1 ), names=as.character( translation.tab$V2 ) ) )
   ft <- subset( ft, names != "" )
-
+  
   if ( verbose ) ggggg <- gns[ seq( 1, length( gns ), by=min(length(gns),100) ) ]
 
   mc <- get.parallel( length( gns ), verbose=F )
@@ -764,7 +767,7 @@ get.synonyms <- function( gns, ft=genome.info$feature.names, ignore.case=T, verb
       tmp2 <- unique( c( g, as.character( tmp2[ ,1 ] ), as.character( tmp2[ ,2 ] ) ) )
     }
     tmp2 <- gsub( "\\\\([\\[\\]\\(\\)\\{\\}\\.\\+\\-'\"])", "\\1", tmp2, perl=T )
-    tmp2
+    unique( tmp2 )
   } ) 
 
   names( tmp ) <- gns.orig
@@ -840,7 +843,8 @@ get.gene.coords <- function( rows, op.shift=T, op.table=genome.info$operons, ...
           ops <- merge( ids2, op.table, by.x="id", by.y="gene", all.x=T, incomparables=NA, sort=F )
         }
       }
-      if ( is.null( ops ) ) ops <- merge( ids, op.table, by.x="names", by.y="gene", all.x=T, incomparables=NA, sort=F )
+      if ( is.null( ops ) ) #ops <- merge( ids, op.table, by.x="names", by.y="gene", all.x=T, incomparables=NA, sort=F )
+          ops <- op.table[ ids ]
       if ( any( is.na( ops$head ) ) ) {
         head <- as.character( ops$head ); head[ is.na( head ) ] <- as.character( ops$id[ is.na( head ) ] ) ##names[ is.na( head ) ] )
         ops$head <- as.factor( head )
@@ -852,11 +856,10 @@ get.gene.coords <- function( rows, op.shift=T, op.table=genome.info$operons, ...
       head.ids <- data.frame( id=sapply( head.ids, "[", 1 ), names=names( head.ids ) )
       ops2 <- merge( ops, head.ids, by.x="head", by.y="names", all.x=T, sort=F )
       coos <- merge( ops2, tab, by.x="id.y", by.y="id", all.x=T, sort=F )[ ,c( "id.x", "names", "contig",
-                                                                               "strand", "start_pos", "end_pos" ) ]
+                                                                     "strand", "start_pos", "end_pos" ) ]
     }
   } else { ##if ( ! op.shift )
-    coos <- merge( ids, tab, by="id", sort=F )[ ,c( "id", "names", "contig",
-                                                   "strand", "start_pos", "end_pos" ) ]
+    coos <- merge( ids, tab, by="id", sort=F )[ ,c( "id", "names", "contig", "strand", "start_pos", "end_pos" ) ]
   }
   colnames( coos )[ 1 ] <- "id"
   if ( is.factor( coos$start_pos ) ) coos$start_pos <- as.numeric( levels( coos$start_pos ) )[ coos$start_pos ]
@@ -874,13 +877,14 @@ get.long.names <- function( k, shorter=F ) {
   if ( ! shorter ) desc <- mc$apply( ids, function( i ) subset( genome.info$feature.tab, id %in% i, 
                                                                select=c( "id", "description" ) ) )
   else {
-    desc <- mc$apply( ids, function( i ) subset( genome.info$feature.tab, id %in% i, select=c( "id", "name", "description" ) ) )
+    desc <- mc$apply( ids, function( i ) subset( genome.info$feature.tab, id %in% i,
+                                                select=c( "id", "name", "description" ) ) )
     for ( i in 1:length( desc ) ) if ( length( desc[[ i ]]$name ) > 0 && desc[[ i ]]$name %in% rows ) {
       if ( grepl( "(", desc[[ i ]]$description, fixed=T ) ) ## Try to parse out short name from description
         desc[[ i ]]$name <- strsplit( as.character( desc[[ i ]]$description ), "[()]", perl=T )[[ 1 ]][ 2 ]
     }
   }
-  out <- sapply( desc, function( i ) as.character( i[ 1, 2 ] ) )
+  out <- sapply(desc, function(i) as.character(i[1, 2]))
   out <- out[ rows ]
   names( out ) <- rows
   out[ is.na( out ) | out == names( out ) ] <- "" 

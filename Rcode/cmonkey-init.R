@@ -20,7 +20,19 @@ cmonkey.init <- function( env=NULL, ... ) {
     cmonkey.params <- new.env( hash=T ) ##, parent=globalenv() )
     ##if ( ! is.null( env ) && is.environment( env ) ) cmonkey.params <- new.env( hash=T, parent=env )
   }
-    tmp.e <- environment( cMonkey:::cmonkey ) ## Packaged - get the env. that the "cmonkey" function is stored in
+## #!ifndef 
+##   if ( file.exists( "cmonkey-funcs.R" ) ) {
+##     tmp.e <- new.env( hash=T )
+##     sys.source( "cmonkey-funcs.R", envir=tmp.e )
+##   } else if ( file.exists( "~/scratch/biclust/cmonkey-funcs.R" ) ) {
+##     tmp.e <- new.env( hash=T )
+##     sys.source( "~/scratch/biclust/cmonkey-funcs.R", envir=tmp.e )
+##   } else if ( "cmonkey" %in% search() || "cmonkey.beta" %in% search() ) {
+## #!endif    
+    tmp.e <- environment( cmonkey ) ## Packaged - get the env. that the "cmonkey" function is stored in
+## #!ifndef 
+##   }
+## #!endif
   
   if ( ! is.null( env ) && ( is.list( env ) || is.environment( env ) ) ) { ## if env is an input data list or env (e.g. "halo") copy its items here.
     ## Allow override of variables in "env" by ones that came in by commandline.
@@ -135,11 +147,11 @@ cmonkey.init <- function( env=NULL, ... ) {
   set.param( "meme.iters", c( 1, seq( 100, n.iter, by=100 ) ) )
   ##set.param( "mot.iters", seq( 100, n.iter, by=10 ) ) ## Which iters to use results of most recent meme run in scores
   ##set.param( "mot.iters", seq( 601, max( n.iter, 605 ), by=3 ) ) ## Which iters to use results of most recent meme run in scores
-  set.param( "mot.iters", seq( 1, n.iter, by=10 ) ) ## Which iters to use results of most recent meme run in scores
+  set.param( "mot.iters", seq( 2, n.iter, by=10 ) ) ## Which iters to use results of most recent meme run in scores
   set.param( "net.iters", seq( 1, n.iter, by=7 ) ) ## Which iters to re-calculate network scores?
   set.param( "row.scaling", 1 ) ##6 )  ## Seems to work best for Mpn, works good for Halo (6 is with quantile.normalize turned on)
   set.param( "row.weights", c( ratios=1 ) ) ## Optionally load multiple ratios files and set relative weights
-  set.param( "mot.scaling", c( rep( 1e-5, 100 ), seq( 0, 1, length=n.iter*3/4 ) ) ) ##* 0.5
+  set.param( "mot.scaling", c( rep( 1e-5, 100 ), seq( 1e-5, 1, length=n.iter*3/4 ) ) ) ##* 0.5
   set.param( "mot.weights", c( `upstream meme`=1 ) ) ##, `upstream weeder`=0.5, `upstream spacer`=1, `upstream memepal`=1 ) ) ## Sequence and algorithm for for motif search: Optionally use different automatically computed sequences (e.g. `downstream meme`=1) or an input file (e.g. `fstfile=zzz.fst meme`=1) (csvfile too!) and motif algos (e.g. weeder, spacer, prism, meme, memepal)
   set.param( "net.scaling", seq( 1e-5, 0.5, length=n.iter*3/4 ) ) ##0.1 0.25
   ## Net weights and grouping weights - names must correspond to full file paths (sifs) that are to be read in.
@@ -157,8 +169,9 @@ cmonkey.init <- function( env=NULL, ... ) {
   set.param( "cluster.rows.allowed", c( 3, 70 ) ) ##200 ) ) ## Min/max number of rows to allow in a bicluster
   set.param( "merge.cutoffs", c( n=0.3, cor=0.975 ) ) ## n=0.3 => merge 1 pair of clusters every 3 iters; if n>1 then merge that number of pairs of clusters every iter; cor is correlation cutoff
   ## Note: to use seeded clusters use the "list=" row seeding method and set "fuzzy.index" to close to 0... seems to work (note setting it to 0 is probably a bad idea).
-  set.param( "fuzzy.index", 0.75 * exp( -( 1:n.iter ) / (n.iter/4) ) ) ## (n.iter/6) ## hack to add stochasticity
+  set.param( "fuzzy.index.rows", 0.75 * exp( -( 1:n.iter ) / (n.iter/4) ) ) ## (n.iter/6) ## hack to add stochasticity
   ##set.param( "fuzzy.index", 0.7 * exp( -( 1:n.iter ) / (n.iter/3) ) + 0.05 ) ## (n.iter/6) ## hack to add stochasticity
+  set.param( "fuzzy.index.cols", 0 ) ## turn it off - it only seems to hurt
   set.param( "translation.tab", NULL ) ## custom 2-column translation table to be used for additional synonyms
   set.param( "seed.method", c( rows="kmeans", cols="best" ) ) ## "net=string:5" "rnd" "kmeans" "trimkmeans=TRIM" "rnd" "list=FILENAME" "rnd=NG" "cor=NG" "net=netname:NG" "netcor=netname:NG" "custom" -- NG is # of genes per seeded cluster; "best" or "rnd" is option for cols
   set.param( "maintain.seed", NULL ) ## List of lists of vectors of rows to maintain for each k: force seeded rows or cols in each cluster to STAY there! e.g. maintain.seed=list(rows=list(`3`=c(gene1,gene2,gene3))) ; This should be used in conjunection with seed.method["rows"]=="custom" or "list=..."
@@ -204,7 +217,7 @@ cmonkey.init <- function( env=NULL, ... ) {
 ##  if ( any( mot.scaling > 0 ) && ( ! file.exists( meme.cmd ) || ! file.exists( mast.cmd ) ) )
 ##    stop( paste( "Motif finding is requested but", meme.cmd, "and/or", mast.cmd, "is not installed!" ) )
 
-  set.param( "rsat.urls", c( "http://rsat.ccb.sickkids.ca/", "http://rsat.ulb.ac.be/rsat/", 
+  set.param( "rsat.urls", c( "http://rsat.ulb.ac.be/rsat/", "http://rsat.ccb.sickkids.ca/", 
                             "http://embnet.ccg.unam.mx/rsa-tools" ) ) ## Right now only first one is used
   set.param( "stats.iters", c( 1, seq( 5, n.iter, by=5 ) ) )
   set.param( "cm.script.each.iter", "cm.script.each.iter.R" ) ## a vector of R script file names to source every iter!
@@ -389,7 +402,7 @@ cmonkey.init <- function( env=NULL, ... ) {
     cat( "Initializing genome info for organism", organism, "\n" )
     
     set.param( "no.genome.info", FALSE )
-    genome.info <- get.genome.info()
+    genome.info <- get.genome.info( rsat.species, rsat.url=rsat.urls[ 1 ] )
     if ( ! is.null( env ) ) assign( "genome.info", genome.info, envir=env )
     
     if ( is.na( taxon.id ) || length( taxon.id ) <= 0 ) {
@@ -780,7 +793,7 @@ cmonkey.init <- function( env=NULL, ... ) {
         
         nn <- nn[ ! duplicated( nn[ ,c( "protein1", "protein2" ) ] ), ]
         cat( n, "network filtered, symmetrized and uniquified:", nrow( nn ), "edges.\n" )
-        networks[[ n ]] <- nn
+        networks[[ n ]] <- unique( nn )
         if ( ! is.null( env ) ) assign( "networks", networks, envir=env )
       }
       rm( n, nn, nodes, dupes )
@@ -849,7 +862,8 @@ cmonkey.init <- function( env=NULL, ... ) {
   ##max.motif.width <- lapply( motif.width.range, function( i ) extend.vec( i[ 2 ] ) ) ##, envir=cmonkey.env )
   ##n.clust.per.row <- extend.vec( n.clust.per.row ) ##, envir=cmonkey.env )
   ##n.clust.per.col <- extend.vec( n.clust.per.col ) ##, envir=cmonkey.env )
-  fuzzy.index <- extend.vec( fuzzy.index ) ##, envir=cmonkey.env )
+  fuzzy.index.rows <- extend.vec( fuzzy.index.rows ) ##, envir=cmonkey.env )
+  fuzzy.index.cols <- extend.vec( fuzzy.index.cols ) ##, envir=cmonkey.env )
 
   is.inited <- TRUE
   if ( is.null( env ) ) env <- new.env( hash=T, parent=globalenv() )

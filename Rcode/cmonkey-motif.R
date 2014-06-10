@@ -268,7 +268,7 @@ mkTempMemeFiles <- function( sgenes, seqs, fname="meme.tmp.fst", bgseqs=NULL, bg
 }
 
 ## Thread-safe tempfile (so parallelized calls dont use same filename)
-## Make sure to set .options.multicore=list( set.seed=T ) to make sure this is true!
+## Make sure to set .options.parallel=list( set.seed=T ) to make sure this is true!
 my.tempfile <- function( pattern="file", tmpdir=tempdir(), suffix="", n.rnd.char=20 ) {
   ## f <- paste( tempfile( pattern, tmpdir ), "_", k, "_", iter, suffix, sep="" )
   ## while( file.exists( f ) ) f <- paste( tempfile( pattern, tmpdir ), "_", k, "_", iter, suffix, sep="" )
@@ -767,6 +767,7 @@ get.sequences <- function( k, seq.type=paste( c("upstream","upstream.noncod","up
         if ( coos$strand[ i ] == "D" ) seq <- substr( seq, 1, abs( diff( distance ) ) )
         else seq <- rev.comp( substr( rev.comp( seq ), 1, abs( diff( distance ) ) ) )
       }
+      names( seq ) <- NULL
       ##seqs[ as.character( coos$names[ i ] ) ] <- seq
       ##start.stops <- rbind( start.stops, data.frame( start=st.st[ 1 ], end=st.st[ 2 ],
       ##                                              strand=as.character( coos$strand[ i ] ),

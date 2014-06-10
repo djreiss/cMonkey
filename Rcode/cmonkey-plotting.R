@@ -1064,7 +1064,7 @@ plotStats <- function( iter=stats$iter[ nrow( stats ) ], plot.clust=NA, new.dev=
     if ( attr( get.all.scores, "version" ) == 1 ) {
       tmp <- get.all.scores()
       row.scores <- tmp$r; mot.scores <- tmp$m; net.scores <- tmp$n; col.scores <- tmp$c
-      tmp <- get.combined.scores( quant=T )
+      tmp <- get.combined.scores( quant=F )
       r.scores <- tmp$r; c.scores <- tmp$c ##; n.scores <- tmp$n; m.scores <- tmp$m
     } else if ( attr( get.all.scores, "version" ) == 2 ) {
       tmp <- get.old.scores.matrices()
@@ -1082,7 +1082,7 @@ plotStats <- function( iter=stats$iter[ nrow( stats ) ], plot.clust=NA, new.dev=
                      7,9,11,
                      8,10,12 ), byrow=T, ncol=3 ) )
   par( mar=c(3,3,2,0.1), mgp=c(3,1,0)*0.5 )
-  stats <- stats[ stats[, "iter" ] <= iter, ,drop=F ]
+  stats <- stats[ stats[, "iter" ] <= iter, , drop=F ]
   try( matplot( stats[ ,"iter" ], stats[ ,grep( "resid", colnames( stats ), val=T ) ], typ="l", xlab="iter",
                ylab="Mean resid", main=sprintf( "Iter: %d", iter ), lty=1 ), silent=T )
   sapply( c( 51, 101, 21 ), function( kwin )
@@ -1113,7 +1113,7 @@ plotStats <- function( iter=stats$iter[ nrow( stats ) ], plot.clust=NA, new.dev=
   if ( ! all( is.na( tmp ) ) ) {
     try( matplot( stats[ ,"iter" ], tmp, typ="l", xlab="iter", ylab="Mean motif p-value",
                  main=sprintf( "Motif scaling: %.3f", mot.scaling[ max( 1, iter - 1 ) ] ), lty=1 ), silent=T )
-    sapply( c( 51, 101, 21 ), function( kwin ) try( matlines( stats[ ! is.na( tmp ), "iter" ],
+    sapply( c( 51, 101, 21 ), function( kwin ) try( matlines( stats[ ! is.na( tmp ) ][ ,"iter" ],
                       apply( tmp, 2, function( i ) runmed( i[ ! is.na( i ) ], k=min( sum( ! is.na( i ) ), kwin ) ) ),
                          lty=2, lwd=0.6 ), silent=T ) )
     if ( ( nn <- length( grep( "p.clust", colnames( stats ) ) ) ) > 1 )
@@ -1832,14 +1832,19 @@ write.bicluster.network <- function( out.dir=NULL, ks=1:k.clust, seq.type=names(
                                                 ) ) )
   colnames( mot.info ) <- c( "motif", "consensus", "width", "n.sites", "llr", "e.value", "imgURL" )
   clust.info <- lapply( c( "resid", "p.clust", "e.val", "nrows", "ncols" ),
-                       function( i ) sapply( ks, function( j ) clusterStack[[ j ]][[ i ]] ) )
+                       function( i ) {
+                           ##if ( i != 'e.val' ) sapply( ks, function( j ) clusterStack[[ j ]][[ i ]] )
+                           ##!else
+                           sapply( ks, function( j ) min( clusterStack[[ j ]][[ i ]], na.rm=T ) ) } )
   names( clust.info ) <- c( "resid", "p.clust", "e.val", "nrows", "ncols" )
-  clust.info[[ names( unlist( sapply( clust.info, nrow ) ) ) ]] <-
-    t( clust.info[[ names( unlist( sapply( clust.info, nrow ) ) ) ]] )
-  for ( n in names( clust.info ) ) if ( ! is.null( ncol( clust.info[[ n ]] ) ) &&
-                                       is.null( colnames( clust.info[[ n ]] ) ) )
-    colnames( clust.info[[ n ]] ) <- paste( n, 1:ncol( clust.info[[ n ]] ), sep="." )
-  clust.info <- cbind( bicluster=sprintf( "bicluster_%04d", ks ), do.call( cbind, clust.info ),
+  if ( ! is.null( names( unlist( sapply( clust.info, nrow ) ) ) ) ) {
+      clust.info[[ names( unlist( sapply( clust.info, nrow ) ) ) ]] <-
+          t( clust.info[[ names( unlist( sapply( clust.info, nrow ) ) ) ]] )
+      for ( n in names( clust.info ) ) if ( ! is.null( ncol( clust.info[[ n ]] ) ) &&
+                                           is.null( colnames( clust.info[[ n ]] ) ) )
+          colnames( clust.info[[ n ]] ) <- paste( n, 1:ncol( clust.info[[ n ]] ), sep="." )
+  }
+  clust.info <- data.frame( bicluster=sprintf( "bicluster_%04d", ks ), do.call( cbind, clust.info ),
                       url=sprintf( "file://%s/%s/htmls/cluster%04d.html", getwd(), out.dir, ks ),
                       imgURL=sprintf( "file://%s/%s/htmls/cluster%04d_profile.png", getwd(), out.dir, ks ) )
   rownames( clust.info ) <- NULL
@@ -1860,4 +1865,217 @@ write.bicluster.network <- function( out.dir=NULL, ks=1:k.clust, seq.type=names(
   write.table( tt.eda, quote=F, sep="\t", col.names=T, row.names=F, file=paste( out.dir, "tt.eda", sep="/" ) )
   cat( "Wrote", nrow( noa ), "nodes and", nrow( out.sif ), "edges to", out.dir, "\n" )
   invisible( list( sif=out.sif, noa=noa, m.eda=m.eda, tt.eda=tt.eda ) )
+}
+
+## Write out all vital cMonkey info to a set of tsv's; then optionally convert them to a sqlite database file.
+cmonkey.run.to.sqlite <- function(e, fname, to.sqlite=F) {
+  require( data.table )
+  dir.create( fname )
+  
+  ## PARAMETERS
+  tmp <- NULL
+  for ( param in ls(e$cmonkey.params) ) {
+      print(param)
+      val <- e$cmonkey.params[[param]]
+      if ( is.null(val) || length(val) <= 0 ) next
+      if ( is.matrix(val) ) val <- dim(val)
+      if ( is.list(val) && length(val) == 1 ) val <- val[[1]]
+      if ( is.numeric(val) ) val <- round(val,dig=4)
+      if ( param == 'session.info' ) {
+          val['TERMCAP'] <- ''
+          val <- val[nchar(val) > 0]
+          val <- paste(names(val), val, sep='=', collapse=',')
+      } else {
+          if ( length(val) > 1 ) val <- paste(unlist(val),collapse=',')
+      }
+      val <- gsub( '[\n\t]', '', val )
+      tmp <- rbind( tmp, data.table( param=param, val=as.character(val) ) )
+  }
+  write.table( tmp, file=sprintf('%s/%s',fname,'params.tsv'), quote=F, sep='\t', row.names=F, col.names=T, append=F )
+  rm( tmp ); system( sprintf( 'bzip2 -fv %s/%s',fname,'params.tsv'), wait=F )
+
+  ## STATS
+  stats <- e$stats
+  for ( i in colnames(stats) ) if ( is.numeric(stats[[i]]) ) stats[[i]] <- round(stats[[i]], dig=4)
+  write.table( stats, file=sprintf('%s/%s',fname,'stats.tsv'), quote=F, sep='\t', row.names=F, col.names=T, append=F )
+  system( sprintf( 'bzip2 -fv %s/%s',fname,'stats.tsv'), wait=F )
+  rm( stats )
+  
+  ## DATA - ratios, string, operons, annotations
+  #tmp <- data.table( round(e$ratios$ratios,dig=3) )
+  #tmp <- data.table( gene=rownames(e$ratios$ratios), tmp )
+  tmp <- which( e$ratios$ratios < Inf, arr=T )
+  tmp <- data.table( gene=rownames(e$ratios$ratios)[ tmp[,1] ], cond=colnames(e$ratios$ratios)[ tmp[,2] ],
+                    ratio=(round(e$ratios$ratios,dig=3))[tmp] )
+  write.table( tmp, file=sprintf('%s/%s',fname,'ratios.tsv'), quote=F, sep='\t', row.names=F, col.names=T, append=F )
+  rm( tmp ); system( sprintf( 'bzip2 -fv %s/%s',fname,'ratios.tsv'), wait=F )
+  tmp <- data.table( e$genome.info$feature.tab )
+  write.table( tmp, file=sprintf('%s/%s',fname,'feature_tab.tsv'), quote=F, sep='\t', row.names=F, col.names=T, append=F )
+  rm( tmp ); system( sprintf( 'bzip2 -fv %s/%s',fname,'feature_tab.tsv'), wait=F )
+  tmp <- data.table( e$genome.info$feature.names )
+  setcolorder( tmp, c(2,1,3) )
+  write.table( tmp, file=sprintf('%s/%s',fname,'feature_names.tsv'), quote=F, sep='\t', row.names=F, col.names=T, append=F )
+  rm( tmp ); system( sprintf( 'bzip2 -fv %s/%s',fname,'feature_names.tsv'), wait=F )
+  tmp <- data.table( e$genome.info$operons )
+  setcolorder( tmp, c(2,1) )
+  write.table( tmp, file=sprintf('%s/%s',fname,'operons.tsv'), quote=F, sep='\t', row.names=F, col.names=T, append=F )
+  rm( tmp ); system( sprintf( 'bzip2 -fv %s/%s',fname,'operons.tsv'), wait=F )
+  tmp <- data.table( gene=names(e$genome.info$all.upstream.seqs[[1]]), sequence=e$genome.info$all.upstream.seqs[[1]] )
+  write.table( tmp, file=sprintf('%s/%s',fname,'upstream_seqs.tsv'), quote=F, sep='\t', row.names=F, col.names=T, append=F )
+  rm( tmp ); system( sprintf( 'bzip2 -fv %s/%s',fname,'upstream_seqs.tsv'), wait=F )
+  if ( ! is.null( e$networks$operons ) ) {
+    tmp <- data.table( e$networks$operons )
+    write.table( tmp, file=sprintf('%s/%s',fname,'operon_network.tsv'), quote=F, sep='\t', row.names=F, col.names=T, append=F )
+    rm( tmp ); system( sprintf( 'bzip2 -fv %s/%s',fname,'operon_network.tsv'), wait=F )
+  }
+  if ( ! is.null( e$networks$string ) ) {
+    tmp <- data.table( e$networks$string )
+    write.table( tmp, file=sprintf('%s/%s',fname,'string_network.tsv'), quote=F, sep='\t', row.names=F, col.names=T, append=F )
+    rm( tmp ); system( sprintf( 'bzip2 -fv %s/%s',fname,'string_network.tsv'), wait=F )
+  }
+  
+  ## BICLUSTERS - info, genes, conditions, motifs
+  bzcon1 <- sprintf('%s/bicluster.tsv',fname)
+  bzcon2 <- sprintf('%s/bicluster_genes.tsv',fname)
+  bzcon3 <- sprintf('%s/bicluster_conds.tsv',fname)
+  ##bzcon4 <- sprintf('%s/bicluster_motifs.tsv',fname)
+  wrote <- FALSE
+  for ( k in 1:e$k.clust ) {
+    ##bb <- paste('BIC',k,sep='_')
+    if ( k %% 100 == 0 ) print(k)
+    tab1 <- tab2 <- tab3 <- tab4 <- NULL
+    clust <- e$clusterStack[[k]] ##out$get.bicluster.info(bb)[[1]]
+    if ( ! is.null(clust) ) {
+      ##fname <- names(e$fnames.to.cluster[which(e$fnames.to.cluster==k)])
+      ##if ( is.null( fname ) ) fname <- ''
+      ##k.orig <- clust$k
+      tab1 <- data.table( bic=k, nrow=clust$nrow, ncol=clust$ncol, resid=round(clust$resid,dig=3),
+                         pclust=round(clust$p.clust,dig=3), eval=min(clust$e.val,na.rm=T) ) ##, k_orig=k.orig, fname=fname )
+      if ( ! is.null( tab1 ) ) write.table( tab1, bzcon1, quote=F, sep='\t', row.names=F, col.names=!wrote, append=wrote )
+    }
+    genes <- clust$rows
+    if ( ! is.null( genes ) ) tab2 <- data.table( bic=k, gene=unique(genes) )
+    if ( ! is.null( tab2 ) ) write.table( tab2, bzcon2, quote=F, sep='\t', row.names=F, col.names=!wrote, append=wrote )
+    conds <- clust$cols
+    if ( ! is.null( conds ) ) tab3 <- data.table( bic=k, cond=unique(conds) )
+    if ( ! is.null( tab3 ) ) write.table( tab3, bzcon3, quote=F, sep='\t', row.names=F, col.names=!wrote, append=wrote )
+    ##mots <- out$get.motifs(bicluster=bb)[[1]]
+    ##if ( ! is.null( mots ) ) tab4 <- data.table( bic=k, mot=gsub('MOT_','',unique(mots)) )
+    ##if ( ! is.null( tab4 ) ) write.table( tab4, bzcon4, quote=F, sep='\t', row.names=F, col.names=!wrote, append=wrote )
+    wrote <- TRUE
+  }
+  system( sprintf( 'bzip2 -fv -9 %s', bzcon1 ), wait=F )
+  system( sprintf( 'bzip2 -fv -9 %s', bzcon2 ), wait=F )
+  system( sprintf( 'bzip2 -fv -9 %s', bzcon3 ), wait=F )
+  ##system( sprintf( 'bzip2 -fv -9 %s', bzcon4 ), wait=F )
+
+  ## MOTIFS - info; meme positions; mast positions; pssms
+  bzcon1 <- sprintf('%s/motif.tsv',fname)
+  bzcon2 <- sprintf('%s/motif_meme_posn.tsv',fname)
+  bzcon3 <- sprintf('%s/motif_mast_posn.tsv',fname)
+  bzcon4 <- sprintf('%s/motif_pssm.tsv',fname)
+  wrote <- FALSE
+  for ( k in 1:e$k.clust ) {
+    ##bic <- paste('BIC',k,sep='_')
+    mots <- e$meme.scores[[ 1 ]][[ k ]]$meme.out ##out$get.motifs(bicluster=bic)[[1]]
+    pv <- e$meme.scores[[ 1 ]][[ k ]]$pv.ev[[2]]
+    for ( mm in 1:length(mots) ) {
+      if ( k %% 100 == 0 ) print(paste(k,mm))
+      m <- mots[[ mm ]]
+      minf <- m ##out$get.motif.info(m)[[1]]
+      if ( ! is.null( minf ) ) {
+        ##cf <- out$coding.fracs$all.fracs[m]
+        tab <- data.table( bic=k, mot=mm, width=minf$width, llr=minf$llr, eval=minf$e.value, sites=minf$sites ) ##,
+                          ##coding=cf, good=as.integer((cf < out$coding.fracs$mean.fracs - 0.01)) )
+        if ( ! is.null( tab ) ) write.table( tab, bzcon1, quote=F, sep='\t', row.names=F, col.names=!wrote, append=wrote )
+        tab <- NULL; if ( nrow(minf$posns) > 0 ) tab <- as.data.table( cbind( bic=k, mot=mm, minf$posns ) )
+        if ( ! is.null( tab ) ) write.table( tab, bzcon2, quote=F, sep='\t', row.names=F, col.names=!wrote, append=wrote )
+        tab <- NULL; if ( ! is.null(pv) && nrow(pv) > 0 ) {
+            tmp <- subset( pv, abs(mots) == mm )
+            if ( nrow(tmp) > 0 ) tab <- as.data.table( cbind( bic=k, mot=mm, tmp ) )
+        }
+        if ( ! is.null( tab ) ) write.table( tab, bzcon3, quote=F, sep='\t', row.names=F, col.names=!wrote, append=wrote )
+        pssm <- minf$pssm; colnames( pssm ) <- e$col.let; pssm <- as.data.table( pssm )
+        tab <- data.table( cbind( bic=k, mot=mm, ind=1:nrow(pssm), round(pssm,dig=3) ) )
+        if ( ! is.null( tab ) ) write.table( tab, bzcon4, quote=F, sep='\t', row.names=F, col.names=!wrote, append=wrote )
+        wrote <- TRUE
+      }
+    }
+  }
+  system( sprintf( 'bzip2 -fv -9 %s', bzcon1 ), wait=F )
+  system( sprintf( 'bzip2 -fv -9 %s', bzcon2 ), wait=F )
+  system( sprintf( 'bzip2 -fv -9 %s', bzcon3 ), wait=F )
+  system( sprintf( 'bzip2 -fv -9 %s', bzcon4 ), wait=F )
+
+
+  ## INFERELATOR COEFFS (TBD)
+
+
+  ## TRICK TO READ THESE IN FAST (using data.table package):
+  ## fread(paste(readLines(bzfile('bicluster.tsv.bz2')),collapse='\n')) ## never mind - this crashes. Need to bunzip2 it first, then use fread()
+  ## or use sqldf
+  ## read.csv.sql(bzfile('filehash/DATABASES/bicluster.tsv.bz2'),sep='\t')
+  ## so this:
+  ## tf <- e$my.tempfile(); system(sprintf('bunzip2 -c filehash/DATABASES/motif_promoter_counts.tsv.bz2 >%s', tf))
+  ## tab <- fread(tf); unlink(tf)
+  ## or, e.g.:
+  ## tf <- file(tf); tmp <- sqldf("select ind,count from tf where motc=0",file.format=list(sep='\t',head=T),verbose=T)
+  ## or
+  ## df=read.csv.sql(filter='bunzip2 -c filehash/DATABASES/motif.tsv.bz2')
+
+  if ( to.sqlite ) {
+  ## once these are created, can do e.g.:
+  ## sqldf('select * from motif limit 10', dbname='filehash/DATABASES/motif.db')
+  ## or:
+  ## sqldf('select * from motif_scans where bic=10000', dbname='filehash/DATABASES/motif_scans.db')
+  ## or:
+  ## sqldf(dbname='filehash/DATABASES/motif_scans.db')  ## open a persistent connection
+  ##    sqldf('create index pval_index on motif_scans(p_value)')
+  ##    tmp=sqldf('select * from motif_scans where p_value<1e-7')
+  ## sqldf() ## close the connection
+  files <- list.files(path=fname, patt=glob2rx('*.tsv.bz2'), full=T )
+  unlink( sprintf( '%s/%s.db', fname, 'cmonkey' ) )
+  for ( f in files ) {
+      print(f)
+      typematch <- c( integer='integer', character='character', numeric='real' )
+      tf <- tempfile(); system(sprintf('bunzip2 -c %s | head -1000000 >%s', f, tf))
+      tmp <- fread(tf, nrows=1000000, sep='\t')
+      print(head(tmp,5))
+      classes <- sapply( tmp, class )
+      if ( any( classes == 'character' ) ) {
+          max.char <- sapply( tmp, function(i) max(nchar(i)) )[which(classes == 'character')]
+          for ( i in max.char ) typematch[sprintf('character(%d)',i)] <- sprintf('character(%d)',i)
+          classes[which(classes == 'character')] <- sprintf('character(%d)',max.char)
+          classes[which(max.char>1024)] <- 'blob'
+      }
+      rm(tmp)
+      print(classes)
+      system(sprintf('bunzip2 -cv %s | tail -n +2 >%s', f, tf)) ## skip first (header) line
+      system(sprintf('wc -l %s',tf))
+      table.name <- gsub('.tsv.bz2','',basename(f),fixed=T)
+      names(classes) <- gsub( '[.+-/|]', '_', names(classes) )
+      index.classes <- classes ##classes[classes != 'numeric']
+      scrp <- tempfile()
+      ## cat( sprintf( 'create table %s (%s, primary key(%s));\n', table.name,
+      ##              paste(paste(names(classes), typematch[classes]), collapse=','),
+      ##              paste(names(index.classes),collapse=',') ), file=scrp, append=F )
+      ## NOTE primary key not needed. Sqlite automatically generates a "rowid" column used as primary key
+      cat( sprintf( 'create table %s (%s);\n', table.name,
+                   paste(paste(names(classes), typematch[classes]), collapse=',') ), file=scrp, append=F )
+      cat( '.separator "\\t"\n', file=scrp, append=T )
+      cat( sprintf( '.import %s %s\n', tf, table.name ), file=scrp, append=T )
+      cat( sprintf( 'create index %s_index on %s(%s);\n', table.name, table.name,
+                   paste(names(index.classes),collapse=',') ), file=scrp, append=T )
+      cat( '.quit\n', file=scrp, append=T )
+      ##unlink( sprintf( '%s/%s.db', fname, table.name ) )
+      system( sprintf( 'cat %s', scrp ) )
+      system( sprintf( 'sqlite3 %s/cmonkey.db <%s', fname, scrp ) ) ## put them all in a single cmonkey.db db file
+      unlink(tf); unlink(scrp)
+  }
+  ## cat( paste( 'Script to attach all databases:\n',
+  ##              paste( sprintf( "attach database '%s/%s.db' as %s;\n", fname,
+  ##                             gsub('.tsv.bz2','',basename(files),fixed=T),
+  ##                             gsub('.tsv.bz2','',basename(files),fixed=T) ),
+  ##                    collapse='' ) ) )
+}
 }

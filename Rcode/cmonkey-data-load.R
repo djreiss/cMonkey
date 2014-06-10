@@ -117,8 +117,7 @@ dlf <- function( f, url, msg=NULL, mode="wb", quiet=F, ... ) {
 #' @param fetch.predicted.operons  (DEFAULT: "rsat")
 #' @export
 #' @usage err <- get.genome.info( fetch.upstream=F, fetch.predicted.operons="rsat" )
-get.genome.info <- function( fetch.upstream=F ) { ##, fetch.predicted.operons="rsat" ) { 
-  rsat.url <- rsat.urls[ 1 ]
+get.genome.info <- function( rsat.species, fetch.upstream=F, rsat.url ) { ##, fetch.predicted.operons="rsat" ) {   
   feature.tab <- feature.names <- genome.seqs <- operons <- org.id <- synonyms <- NULL 
   genome.loc <- paste( rsat.url, "/data/genomes/", rsat.species, "/genome/", sep="" )
 
@@ -159,9 +158,9 @@ get.genome.info <- function( fetch.upstream=F ) { ##, fetch.predicted.operons="r
     err <- dlf( fname, paste( genome.loc, if ( ! use.cds ) "feature_names.tab" else "cds_names.tab", sep="" ) )
     nskip <- sum( substr( readLines( gzfile( fname ), n=20 ), 1, 2 ) == "--" )
     closeAllConnections()
-    feature.names <- read.delim( gzfile( fname ), head=F, as.is=T, skip=nskip, row.names=NULL, comment='' ) 
+    feature.names <- read.delim( gzfile( fname ), head=F, as.is=T, skip=nskip, row.names=NULL, comment='' )
     closeAllConnections()
-    colnames( feature.names ) <- c( "id", "names", "type" ) 
+    colnames( feature.names ) <- c( "id", "names", "type" )
     feature.names <- unique( feature.names )
     chroms <- unique( as.character( feature.tab$contig ) )
     chroms <- chroms[ ! is.na( chroms ) & chroms != "" ]
@@ -316,13 +315,15 @@ get.operon.predictions <- function( fetch.predicted.operons="microbes.online", o
         warning( paste( "No genome annotation for any genes in operon #", i, " -- don't know what to do!", call.=F ) )
         return( "" ) }
       ids[ is.na( ids ) ] <- names( ids )[ is.na( ids ) ]
-      vngs <- unlist( lapply( s, function( i ) {
-        out <- i[ ! i %in% all.ids ] ##genome.info$feature.names$id ]
+      vngs <- unlist( lapply( s, function( ii ) {
+        out <- ii[ ! ii %in% all.ids ] ##genome.info$feature.names$id ]
         if ( length( out ) <= 0 ) ## && exists( "ratios" ) )
-          out <- i[ i %in% search.names ] ##attr( ratios, "rnames" ) ]
-        if ( length( out ) <= 0 ) out <- i[ genome.info$feature.names$id %in% i & genome.info$feature.names$id == "primary" ]
-        if ( length( out ) <= 0 ) out <- i
-        if ( length( out ) > 1 && any( out %in% attr( ratios, 'rnames' ) ) ) out <- out[ out %in% attr( ratios, 'rnames' ) ]
+          out <- ii[ ii %in% search.names ] ##attr( ratios, "rnames" ) ]
+        if ( length( out ) <= 0 ) out <- ii[ genome.info$feature.names$id %in% ii &
+                       genome.info$feature.names$id == "primary" ]
+        if ( length( out ) <= 0 ) out <- ii
+        if ( length( out ) > 1 && any( out %in% attr( ratios, 'rnames' ) ) )
+            out <- out[ out %in% attr( ratios, 'rnames' ) ]
         out
       } ) )
       coos <- get.gene.coords( ids, op.shift=F )
@@ -336,6 +337,7 @@ get.operon.predictions <- function( fetch.predicted.operons="microbes.online", o
         warning( paste( "About 50% of operon #", i, "are on opposite strands -- don't know what to do!", call.=F ) ) }
       head
     } )
+    
     names( operons ) <- unlist( nms )
     operons <- operons[ names( operons ) != "" ]
     operons <- do.call( rbind, lapply( names( operons ), function( h ) data.frame( head=h, gene=operons[[ h ]] ) ) )
