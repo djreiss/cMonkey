@@ -1,7 +1,7 @@
 DATE <-
-"Tue Jun 10 12:28:05 2014"
+"Wed Jul 16 10:58:59 2014"
 VERSION <-
-"4.9.20"
+"4.9.21"
 .onLoad <-
 function( libname, pkgname ) { ##.onAttach
     packageStartupMessage( "Loading ", pkgname, " version ", VERSION, " (", DATE, ")" )
@@ -594,14 +594,17 @@ function (env = NULL, ...)
                 }
             }
             if (length(vals) > 1) {
-                rsat.spec <- sapply(strsplit(vals, "[<>/]"), 
-                  "[", 8)
+                rsat.spec <- gsub("\"", "", gsub("a href=\"", 
+                  "", sapply(strsplit(vals, "[<>/]"), function(i) grep("a href", 
+                    i, val = T))))
                 message("Found ", length(rsat.spec), " matches...")
                 rsat.spec <- rsat.spec[menu(rsat.spec, graphics = F, 
                   title = "Please choose one.")]
             }
             if (length(vals) == 1) {
-                rsat.spec <- strsplit(vals, "[<>/]")[[1]][8]
+                rsat.spec <- gsub("\"", "", gsub("a href=\"", 
+                  "", sapply(strsplit(vals, "[<>/]"), function(i) grep("a href", 
+                    i, val = T))))
                 message("Found one match: ", rsat.spec, " ...")
                 message("If this is not correct, you're not quite out of luck -- set the 'rsat.species' parameter manually.")
             }
@@ -1560,7 +1563,7 @@ function (e, fname, to.sqlite = F)
     }
 }
 cm.version <-
-"4.9.20"
+"4.9.21"
 col.let <-
 c("A", "C", "G", "T")
 DEBUG <-
@@ -5459,7 +5462,7 @@ function (rats, rows, cols, varNorm = F, ...)
     if (length(rows) <= 1 || length(cols) <= 1) 
         return(1)
     maxRowVar <- attr(rats, "maxRowVar")
-    rats <- rats[rows, cols]
+    rats.orig <- rats <- rats[rows, cols]
     if (is.vector(rats) || any(dim(rats) <= 1) || mean(is.na(rats)) > 
         0.95) 
         return(1)
@@ -5469,7 +5472,7 @@ function (rats, rows, cols, varNorm = F, ...)
     rats[, ] <- rats[, ] + d.all - outer(d.rows, d.cols, "+")
     average.r <- mean(abs(rats), na.rm = TRUE)
     if (varNorm && !is.null(maxRowVar)) {
-        row.var <- mean(apply(rats, 1, var, use = "pairwise.complete.obs"), 
+        row.var <- mean(apply(rats.orig, 1, var, use = "pairwise.complete.obs"), 
             na.rm = T)
         if (is.na(row.var) || row.var > maxRowVar) 
             row.var <- maxRowVar
