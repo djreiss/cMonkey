@@ -1,6 +1,11 @@
 If you came here looking for the cMonkey R package, you're at the right place.
 
+Note this R package is soon to be superceded by a new [python version of cMonkey, called cMonkey<sub>2</sub>](https://github.com/baliga-lab/cMonkey2).
+
 <!--https://github.com/dreiss-isb/cmonkey/blob/master/cMonkey_4.9.10.tar.gz?raw=true-->
+
+
+*****
 
 To install (in R):
 
