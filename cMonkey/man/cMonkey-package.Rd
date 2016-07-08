@@ -21,7 +21,7 @@ License: \tab GPL-2\cr
 \author{
 David J Reiss, Institute for Systems Biology
 
-Maintainer: \email{dreiss@systemsbiology.org}
+Maintainer: \email{dreiss.isb@gmail.com.org}
 }
 \references{
 "Integrated biclustering of heterogeneous genome-wide datasets for the inference of global regulatory networks",

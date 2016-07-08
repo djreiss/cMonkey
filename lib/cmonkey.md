@@ -46,7 +46,7 @@ install.packages( 'cMonkey_4.9.7.tar.gz', repos=NULL, type='source' )
 
 -->
 
-[Email me](mailto:dreiss@systemsbiology.org) if you have any problems with any of these instructions.
+[Email me](mailto:dreiss.isb@gmail.com.org) if you have any problems with any of these instructions.
 
 * * *
 

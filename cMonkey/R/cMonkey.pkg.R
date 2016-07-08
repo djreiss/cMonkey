@@ -5,7 +5,7 @@ VERSION <-
 .onLoad <-
 function( libname, pkgname ) { ##.onAttach
     packageStartupMessage( "Loading ", pkgname, " version ", VERSION, " (", DATE, ")" )
-    packageStartupMessage( "Copyright (C) David J Reiss, Institute for Systems Biology; dreiss@systemsbiology.org." )
+    packageStartupMessage( "Copyright (C) David J Reiss, Institute for Systems Biology; dreiss.isb@gmail.com.org." )
     packageStartupMessage( "https://github.com/djreiss/cmonkey" )
     if ( grepl( "beta", VERSION ) ) return()
     vers <- try( readLines( "http://djreiss.github.io/cMonkey/VERSION" ), silent=T )

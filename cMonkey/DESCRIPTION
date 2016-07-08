@@ -4,7 +4,7 @@ Title: cMonkey integrated biclustering algorithm
 Version: 4.9.21
 Date: 2014-07-16
 Author: David J Reiss, Institute for Systems Biology
-Maintainer: David J Reiss <dreiss@systemsbiology.org>
+Maintainer: David J Reiss <dreiss.isb@gmail.com.org>
 Description: cMonkey integrated biclustering algorithm for learning co-regulated gene modules
 License: GPL-2
 Depends:  
