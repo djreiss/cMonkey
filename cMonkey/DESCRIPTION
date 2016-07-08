@@ -9,4 +9,4 @@ Description: cMonkey integrated biclustering algorithm for learning co-regulated
 License: GPL-2
 Depends:  
 Suggests: RCurl, doMC, foreach, igraph0, RSVGTipsDevice, hwriter, parallel 
-URL: https://github.com/dreiss-isb/cmonkey
+URL: https://github.com/djreiss/cmonkey

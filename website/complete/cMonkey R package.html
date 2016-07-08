@@ -25,7 +25,7 @@ tt {
 <a href="http://www.biomedcentral.com/1471-2105/7/280" rel="noreferrer">"Integrated biclustering of heterogeneous genome-wide datasets for the inference of global regulatory networks"</a>, by David J Reiss, Nitin S Baliga and Richard Bonneau.
 <!--<p><font color="#ff0000">*NEW*</font>&nbsp The <i>cMonkey</i> <a href="http://www.r-project.org">R</a> package is <a href="http://cran.r-project.org/web/packages/cMonkey/index.html">now on CRAN</a>. <!--<a href="http://cran.r-project.org/web/packages/">CRAN</a>.-->
 <!--<p><i>cMonkey</i> packages are <a href="https://r-forge.r-project.org/projects/cmonkey/">now hosted on R-forge</a>.-->
-</p><p><font color="#ff0000">*NEW*</font>&nbsp; <i>cMonkey</i> package and source code are <a href="https://github.com/dreiss-isb/cmonkey">now on Github</a>.
+</p><p><font color="#ff0000">*NEW*</font>&nbsp; <i>cMonkey</i> package and source code are <a href="https://github.com/djreiss/cmonkey">now on Github</a>.
 </p><table style="text-align:center;font-size:70%" border="1">
 <tbody><tr>
 <td>organism</td><td>n.genes</td><td style="font-weight:bold;text-align:center;font-size:70%"><a>n.arrays</a></td><td style="font-weight:bold;text-align:center;font-size:70%"><a>profile</a></td><td style="font-weight:bold;text-align:center;font-size:70%"><a>network</a></td><td style="font-weight:bold;text-align:center;font-size:70%"><a>motif1</a></td><td style="font-weight:bold;text-align:center;font-size:70%"><a>motif2</a></td><td style="font-weight:bold;text-align:center;font-size:70%"><a>motif.posns</a></td></tr>
@@ -64,20 +64,20 @@ tt {
 <ul><li>The latter three packages are used only for plotting and graphical output.<br>
 </li><li><a name="parallel"></a><font color="#ff0000">* NOTE</font> the <tt>doMC</tt> package for multi-processor parallelization will not work when using the R GUI in Mac OS X. If you want <i>cMonkey</i> to utilize all processors/cores on your machine, run <i>R</i> from a terminal instead. Also <font color="#ff0000">NOTE</font> that the <tt>doMC</tt> package only works on UNIX OSes (e.g. Linux or Mac OS X). <!--If you want to run <i>cMonkey</i>, parallelized with a Windows OS, you need to install <tt>doSNOW</tt> or the experimental <tt><a href=http://blog.revolutionanalytics.com/2010/05/parallel-computing-life-sciences.html>doSMC</a></tt> package.-->
 </li></ul>
-Install the cMonkey package from <a href="https://github.com/dreiss-isb/cmonkey">Github</a> using <a href="https://github.com/hadley/devtools">devtools</a>. In <i>R</i>, type: 
+Install the cMonkey package from <a href="https://github.com/djreiss/cmonkey">Github</a> using <a href="https://github.com/hadley/devtools">devtools</a>. In <i>R</i>, type: 
 <pre>install.packages('devtools', dep=T)
 require(devtools)
-install_github('cmonkey', 'dreiss-isb', subdir='cMonkey')
+install_github('cmonkey', 'djreiss', subdir='cMonkey')
 </pre>
 </li><li><font color="#ff0000">* NOTE</font> while the package will install correctly, it generates warnings during installation. Also <font color="#ff0000">NOTE</font> that the inline documentation is currently empty. This will be remedied. In the meantime, use the instructions below.<br>
 </li><li><font color="#ff0000">* NOTE</font> old versions may be accessed <a href="http://baliga.systemsbiology.net/cmonkey/old_lib/">here</a>.
 </li><li><font color="#ff0000">* NOTE</font> there is a supplementary data package containing sample data sets to use in the examples. For more information on its use, <a href="http://baliga.systemsbiology.net/cmonkey/cmonkey.html#data">see below</a>. To install it, in <i>R</i>, type:
 <pre>require(devtools)
-install_github('cmonkey', 'dreiss-isb', subdir='cMonkey.data')
+install_github('cmonkey', 'djreiss', subdir='cMonkey.data')
 </pre>
 </li><li><font color="#ff0000">* NOTE</font> there is an additional supplementary BIG data <!--<a href="cMonkey.bigdata_4.9.1.tar.gz">-->package containing additional big sample data sets. For more information on its use, <a href="http://baliga.systemsbiology.net/cmonkey/cmonkey.html#bigdata">see below</a>. To install, again:
 <pre>require(devtools)
-install_github('cmonkey', 'dreiss-isb', subdir='cMonkey.bigdata')
+install_github('cmonkey', 'djreiss', subdir='cMonkey.bigdata')
 </pre>
 
 </li><li>For motif detection, <i>cMonkey</i> uses <a href="http://meme.nbcr.net/" rel="noreferrer">the <i>MEME</i> suite</a>. Currently, only versions <a href="ftp://ftp.ebi.edu.au/pub/software/MEME/3.0.14/meme-3.0.14.tar.gz">3.0.14</a> or <a href="ftp://ftp.ebi.edu.au/pub/software/MEME/4.3.0/meme_4.3.0.tar.gz">4.3.0</a> are supported (although others should work). <!--Specific <font color="#ff0000">NOTES</font>:-->

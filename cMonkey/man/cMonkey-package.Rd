@@ -16,7 +16,7 @@ Version: \tab 1.0\cr
 Date: \tab 2014-07-16\cr
 License: \tab GPL-2\cr
 }
-\url{https://github.com/dreiss-isb/cmonkey}
+\url{https://github.com/djreiss/cmonkey}
 }
 \author{
 David J Reiss, Institute for Systems Biology
@@ -29,7 +29,7 @@ by David J Reiss, Nitin S Baliga and Richard Bonneau: \url{http://www.biomedcent
 }
 \keyword{ package }
 \seealso{
-\url{https://github.com/dreiss-isb/cmonkey}
+\url{https://github.com/djreiss/cmonkey}
 }
 \examples{
  

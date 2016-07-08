@@ -6,12 +6,12 @@ VERSION <-
 function( libname, pkgname ) { ##.onAttach
     packageStartupMessage( "Loading ", pkgname, " version ", VERSION, " (", DATE, ")" )
     packageStartupMessage( "Copyright (C) David J Reiss, Institute for Systems Biology; dreiss@systemsbiology.org." )
-    packageStartupMessage( "https://github.com/dreiss-isb/cmonkey" )
+    packageStartupMessage( "https://github.com/djreiss/cmonkey" )
     if ( grepl( "beta", VERSION ) ) return()
-    vers <- try( readLines( "http://dreiss-isb.github.io/cMonkey/VERSION" ), silent=T )
+    vers <- try( readLines( "http://djreiss.github.io/cMonkey/VERSION" ), silent=T )
     if ( class( vers ) != "try-error" ) {
       vers <- gsub( " ", "", vers )
-      if ( vers != VERSION ) packageStartupMessage( "\nYou are not using the most current version of cMonkey.\nPlease consider upgrading to v", vers, " via:\n\n> install.packages('devtools', dep=T)\n> require(devtools)\n> install_github('cmonkey', 'dreiss-isb', subdir='cMonkey')" )
+      if ( vers != VERSION ) packageStartupMessage( "\nYou are not using the most current version of cMonkey.\nPlease consider upgrading to v", vers, " via:\n\n> install.packages('devtools', dep=T)\n> require(devtools)\n> install_github('cmonkey', 'djreiss', subdir='cMonkey')" )
       else packageStartupMessage( "Congratulations! You are using the latest version of cMonkey.\n" )
     } else {
       packageStartupMessage( "Could not check to see if you are using the latest version of cMonkey." )
