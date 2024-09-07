@@ -12,14 +12,14 @@ To install (in R):
 ```
 install.packages('devtools', dep=T)
 require(devtools)
-install_github('cmonkey', 'djreiss', subdir='cMonkey')
+install_github('djreiss/cMonkey/cMonkey')
 ```
 
 To install the data (or bigdata) packages:
 
 ```
-install_github('cmonkey', 'djreiss, subdir='cMonkey.data')
-install_github('cmonkey', 'djreiss, subdir='cMonkey.bigdata')
+install_github('djreiss/cMonkey/cMonkey.data')
+install_github('djreiss/cMonkey/cMonkey.bigdata')
 ```
 
 ... and then go here 
